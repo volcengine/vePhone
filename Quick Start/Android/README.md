@@ -2,7 +2,7 @@
 
 
 
-# CloudPlayer SDK
+# CloudPhone SDK
 
 ###### 说明
 
@@ -17,20 +17,19 @@
 ###### 目录结构
 
 ```
-└── sdkdemo
-    ├── PhoneActivity.java // 云手机展示的activity
-    ├── GsonConverter.java // 用于sdk 传入的JSON装换的实现 
-    ├── InitApplication.java // 初始Application 初始SDK 一些操作
-    ├── MainActivity.kt // 说明和跳转页
-    └── util
-        └── ScreenUtil.java //屏幕工具类用于适配 挖孔屏
-        
+└── com
+    └── example
+        └── sdkdemo
+            ├── InitApplication.java  // 初始Application 初始SDK 一些操作
+            ├── MainActivity.kt   // 说明和跳转页
+            ├── PhoneActivity.java // 云手机展示的activity
+            └── ScreenUtil.java   //屏幕工具类用于适配 挖孔屏
 ```
 
 ###### 接入的流程
 
 1. 初始化sdk，（初始化失败 请检查网络）
-2. 填入ak ，sk ，token productId ，roundId, 调用start
+2. 填入ak ，sk ，token productId ，调用start
 3. 切到后台 可以选择调用 pause() 来停止音视屏流
 4. 切回前台 可以选择调用 resume() 来恢复音视频流
 5. 结束 调用stop（）接口 结束游戏并释放Pod资源
