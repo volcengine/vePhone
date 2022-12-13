@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">SDKDemo</string>
+    <string name="restart">Restart</string>
+    <string name="stop">Stop</string>
+    <string name="start">StartGame</string>
+    <string name="pause">pause</string>
+    <string name="resume">resume</string>
+    <string name="release">release</string>
+    <string name="mute">mute</string>
+    <string name="ak">ak</string>
+    <string name="sk">sk</string>
+    <string name="gameId">gameId</string>
+    <string name="sessionId">sessionId</string>
+    <string name="volumeup">volumeUp</string>
+    <string name="volumedown">volumeDown</string>
+    <string name="roll_orientation">旋转</string>
+    <string name="round_id">roundId</string>
+    <string name="startPhone">startPhone</string>
+    <string name="game">云游戏</string>
+    <string name="phone">云手机</string>
+    <string name="hide_or_show">点击隐藏/展示</string>
+    <string name="magnetic">Magnetic</string>
+    <string name="acc">Acc</string>
+    <string name="gravity">Gravity</string>
+    <string name="vibrator">Vibrator</string>
+    <string name="orientation_sensor">orientation_sensor</string>
+    <string name="gyroscope">gyroscope</string>
+    <string name="sendTestMessage">sendTestMessage</string>
+    <string name="send_message_not_ack">send message not ack</string>
+    <string name="back">back</string>
+    <string name="send_clipboard_data">发送剪贴板数据</string>
+    <string name="set_keep_alive_time">设置保活时间3分钟</string>
+    <string name="instructions_for_use">这是一个示例代码，需要修改源码填入对应的ak，sk ，token， productId，编译后才能使用</string>
+</resources>
