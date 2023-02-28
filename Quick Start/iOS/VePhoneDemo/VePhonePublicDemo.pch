@@ -1,0 +1,27 @@
+//
+//  VePhonePublicDemo.pch
+//  VePhonePublicDemo
+//
+//  Created by 常五国 on 2019/8/29.
+//  Copyright © 2019 changwuguo. All rights reserved.
+//
+
+#ifndef VePhonePublicDemo_pch
+#define VePhonePublicDemo_pch
+
+#import "Utils.h"
+
+#define MAS_SHORTHAND
+#define MAS_SHORTHAND_GLOBALS
+
+#define SCREEN_WIDTH  ([UIScreen mainScreen].bounds.size.width)
+#define SCREEN_HEIGHT ([UIScreen mainScreen].bounds.size.height)
+
+#define VIEW_CONTROLLER_FROM_XIB(name) [[name alloc] initWithNibName: NSStringFromClass([name class]) bundle: nil]
+
+#define _R_COLOR(color) ((((unsigned int)color) >> 16) & 0xFF)
+#define _G_COLOR(color) ((((unsigned int)color) >> 8) & 0xFF)
+#define _B_COLOR(color) (((unsigned int)color) & 0xFF)
+#define UICOLOR_RGB(color) [UIColor colorWithRed: _R_COLOR(color) / 255.0 green: _G_COLOR(color) / 255.0 blue: _B_COLOR(color) / 255.0 alpha: 1]
+
+#endif /* VePhonePublicDemo_pch */

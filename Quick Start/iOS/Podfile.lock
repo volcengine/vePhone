@@ -1,0 +1,24 @@
+PODS:
+  - Masonry (1.1.0)
+  - SVProgressHUD (2.2.5)
+  - Toast (4.0.0)
+
+DEPENDENCIES:
+  - Masonry
+  - SVProgressHUD
+  - Toast
+
+SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - Masonry
+    - SVProgressHUD
+    - Toast
+
+SPEC CHECKSUMS:
+  Masonry: 678fab65091a9290e40e2832a55e7ab731aad201
+  SVProgressHUD: 1428aafac632c1f86f62aa4243ec12008d7a51d6
+  Toast: 91b396c56ee72a5790816f40d3a94dd357abc196
+
+PODFILE CHECKSUM: 5bc0a4eb478fd87a3304abb7ec54b94c664ca293
+
+COCOAPODS: 1.11.3
