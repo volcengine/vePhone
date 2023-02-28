@@ -1,0 +1,565 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2B148BF72953FE49004F396F /* SVProgressHUD+Category.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B148BF52953FE49004F396F /* SVProgressHUD+Category.m */; };
+		2B6D6C3426E63E080073011E /* VeNavigationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3326E63E080073011E /* VeNavigationController.m */; };
+		2B6D6C3D26E642FA0073011E /* VePhoneViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3B26E642FA0073011E /* VePhoneViewController.m */; };
+		2B6D6C3E26E642FA0073011E /* VePhoneViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3C26E642FA0073011E /* VePhoneViewController.xib */; };
+		2B6D6C4126E645C70073011E /* VePhoneDisplayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */; };
+		2B91841B2808252800687C31 /* Utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9184192808252800687C31 /* Utils.m */; };
+		2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */; };
+		C83BF0051E1234250016E53D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0041E1234250016E53D /* main.m */; };
+		C83BF0081E1234250016E53D /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0071E1234250016E53D /* AppDelegate.m */; };
+		C83BF0131E1234250016E53D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C83BF0111E1234250016E53D /* LaunchScreen.storyboard */; };
+		C8B7E3F11E27698700EAD131 /* image.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C8B7E3F01E27698700EAD131 /* image.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2B12E4FC25EE6ADC00DE21A3 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		17F234E0072D1D6CA49E5AF8 /* libPods-VePhonePublicDemo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VePhonePublicDemo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B148BF52953FE49004F396F /* SVProgressHUD+Category.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "SVProgressHUD+Category.m"; sourceTree = "<group>"; };
+		2B148BF62953FE49004F396F /* SVProgressHUD+Category.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "SVProgressHUD+Category.h"; sourceTree = "<group>"; };
+		2B22AA3928AB85D0001656D8 /* VolcEngineRTC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VolcEngineRTC.framework; path = VePhoneDemo/VePhoneSDK/VePhone.framework/Frameworks/VolcEngineRTC.framework; sourceTree = "<group>"; };
+		2B6D6C3226E63E080073011E /* VeNavigationController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VeNavigationController.h; sourceTree = "<group>"; };
+		2B6D6C3326E63E080073011E /* VeNavigationController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VeNavigationController.m; sourceTree = "<group>"; };
+		2B6D6C3A26E642FA0073011E /* VePhoneViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VePhoneViewController.h; sourceTree = "<group>"; };
+		2B6D6C3B26E642FA0073011E /* VePhoneViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = VePhoneViewController.m; sourceTree = "<group>"; };
+		2B6D6C3C26E642FA0073011E /* VePhoneViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = VePhoneViewController.xib; sourceTree = "<group>"; };
+		2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VePhoneDisplayViewController.m; sourceTree = "<group>"; };
+		2B6D6C4026E645C70073011E /* VePhoneDisplayViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VePhoneDisplayViewController.h; sourceTree = "<group>"; };
+		2B9184192808252800687C31 /* Utils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Utils.m; sourceTree = "<group>"; };
+		2B91841A2808252800687C31 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Utils.h; sourceTree = "<group>"; };
+		2BDE095E29ADE84E00874209 /* libMasonry.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libMasonry.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = "libPods-VePhonePublicDemo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5AC2CB67B6DAD858109A17C3 /* Pods-VePhonePublicDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VePhonePublicDemo.release.xcconfig"; path = "Pods/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo.release.xcconfig"; sourceTree = "<group>"; };
+		C831249221C8DE66004F2EE0 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/LaunchScreen.strings"; sourceTree = "<group>"; };
+		C83BF0001E1234250016E53D /* VePhonePublicDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VePhonePublicDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C83BF0041E1234250016E53D /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		C83BF0061E1234250016E53D /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		C83BF0071E1234250016E53D /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		C83BF0121E1234250016E53D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		C83BF0141E1234250016E53D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C8B7E3F01E27698700EAD131 /* image.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = image.xcassets; sourceTree = "<group>"; };
+		C8E14C882317BD2600413E2C /* VePhonePublicDemo.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VePhonePublicDemo.pch; sourceTree = "<group>"; };
+		DF7D82ECBA1F2B13884713B2 /* Pods-VePhonePublicDemo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VePhonePublicDemo.debug.xcconfig"; path = "Pods/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo.debug.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C83BEFFD1E1234250016E53D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2B0C8D6D26E0B38400753D2A /* VePhoneSDK */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = VePhoneSDK;
+			sourceTree = "<group>";
+		};
+		764F4351218F646FDEC60CD6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */,
+				2BDE095E29ADE84E00874209 /* libMasonry.a */,
+				2B22AA3928AB85D0001656D8 /* VolcEngineRTC.framework */,
+				17F234E0072D1D6CA49E5AF8 /* libPods-VePhonePublicDemo.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C83BEFF71E1234250016E53D = {
+			isa = PBXGroup;
+			children = (
+				C83BF0021E1234250016E53D /* VePhoneDemo */,
+				C83BF0011E1234250016E53D /* Products */,
+				F93CA862B4340C691A28E75C /* Pods */,
+				764F4351218F646FDEC60CD6 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		C83BF0011E1234250016E53D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C83BF0001E1234250016E53D /* VePhonePublicDemo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C83BF0021E1234250016E53D /* VePhoneDemo */ = {
+			isa = PBXGroup;
+			children = (
+				2B91841A2808252800687C31 /* Utils.h */,
+				2B9184192808252800687C31 /* Utils.m */,
+				C83BF0061E1234250016E53D /* AppDelegate.h */,
+				C83BF0071E1234250016E53D /* AppDelegate.m */,
+				2B6D6C3A26E642FA0073011E /* VePhoneViewController.h */,
+				2B6D6C3B26E642FA0073011E /* VePhoneViewController.m */,
+				2B6D6C3C26E642FA0073011E /* VePhoneViewController.xib */,
+				2B6D6C3226E63E080073011E /* VeNavigationController.h */,
+				2B6D6C3326E63E080073011E /* VeNavigationController.m */,
+				2B148BF62953FE49004F396F /* SVProgressHUD+Category.h */,
+				2B148BF52953FE49004F396F /* SVProgressHUD+Category.m */,
+				2B6D6C4026E645C70073011E /* VePhoneDisplayViewController.h */,
+				2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */,
+				C83BF0111E1234250016E53D /* LaunchScreen.storyboard */,
+				2B0C8D6D26E0B38400753D2A /* VePhoneSDK */,
+				C83BF0031E1234250016E53D /* Supporting Files */,
+			);
+			path = VePhoneDemo;
+			sourceTree = "<group>";
+		};
+		C83BF0031E1234250016E53D /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				C83BF0041E1234250016E53D /* main.m */,
+				C83BF0141E1234250016E53D /* Info.plist */,
+				C8E14C882317BD2600413E2C /* VePhonePublicDemo.pch */,
+				C8B7E3F01E27698700EAD131 /* image.xcassets */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		F93CA862B4340C691A28E75C /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				DF7D82ECBA1F2B13884713B2 /* Pods-VePhonePublicDemo.debug.xcconfig */,
+				5AC2CB67B6DAD858109A17C3 /* Pods-VePhonePublicDemo.release.xcconfig */,
+			);
+			name = Pods;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C83BEFFF1E1234250016E53D /* VePhonePublicDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C83BF0171E1234250016E53D /* Build configuration list for PBXNativeTarget "VePhonePublicDemo" */;
+			buildPhases = (
+				FEB2921AD8ED7988BC459C38 /* [CP] Check Pods Manifest.lock */,
+				C83BEFFC1E1234250016E53D /* Sources */,
+				C83BEFFD1E1234250016E53D /* Frameworks */,
+				C83BEFFE1E1234250016E53D /* Resources */,
+				2B12E4FC25EE6ADC00DE21A3 /* Embed Frameworks */,
+				39431702E3052C0FF01670FB /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VePhonePublicDemo;
+			productName = VePhonePublicDemo;
+			productReference = C83BF0001E1234250016E53D /* VePhonePublicDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C83BEFF81E1234250016E53D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1110;
+				ORGANIZATIONNAME = changwuguo;
+				TargetAttributes = {
+					C83BEFFF1E1234250016E53D = {
+						CreatedOnToolsVersion = 8.2;
+						DevelopmentTeam = 6N49VPDU43;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = C83BEFFB1E1234250016E53D /* Build configuration list for PBXProject "VePhonePublicDemo" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = C83BEFF71E1234250016E53D;
+			productRefGroup = C83BF0011E1234250016E53D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C83BEFFF1E1234250016E53D /* VePhonePublicDemo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C83BEFFE1E1234250016E53D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C8B7E3F11E27698700EAD131 /* image.xcassets in Resources */,
+				2B6D6C3E26E642FA0073011E /* VePhoneViewController.xib in Resources */,
+				C83BF0131E1234250016E53D /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		39431702E3052C0FF01670FB /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo-resources.sh",
+				"${PODS_ROOT}/SVProgressHUD/SVProgressHUD/SVProgressHUD.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SVProgressHUD.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FEB2921AD8ED7988BC459C38 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-VePhonePublicDemo-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C83BEFFC1E1234250016E53D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B6D6C3D26E642FA0073011E /* VePhoneViewController.m in Sources */,
+				2B148BF72953FE49004F396F /* SVProgressHUD+Category.m in Sources */,
+				C83BF0081E1234250016E53D /* AppDelegate.m in Sources */,
+				2B6D6C4126E645C70073011E /* VePhoneDisplayViewController.m in Sources */,
+				C83BF0051E1234250016E53D /* main.m in Sources */,
+				2B91841B2808252800687C31 /* Utils.m in Sources */,
+				2B6D6C3426E63E080073011E /* VeNavigationController.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		C83BF0111E1234250016E53D /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				C83BF0121E1234250016E53D /* Base */,
+				C831249221C8DE66004F2EE0 /* zh-Hans */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		C83BF0151E1234250016E53D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_BITCODE = YES;
+				ENABLE_NS_ASSERTIONS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXCLUDED_ARCHS = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"DEVELOP_SERVER=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		C83BF0161E1234250016E53D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_BITCODE = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXCLUDED_ARCHS = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C83BF0181E1234250016E53D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DF7D82ECBA1F2B13884713B2 /* Pods-VePhonePublicDemo.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = "";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = 6N49VPDU43;
+				ENABLE_BITCODE = NO;
+				EXCLUDED_ARCHS = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/VePhonePublicDemo",
+					"$(PROJECT_DIR)/VePhonePublicDemo/VePhonePublicDemoSDK",
+					"$(PROJECT_DIR)/VePhoneDemo/VePhoneSDK",
+					"$(PROJECT_DIR)/VePhoneDemo/VePhoneSDK/VePhone.framework/Frameworks",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SRCROOT)/VePhoneDemo/VePhonePublicDemo.pch";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"COCOAPODS=1",
+					"DEVELOP_ENV=0",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${PODS_ROOT}/Headers/Public\"",
+					"\"${PODS_ROOT}/Headers/Public/AFNetworking\"",
+					"\"${PODS_ROOT}/Headers/Public/CMYBaseLib\"",
+					"\"${PODS_ROOT}/Headers/Public/CwgBaseLib\"",
+					"\"${PODS_ROOT}/Headers/Public/CwgVePhonePublicDemo\"",
+					"\"${PODS_ROOT}/Headers/Public/MJExtension\"",
+					"\"${PODS_ROOT}/Headers/Public/MJRefresh\"",
+					"\"${PODS_ROOT}/Headers/Public/MLLabel\"",
+					"\"${PODS_ROOT}/Headers/Public/Masonry\"",
+					"\"${PODS_ROOT}/Headers/Public/RealReachability\"",
+					"\"${PODS_ROOT}/Headers/Public/SDWebImage\"",
+					"\"${PODS_ROOT}/Headers/Public/WeChat_SDK_iOS\"",
+					"\"${PODS_ROOT}/Headers/Public/YYKit\"",
+				);
+				INFOPLIST_FILE = VePhoneDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/VePhonePublicDemo",
+				);
+				MARKETING_VERSION = 1.20.1;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-l\"Masonry\"",
+					"-l\"SVProgressHUD\"",
+					"-framework",
+					"\"Foundation\"",
+					"-framework",
+					"\"QuartzCore\"",
+					"-framework",
+					"\"UIKit\"",
+					"-w",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bytedance.deviceservice.cloudphone;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = dev_common;
+				VALIDATE_WORKSPACE = YES;
+			};
+			name = Debug;
+		};
+		C83BF0191E1234250016E53D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5AC2CB67B6DAD858109A17C3 /* Pods-VePhonePublicDemo.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = 6N49VPDU43;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = X46375UBYG;
+				ENABLE_BITCODE = NO;
+				EXCLUDED_ARCHS = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/VePhonePublicDemo",
+					"$(PROJECT_DIR)/VePhonePublicDemo/VePhonePublicDemoSDK",
+					"$(PROJECT_DIR)/VePhoneDemo/VePhoneSDK",
+					"$(PROJECT_DIR)/VePhoneDemo/VePhoneSDK/VePhone.framework/Frameworks",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SRCROOT)/VePhoneDemo/VePhonePublicDemo.pch";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"COCOAPODS=1",
+					"DEVELOP_ENV=0",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"${PODS_ROOT}/Headers/Public\"",
+					"\"${PODS_ROOT}/Headers/Public/AFNetworking\"",
+					"\"${PODS_ROOT}/Headers/Public/Masonry\"",
+					"\"${PODS_ROOT}/Headers/Public/SDWebImage\"",
+				);
+				INFOPLIST_FILE = VePhoneDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/VePhonePublicDemo",
+				);
+				MARKETING_VERSION = 1.20.1;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-l\"Masonry\"",
+					"-l\"SVProgressHUD\"",
+					"-framework",
+					"\"Foundation\"",
+					"-framework",
+					"\"QuartzCore\"",
+					"-framework",
+					"\"UIKit\"",
+					"-w",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bytedance.deviceservice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = dev_common;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = DeviceManagerServiceInHouse.dist;
+				VALIDATE_WORKSPACE = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C83BEFFB1E1234250016E53D /* Build configuration list for PBXProject "VePhonePublicDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C83BF0151E1234250016E53D /* Debug */,
+				C83BF0161E1234250016E53D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C83BF0171E1234250016E53D /* Build configuration list for PBXNativeTarget "VePhonePublicDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C83BF0181E1234250016E53D /* Debug */,
+				C83BF0191E1234250016E53D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C83BEFF81E1234250016E53D /* Project object */;
+}

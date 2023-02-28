@@ -1,0 +1,9 @@
+.DS_Store
+xcuserdata/
+xcshareddata/
+build/
+Build/
+.svn/
+Pods/
+VePhonePublicDemo.xcworkspace/
+.idea
