@@ -21,15 +21,15 @@ import com.volcengine.cloudphone.apiservice.CameraManager;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CamaraManagerView {
+public class CameraManagerView {
 
     private final CameraManager mCameraManager;
     private static final String TAG = "CamaraManager";
     private DialogUtils.DialogWrapper mDialogWrapper;
 
-    public CamaraManagerView(Context context, CameraManager cameraManager, Button button) {
+    public CameraManagerView(Context context, CameraManager cameraManager, Button button) {
         this.mCameraManager = cameraManager;
-        mDialogWrapper  = DialogUtils.wrapper(new CamaraManagerView.TestView(context));
+        mDialogWrapper  = DialogUtils.wrapper(new CameraManagerView.TestView(context));
         button.setVisibility(View.VISIBLE);
         button.setOnClickListener(v -> mDialogWrapper.show());
     }

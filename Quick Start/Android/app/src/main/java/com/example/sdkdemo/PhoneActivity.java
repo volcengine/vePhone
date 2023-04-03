@@ -35,7 +35,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.example.sdkdemo.feature.AudioServiceView;
-import com.example.sdkdemo.feature.CamaraManagerView;
+import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.ClarityServiceView;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerView;
 import com.example.sdkdemo.feature.FileChannelView;
@@ -335,7 +335,7 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                 break;
             case FEATURE_CAMERA: // 相机
                 if (vePhoneEngine.getCameraManager() != null) {
-                    new CamaraManagerView(this, vePhoneEngine.getCameraManager(), btnCamera);
+                    new CameraManagerView(this, vePhoneEngine.getCameraManager(), btnCamera);
                 } else {
                     AcLog.d(TAG, "CameraManager is null!");
                 }
