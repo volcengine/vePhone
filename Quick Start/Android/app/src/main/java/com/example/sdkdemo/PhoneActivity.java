@@ -134,7 +134,7 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
         }
 
 
-        // ak, sk, token: 请通过火山引擎申请ak获得，详情见https://www.volcengine.com/docs/6512/75577
+        // ak, sk, token: 请通过火山引擎申请ak获得，详情见https://www.volcengine.com/docs/6394/75735
         builder.userId(userId) // 用户userid
                 .ak(ak) // 必填 ACEP ak
                 .sk(sk)  // 必填 ACEP sk
