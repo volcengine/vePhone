@@ -32,13 +32,13 @@
 
     self.navigationItem.title = @"云手机演示";
     
-    self.akTextField.text = @"====ak====";
-    self.skTextField.text = @"====sk====";
-    self.tokenTextField.text = @"====token====";
+    self.akTextField.text = @"===================ak==================";
+    self.skTextField.text = @"===================sk==================";
+    self.tokenTextField.text = @"===================token==================";
     
     self.rotationTextField.text = @"0";
-    self.userIdTextField.text = @"====userId====";
-    self.productIdTextField.text = @"====productId====";
+    self.userIdTextField.text = @"";
+    self.productIdTextField.text = @"";
     // 版本号
     self.versionLabel.text = [NSString stringWithFormat: @"VePhoneSDK版本: V%@\nDeviceId: %@", [VePhoneManager currentVersion], [VePhoneManager currentDeviceId]];
 }
@@ -75,14 +75,14 @@
     }
     // 显示控制器
     VePhoneDisplayViewController *phoneDisplayVc = [[VePhoneDisplayViewController alloc] init];
-    VeCloudPhoneConfigObject *obj = [VeCloudPhoneConfigObject new];
-    obj.ak = self.akTextField.text;
-    obj.sk = self.skTextField.text;
-    obj.token = self.tokenTextField.text;
-    obj.userId = self.userIdTextField.text;
-    obj.productId = self.productIdTextField.text;
-    obj.rotation = self.rotationTextField.text.integerValue;
-    phoneDisplayVc.configObj = obj;
+    VeCloudPhoneConfigObject *configObj = [[VeCloudPhoneConfigObject alloc] init];
+    configObj.ak = self.akTextField.text;
+    configObj.sk = self.skTextField.text;
+    configObj.token = self.tokenTextField.text;
+//    configObj.podId = self.podIdTextField.text;
+    configObj.userId = self.userIdTextField.text;
+    configObj.productId = self.productIdTextField.text;
+    phoneDisplayVc.configObj = configObj;
     [self.navigationController pushViewController: phoneDisplayVc animated: YES];
 }
 

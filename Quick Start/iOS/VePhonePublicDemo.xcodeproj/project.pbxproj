@@ -13,6 +13,12 @@
 		2B6D6C3E26E642FA0073011E /* VePhoneViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3C26E642FA0073011E /* VePhoneViewController.xib */; };
 		2B6D6C4126E645C70073011E /* VePhoneDisplayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */; };
 		2B91841B2808252800687C31 /* Utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9184192808252800687C31 /* Utils.m */; };
+		2B9EDDC529DFEA0100492221 /* VideoCaptureTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */; };
+		2B9EDDC629DFEA0100492221 /* AudioCaptureTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */; };
+		2B9EDDC929DFEA1000492221 /* Constants.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC729DFEA1000492221 /* Constants.m */; };
+		2B9EDDCC29DFEA4A00492221 /* UserInfoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */; };
+		2B9EDDCF29DFEA6600492221 /* VeCloudPhonePreview.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */; };
+		2B9EDDD229DFEAE300492221 /* CustomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDD029DFEAE300492221 /* CustomViewController.m */; };
 		2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */; };
 		C83BF0051E1234250016E53D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0041E1234250016E53D /* main.m */; };
 		C83BF0081E1234250016E53D /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0071E1234250016E53D /* AppDelegate.m */; };
@@ -47,6 +53,19 @@
 		2B6D6C4026E645C70073011E /* VePhoneDisplayViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VePhoneDisplayViewController.h; sourceTree = "<group>"; };
 		2B9184192808252800687C31 /* Utils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Utils.m; sourceTree = "<group>"; };
 		2B91841A2808252800687C31 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Utils.h; sourceTree = "<group>"; };
+		2B9EDDC029DFEA0100492221 /* VideoCaptureTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VideoCaptureTool.h; sourceTree = "<group>"; };
+		2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VideoCaptureTool.m; sourceTree = "<group>"; };
+		2B9EDDC229DFEA0100492221 /* AudioCaptureTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioCaptureTool.h; sourceTree = "<group>"; };
+		2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AudioCaptureTool.m; sourceTree = "<group>"; };
+		2B9EDDC729DFEA1000492221 /* Constants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Constants.m; sourceTree = "<group>"; };
+		2B9EDDC829DFEA1000492221 /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
+		2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UserInfoManager.m; sourceTree = "<group>"; };
+		2B9EDDCB29DFEA4A00492221 /* UserInfoManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UserInfoManager.h; sourceTree = "<group>"; };
+		2B9EDDCD29DFEA6600492221 /* VeCloudPhonePreview.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VeCloudPhonePreview.h; sourceTree = "<group>"; };
+		2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VeCloudPhonePreview.m; sourceTree = "<group>"; };
+		2B9EDDD029DFEAE300492221 /* CustomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CustomViewController.m; sourceTree = "<group>"; };
+		2B9EDDD129DFEAE300492221 /* CustomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CustomViewController.h; sourceTree = "<group>"; };
+		2B9EDDD329DFEAFB00492221 /* Define.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Define.h; sourceTree = "<group>"; };
 		2BDE095E29ADE84E00874209 /* libMasonry.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libMasonry.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = "libPods-VePhonePublicDemo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5AC2CB67B6DAD858109A17C3 /* Pods-VePhonePublicDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VePhonePublicDemo.release.xcconfig"; path = "Pods/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo.release.xcconfig"; sourceTree = "<group>"; };
@@ -113,8 +132,19 @@
 		C83BF0021E1234250016E53D /* VePhoneDemo */ = {
 			isa = PBXGroup;
 			children = (
+				2B9EDDD329DFEAFB00492221 /* Define.h */,
+				2B9EDDCD29DFEA6600492221 /* VeCloudPhonePreview.h */,
+				2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */,
 				2B91841A2808252800687C31 /* Utils.h */,
 				2B9184192808252800687C31 /* Utils.m */,
+				2B9EDDCB29DFEA4A00492221 /* UserInfoManager.h */,
+				2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */,
+				2B9EDDC829DFEA1000492221 /* Constants.h */,
+				2B9EDDC729DFEA1000492221 /* Constants.m */,
+				2B9EDDC229DFEA0100492221 /* AudioCaptureTool.h */,
+				2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */,
+				2B9EDDC029DFEA0100492221 /* VideoCaptureTool.h */,
+				2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */,
 				C83BF0061E1234250016E53D /* AppDelegate.h */,
 				C83BF0071E1234250016E53D /* AppDelegate.m */,
 				2B6D6C3A26E642FA0073011E /* VePhoneViewController.h */,
@@ -126,6 +156,8 @@
 				2B148BF52953FE49004F396F /* SVProgressHUD+Category.m */,
 				2B6D6C4026E645C70073011E /* VePhoneDisplayViewController.h */,
 				2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */,
+				2B9EDDD129DFEAE300492221 /* CustomViewController.h */,
+				2B9EDDD029DFEAE300492221 /* CustomViewController.m */,
 				C83BF0111E1234250016E53D /* LaunchScreen.storyboard */,
 				2B0C8D6D26E0B38400753D2A /* VePhoneSDK */,
 				C83BF0031E1234250016E53D /* Supporting Files */,
@@ -269,11 +301,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B6D6C3D26E642FA0073011E /* VePhoneViewController.m in Sources */,
+				2B9EDDC629DFEA0100492221 /* AudioCaptureTool.m in Sources */,
+				2B9EDDCC29DFEA4A00492221 /* UserInfoManager.m in Sources */,
 				2B148BF72953FE49004F396F /* SVProgressHUD+Category.m in Sources */,
 				C83BF0081E1234250016E53D /* AppDelegate.m in Sources */,
 				2B6D6C4126E645C70073011E /* VePhoneDisplayViewController.m in Sources */,
+				2B9EDDC929DFEA1000492221 /* Constants.m in Sources */,
+				2B9EDDD229DFEAE300492221 /* CustomViewController.m in Sources */,
 				C83BF0051E1234250016E53D /* main.m in Sources */,
 				2B91841B2808252800687C31 /* Utils.m in Sources */,
+				2B9EDDC529DFEA0100492221 /* VideoCaptureTool.m in Sources */,
+				2B9EDDCF29DFEA6600492221 /* VeCloudPhonePreview.m in Sources */,
 				2B6D6C3426E63E080073011E /* VeNavigationController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
