@@ -37,16 +37,6 @@ public class ClarityServiceView {
             btnClarity3 = findViewById(R.id.btn_clarity_3);
             btnClarity4 = findViewById(R.id.btn_clarity_4);
             btnClarity5 = findViewById(R.id.btn_clarity_5);
-            /**
-             * switchVideoStreamProfileId(int streamProfileId) -- 切换视频流的清晰度
-             *
-             * @param streamProfileId 清晰度ID
-             */
-            findViewById(R.id.btn_send).setOnClickListener(v -> {
-                EditText editText = findViewById(R.id.et_clarity_id);
-                int clarityId = Integer.parseInt(editText.getText().toString());
-                mClarityService.switchVideoStreamProfileId(clarityId);
-            });
             initClarity();
         }
 
@@ -56,13 +46,17 @@ public class ClarityServiceView {
             for (int i = 0; i < list.size(); i++) {
                 Button button = list.get(i);
                 int id = i;
+                /**
+                 * switchVideoStreamProfileId(int streamProfileId) -- 切换视频流的清晰度
+                 *
+                 * @param streamProfileId 清晰度ID
+                 */
                 button.setOnClickListener(v -> mClarityService.switchVideoStreamProfileId(id));
             }
             btnClarity4.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     mClarityService.switchVideoStreamProfileId(6);
-
                 }
             });
             btnClarity5.setOnClickListener(new OnClickListener() {
