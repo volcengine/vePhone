@@ -16,7 +16,8 @@
 @property (nonatomic, copy) NSString *podId;
 @property (nonatomic, copy) NSString *userId;
 @property (nonatomic, copy) NSString *productId;
-@property (nonatomic, assign) NSInteger rotation;
+@property (nonatomic, assign) NSInteger streamType;
+@property (nonatomic, assign) NSInteger autoRecycleTime;
 
 @end
 
