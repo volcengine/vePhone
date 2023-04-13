@@ -6,7 +6,7 @@ export const initConfig = {
 };
 
 
-// start 配置由环境变量中获得
+// 示例中 start 配置由环境变量中获得，在实际业务场景中，startConfig 通常由服务端下发，如 token，请根据实际业务场景做修改
 // 由于采用的是 vite 构建的，所以环境变量在 import.meta.env 中。详见 https://cn.vitejs.dev/guide/env-and-mode.html
 export const startConfig = {
   useCloudNative: true,

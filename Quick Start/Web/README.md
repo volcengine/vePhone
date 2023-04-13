@@ -1,16 +1,23 @@
 ﻿# 云手机 WebSDK Quick Start
-本开源项目展示了火山引擎云手机 Web SDK 的以下功能：
+本项目是火山引擎云手机 Web SDK 的 Quick Start Example，借助 Web SDK 实现了以下功能，方便用户快速接入云手机 Web SDK。
 
 1. 启动云手机和停止云手机
 2. 旋转屏幕
-2. 屏幕截图
-3. 屏幕录制
-4. 调节远程云手机音量
-
-方便用户快速接入云手机 Web SDK。
-
+3. 屏幕截图
+4. 屏幕录制
 
 > 注意：本项目中有较多链接会跳转到云手机火山引擎文档中心，如果跳转到火山引擎文档中心没有显示 SDK 下载链接或 SDK 接口文档，需要先使用已经开通云手机服务的账号登录火山引擎官网
+
+## 目录结构
+```js
+src
+├── config.js // 导出 Web SDK 需要的配置
+├── index.html // 页面布局
+├── lib // Web SDK 资源包所在的目录
+├── .env // Web SDK 启动需要的配置
+├── main.js // 主要的实现逻辑
+└── utils.js // 工具函数
+```
 
 ## 运行示例程序
 > 首先需要确保拥有 `node` 环境，如果没有，请前往 [nodejs 官网](https://nodejs.org/zh-cn/download)下载并安装 `nodejs`

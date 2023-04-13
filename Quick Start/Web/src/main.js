@@ -59,6 +59,7 @@ const bindEventListener = (
   stopSuccessCallback
 ) => {
   // 启动云手机按钮绑定 click 事件，触发 vePhone SDK start
+  // 如果业务中有自动播放的场景，请参考我们的最佳实践：https://www.volcengine.com/docs/6394/154997
   startBtn.addEventListener('click', async () => {
     console.log('start btn click', vePhoneInstance);
     try {
