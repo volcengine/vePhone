@@ -5,10 +5,14 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.util.DialogUtils;
+import com.volcengine.androidcloud.common.log.AcLog;
+import com.volcengine.cloudphone.apiservice.StreamProfileChangeCallBack;
 import com.volcengine.cloudphone.apiservice.StreamProfileManager;
+import com.volcengine.common.SDKContext;
 
 import java.util.Arrays;
 import java.util.List;
@@ -18,6 +22,8 @@ public class ClarityServiceView {
     private Button btnClarity0, btnClarity1, btnClarity2, btnClarity3, btnClarity4, btnClarity5;
     private StreamProfileManager mClarityService;
     private DialogUtils.DialogWrapper mDialogWrapper;
+
+    private static final String TAG = "ClarityServiceView";
 
     public ClarityServiceView(Context context, StreamProfileManager clarityService, Button button) {
         this.mClarityService = clarityService;
@@ -63,6 +69,22 @@ public class ClarityServiceView {
                 @Override
                 public void onClick(View v) {
                     mClarityService.switchVideoStreamProfileId(16);
+                }
+            });
+
+            mClarityService.setStreamProfileChangeListener(new StreamProfileChangeCallBack() {
+                @Override
+                public void onVideoStreamProfileChange(boolean isSuccess, int from, int to) {
+                    AcLog.d(TAG, "onVideoStreamProfileChange, isSuccess:" + isSuccess + ", form: " + from + ", to :" + to);
+                    Toast.makeText(SDKContext.getContext(),
+                            "onVideoStreamProfileChange, isSuccess:" + isSuccess + ", form: " + from + ", to :" + to, Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onError(int i, String s) {
+                    AcLog.d(TAG, "onVideoStreamProfileChange, onError:" + i + " " + s);
+                    Toast.makeText(SDKContext.getContext(),
+                            "onVideoStreamProfileChange, onError:" + i + " " + s, Toast.LENGTH_SHORT).show();
                 }
             });
         }

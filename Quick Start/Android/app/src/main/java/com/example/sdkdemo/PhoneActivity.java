@@ -474,7 +474,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
      */
     @Override
     public void onServiceInit() {
-        initFeatures();
     }
 
     /**
@@ -495,6 +494,7 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     @Override
     public void onFirstRemoteVideoFrame(String s) {
         Log.d(TAG, "onFirstRemoteVideoFrame " + s);
+        initFeatures();
     }
 
     /**

@@ -71,9 +71,9 @@ public class CameraManagerView {
              */
             findViewById(R.id.btn_publish_stream).setOnClickListener(v -> {
                 List<LocalVideoStreamDescription> list = new ArrayList<>();
-                list.add(new LocalVideoStreamDescription(1920, 1080, 30, 5000));
-                list.add(new LocalVideoStreamDescription(1420, 720, 20, 3000));
-                list.add(new LocalVideoStreamDescription(1000, 500, 20, 2000));
+                list.add(new LocalVideoStreamDescription(1920, 1080, 30, 5000, 4000));
+                list.add(new LocalVideoStreamDescription(1420, 720, 20, 3000, 2000));
+                list.add(new LocalVideoStreamDescription(1000, 500, 20, 2000, 1500));
                 mCameraManager.setVideoEncoderConfig(list);
             });
 
