@@ -214,49 +214,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     @Override
     public void onPlaySuccess(String roundId, int clarityId) {
         AcLog.d(TAG, "roundId " + roundId + " clarityId " + clarityId);
-        VePhoneEngine.getInstance().getCameraManager().setRemoteRequestListener(new RemoteCameraRequestListener() {
-            @Override
-            public void onVideoStreamStartRequested(CameraId cameraId) {
-                AcLog.d(TAG, "onVideoStreamStartRequested, cameraId :" + cameraId);
-                VePhoneEngine.getInstance().getCameraManager().startVideoStream(cameraId);
-            }
-
-            @Override
-            public void onVideoStreamStopRequested() {
-                AcLog.d(TAG, "onVideoStreamStopRequested ");
-                VePhoneEngine.getInstance().getCameraManager().stopVideoStream();
-            }
-        });
-        VePhoneEngine.getInstance().getCameraManager().setCameraManagerListener(new CameraManagerListener() {
-            @Override
-            public void onLocalVideoStateChanged(LocalVideoStreamState localVideoStreamState, LocalVideoStreamError errorCode) {
-                AcLog.d(TAG, "LocalVideoStreamState" + localVideoStreamState.toString() + ",LocalVideoStreamError" + errorCode);
-            }
-
-            @Override
-            public void onFirstCapture() {
-                AcLog.d(TAG, "onFirstCapture");
-            }
-        });
-
-        vePhoneEngine.getClarityService().setStreamProfileChangeListener(new StreamProfileChangeCallBack() {
-            @Override
-            public void onVideoStreamProfileChange(boolean isSuccess, int from, int to) {
-                AcLog.d(TAG, "VideoStreamProfileChange  isSuccess " + isSuccess + "from " + from + "to " + to);
-            }
-
-            @Override
-            public void onError(int i, String s) {
-                AcLog.d(TAG, "onError - " + s);
-            }
-        });
-
-        vePhoneEngine.getClipBoardServiceManager().setBoardSyncClipListener(new IClipBoardListener() {
-            @Override
-            public void onClipBoardMessageReceived(ClipData clipData) {
-                AcLog.d(TAG, "clipBoard : " + clipData.toString());
-            }
-        });
         tvInfo.setText(String.format(
                 "podId: %s\nproductId: %s\nroundId: %s\nclarityId: %s\n",
                 podId,
@@ -474,6 +431,7 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
      */
     @Override
     public void onServiceInit() {
+        initFeatures();
     }
 
     /**
@@ -494,7 +452,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     @Override
     public void onFirstRemoteVideoFrame(String s) {
         Log.d(TAG, "onFirstRemoteVideoFrame " + s);
-        initFeatures();
     }
 
     /**
