@@ -180,7 +180,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="切换外放设备需确保音频上传处于开启的状态，否则切换无效"
+        android:text="手动切换外放设备需确保音频上传处于开启的状态，否则切换无效；当连接有线或蓝牙耳机时，手动切换可能不生效。"
         android:textColor="@android:color/holo_red_dark"
         android:textSize="12sp" />
 
