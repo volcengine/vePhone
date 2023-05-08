@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+
+    <EditText
+        android:id="@+id/et_text_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/btn_send_input_data"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="发送覆盖输入框数据" />
+
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_show_local_data"
+        android:text="是否打开本地输入显示"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_close_input_manager"
+        android:text="关闭自动打开软键盘"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_close_input_keyboard"
+        android:text="pod输入法开关"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:id="@+id/btn_get_keyboardEnable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="获取当前keyboard情况" />
+
+</LinearLayout>
