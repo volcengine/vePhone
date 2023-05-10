@@ -84,7 +84,7 @@ public class RotationModeActivity extends AppCompatActivity
          * AUTO_ROTATION 模式下，需要 调用该方法;
          * PORTRAIT 模式下，不需要 调用该方法。
          */
-        VePhoneEngine.getInstance().rotate(newConfig.orientation);
+//        VePhoneEngine.getInstance().rotate(newConfig.orientation);
     }
 
     private void initView() {
@@ -126,7 +126,7 @@ public class RotationModeActivity extends AppCompatActivity
          * 2. PORTRAIT 模式下，推流端(云端实例)只会推送竖屏方向的视频流，
          *      拉流端(本地SDK客户端)无需调整Activity的方向。
          *      做法: 在 {@link IStreamListener#onRotation(int)} 和
-         *          {@link AppCompatActivity#onConfigurationChanged(Configuration)} 中 都无需做任何事，注释掉相关代码即可。
+         *          {@link AppCompatActivity#onConfigurationChanged(Configuration)} 中 都无需任何操作，注释掉相关代码即可。
          *          另外，需要将AndroidManifest.xml中该Activity的方向的设置为portrait。
          */
         mBuilder = new PhonePlayConfig.Builder();
@@ -138,7 +138,7 @@ public class RotationModeActivity extends AppCompatActivity
                 .roundId(roundId)
                 .podId(podId)
                 .productId(productId)
-                .rotation(Rotation.AUTO_ROTATION)
+                .rotation(Rotation.PORTRAIT)
                 .enableLocalKeyboard(false)
                 .streamListener(this);
 
@@ -224,7 +224,7 @@ public class RotationModeActivity extends AppCompatActivity
          * AUTO_ROTATION 模式下，需要 调用该方法;
          * PORTRAIT 模式下，不需要 调用该方法。
          */
-        setRotation(i);
+//        setRotation(i);
     }
 
     @Override
