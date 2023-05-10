@@ -39,6 +39,13 @@
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
 
+        <!-- rotation设置为 PORTRAIT 模式时，activity的方向需要设置为portrait。 -->
+        <activity
+            android:name=".feature.RotationModeActivity"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

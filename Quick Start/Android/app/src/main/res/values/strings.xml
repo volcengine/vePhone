@@ -125,6 +125,8 @@
 
     <!--  旋转相关  -->
     <string name="roll_orientation">旋转</string>
+    <string name="rotation_mode">旋转模式</string>
+    <string name="rotation_mode_desc">在该演示中你可以体验与旋转模式相关的功能接口</string>
 
     <!--  传感器相关  -->
     <string name="sensor">传感器</string>

@@ -15,4 +15,6 @@ public class Feature {
     public static final int FEATURE_LOCAL_INPUT = 11;
     public static final int FEATURE_PAD_CONSOLE = 12;
 
+    public static final int FEATURE_ROTATION_MODE = 13;
+
 }
