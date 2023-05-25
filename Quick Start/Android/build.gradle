@@ -24,9 +24,6 @@ allprojects {
         maven {
             url 'https://artifact.bytedance.com/repository/Volcengine/'
         }
-        maven {
-            url "https://maven.byted.org/repository/android_public/"
-        }
     }
 }
 
