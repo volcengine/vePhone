@@ -27,6 +27,8 @@ import com.volcengine.phone.VePhoneEngine;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 
 /**
  * 该类用于展示与rotation_mode相关的功能接口的使用方法
@@ -169,6 +171,11 @@ public class RotationModeActivity extends AppCompatActivity
     @Override
     public void onServiceInit() {
         AcLog.d(TAG, "[onServiceInit]");
+    }
+
+    @Override
+    public void onServiceInit(@NonNull Map<String, Object> extras) {
+        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
     }
 
     @Override

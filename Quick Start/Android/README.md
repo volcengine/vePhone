@@ -155,7 +155,6 @@ builder.userId(userId) // 用户userid
     .enableVibrator(true) // 打开本地振动开关
     .enableLocationService(true) // 打开本地定位功能开关
     .enableLocalKeyboard(true) // 打开本地键盘开关
-    .enableFileChannel(true) // 打开文件通道开关
     .streamListener(IStreamListener streamListener); // 获取音视频流信息回调监听
 
 PhonePlayConfig phonePlayConfig = builder.build();
@@ -193,13 +192,13 @@ main
 │               │   ├── ClarityServiceView.java // 清晰度
 │               │   ├── ClipBoardServiceManagerView.java // 剪切板
 │               │   ├── FileChannelExtView.java // 大文件通道
-│               │   ├── FileChannelView.java // 文件通道
 │               │   ├── LocalInputManagerView.java // 本地输入
 │               │   ├── LocationServiceView.java // 定位服务
 │               │   ├── MessageChannelView.java // 消息通道
-│               │   ├── MultiUserManagerView.java // 多用户
+│               │   ├── MultiMediaStreamActivity.java // 多屏取流
 │               │   ├── PadConsoleManagerView.java // 游戏手柄
-│               │   ├── PodControlServiceView.java //实例控制
+│               │   ├── PodControlServiceView.java // 实例控制
+│               │   ├── RotationModeActivity.java // 旋转模式
 │               │   ├── SensorView.java // 传感器
 │               │   └── UnclassifiedView.java // 其他
 │               └── util

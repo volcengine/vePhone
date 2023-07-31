@@ -85,9 +85,6 @@ class FeatureActivity : BaseSampleActivity() {
             Feature.FEATURE_CLIPBOARD -> {
                 return R.string.clipboard
             }
-            Feature.FEATURE_FILE_CHANNEL -> {
-                return R.string.file_channel
-            }
             Feature.FEATURE_FILE_EXCHANGE -> {
                 return R.string.file_exchange
             }

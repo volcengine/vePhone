@@ -45,7 +45,7 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
     // 从Maven仓库获取sdk
-    implementation 'com.volcengine.vephone:vephone:1.23.3-alpha'
+    implementation 'com.volcengine.vephone:vephone:1.26.0'
     // 或者依赖离线包
 //    implementation files('libs/phone-lite-release.aar')
 
