@@ -6,7 +6,6 @@ import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
 import static com.example.sdkdemo.util.Feature.FEATURE_AUDIO;
 import static com.example.sdkdemo.util.Feature.FEATURE_CAMERA;
 import static com.example.sdkdemo.util.Feature.FEATURE_CLIPBOARD;
-import static com.example.sdkdemo.util.Feature.FEATURE_FILE_CHANNEL;
 import static com.example.sdkdemo.util.Feature.FEATURE_FILE_EXCHANGE;
 import static com.example.sdkdemo.util.Feature.FEATURE_LOCAL_INPUT;
 import static com.example.sdkdemo.util.Feature.FEATURE_LOCATION;
@@ -17,7 +16,6 @@ import static com.example.sdkdemo.util.Feature.FEATURE_SENSOR;
 import static com.example.sdkdemo.util.Feature.FEATURE_UNCLASSIFIED;
 
 import android.app.Activity;
-import android.content.ClipData;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Build;
@@ -38,7 +36,6 @@ import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.ClarityServiceView;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerView;
-import com.example.sdkdemo.feature.FileChannelView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
@@ -51,21 +48,16 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
-import com.volcengine.cloudcore.common.mode.CameraId;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
-import com.volcengine.cloudcore.common.mode.LocalVideoStreamError;
-import com.volcengine.cloudcore.common.mode.LocalVideoStreamState;
-import com.volcengine.cloudphone.apiservice.IClipBoardListener;
-import com.volcengine.cloudphone.apiservice.StreamProfileChangeCallBack;
-import com.volcengine.cloudphone.apiservice.outinterface.CameraManagerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
-import com.volcengine.cloudphone.apiservice.outinterface.RemoteCameraRequestListener;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.Map;
 
 public class PhoneActivity extends AppCompatActivity implements IPlayerListener, IStreamListener {
 
@@ -81,7 +73,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     private boolean mIsHideButtons = false;
     public VePhoneEngine vePhoneEngine = VePhoneEngine.getInstance();
     DialogUtils.DialogWrapper mDialogWrapper;
-    FileChannelView mFileChannelView;
     private PhonePlayConfig mPhonePlayConfig;
 
     private Button btnAudio, btnCamera, btnClarity, btnClipBoard, btnFileChannel, btnLocation;
@@ -151,7 +142,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                 .enableVibrator(true)
                 .enableLocationService(true)
                 .enableLocalKeyboard(true)
-                .enableFileChannel(true)
                 .streamListener(PhoneActivity.this);
 
         mPhonePlayConfig = builder.build();
@@ -185,9 +175,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
             mDialogWrapper.release();
             mDialogWrapper = null;
         }
-        if (mFileChannelView != null) {
-            mFileChannelView = null;
-        }
         super.onDestroy();
     }
 
@@ -200,9 +187,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (mFileChannelView != null) {
-            mFileChannelView.onActivityResult(requestCode, resultCode, data);
-        }
     }
 
     /**
@@ -303,18 +287,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                 } else {
                     AcLog.d(TAG, "ClipBoardServiceManager is null!");
                 }
-                break;
-            case FEATURE_FILE_CHANNEL: // 文件通道
-                btnFileChannel.setVisibility(View.VISIBLE);
-                btnFileChannel.setOnClickListener(view -> {
-                    if (vePhoneEngine.getFileChannel() != null) {
-                        mFileChannelView = new FileChannelView(this, vePhoneEngine.getFileChannel());
-                        mDialogWrapper = DialogUtils.wrapper(mFileChannelView);
-                        mDialogWrapper.show();
-                    } else {
-                        AcLog.d(TAG, "FileChannel is null!");
-                    }
-                });
                 break;
             case FEATURE_FILE_EXCHANGE: // 大文件通道
                 if (vePhoneEngine.getFileExchange() != null) {
@@ -432,6 +404,11 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     @Override
     public void onServiceInit() {
         initFeatures();
+    }
+
+    @Override
+    public void onServiceInit(@NonNull Map<String, Object> extras) {
+        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
     }
 
     /**

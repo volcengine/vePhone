@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <FrameLayout
+        android:id="@+id/container"
+        android:background="@color/teal_700"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+    </FrameLayout>
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/sw_show_or_hide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="15dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+
+    <EditText
+        android:id="@+id/et_stream_id"
+        android:gravity="center_horizontal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/sw_show_or_hide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:hint="stream_id"
+        android:text="0-0" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@+id/et_stream_id"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/ll_buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintTop_toBottomOf="@+id/sw_show_or_hide"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <Button
+                android:id="@+id/btn_get_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="查询状态" />
+
+            <Button
+                android:id="@+id/btn_subscribe_stream"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="订阅流" />
+
+            <Button
+                android:id="@+id/btn_unsubscribe_stream"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="取消订阅流" />
+
+            <Button
+                android:id="@+id/btn_pause_stream"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="暂停播放" />
+
+            <Button
+                android:id="@+id/btn_resume_stream"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="恢复播放" />
+
+            <Button
+                android:id="@+id/btn_mute_video"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="视频: 开" />
+
+            <Button
+                android:id="@+id/btn_mute_audio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="音频: 开" />
+
+            <EditText
+                android:id="@+id/et_clarity_id"
+                android:inputType="number"
+                android:gravity="center_horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="clarity_id"
+                android:text="16308" />
+
+            <Button
+                android:id="@+id/btn_switch_clarity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="切换清晰度" />
+
+            <Button
+                android:id="@+id/btn_send_touch_event"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="发送触控事件\n(模拟滑动)" />
+
+            <Button
+                android:id="@+id/btn_send_key_event"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="发送键盘事件\n(模拟返回)" />
+
+            <Button
+                android:id="@+id/btn_launch_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="启动应用" />
+
+            <Button
+                android:id="@+id/btn_close_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="关闭应用" />
+
+            <EditText
+                android:id="@+id/et_audio_zone"
+                android:inputType="number"
+                android:gravity="center_horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="audio_zone"
+                android:text="0" />
+
+            <Button
+                android:id="@+id/btn_set_audio_zone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="绑定音区" />
+
+            <Button
+                android:id="@+id/btn_get_audio_zone_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="获取音区\n绑定状态" />
+
+            <Button
+                android:id="@+id/btn_get_audio_focus_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="获取音频\n焦点应用" />
+
+            <Button
+                android:id="@+id/btn_get_focused_window_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:text="获取视频\n焦点应用" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
