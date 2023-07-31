@@ -55,7 +55,7 @@ public class MultiMediaStreamActivity extends AppCompatActivity
 
     private final String TAG = "MultiMediaStreamActivity";
 
-    private FrameLayout mContainer;
+    private FrameLayout mMainContainer, mSecondaryContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
     private MultiMediaStreamService mMultiMediaStreamService;
@@ -107,11 +107,16 @@ public class MultiMediaStreamActivity extends AppCompatActivity
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         AcLog.d(TAG, "[onConfigurationChanged] newConfig: " + newConfig.orientation);
+        /**
+         * 在多屏场景下，调用{@link VePhoneEngine#rotate(int)}方法只会旋转主屏的方向，
+         * 若想旋转副屏的方向，需要调用{@link MultiMediaStreamService#rotate(String, int)}。
+         */
         VePhoneEngine.getInstance().rotate(newConfig.orientation);
     }
 
     private void initView() {
-        mContainer = findViewById(R.id.container);
+        mMainContainer = findViewById(R.id.main_container);
+        mSecondaryContainer = findViewById(R.id.secondary_container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
         mEtStreamId = findViewById(R.id.et_stream_id);
@@ -184,11 +189,20 @@ public class MultiMediaStreamActivity extends AppCompatActivity
         mBtnSubscribeStream.setOnClickListener(v -> {
             if (mMultiMediaStreamService != null) {
                 if (mEtStreamId.getText() != null && !mEtStreamId.getText().toString().isEmpty()) {
-                    mMultiMediaStreamService.subscribeStream(mEtStreamId.getText().toString(),
-                            new VeDisplay.Builder()
-                                    .mainScreen(true)
-                                    .container(mContainer)
-                                    .build());
+                    if ("0-0".equals(mEtStreamId.getText().toString())) {
+                        mMultiMediaStreamService.subscribeStream(mEtStreamId.getText().toString(),
+                                new VeDisplay.Builder()
+                                        .mainScreen(true)
+                                        .container(mMainContainer)
+                                        .build());
+                    }
+                    else {
+                        mMultiMediaStreamService.subscribeStream(mEtStreamId.getText().toString(),
+                                new VeDisplay.Builder()
+                                        .mainScreen(false)
+                                        .container(mSecondaryContainer)
+                                        .build());
+                    }
                 }
                 else {
                     ToastUtils.showShort("请检查streamId是否为空");
@@ -360,17 +374,7 @@ public class MultiMediaStreamActivity extends AppCompatActivity
             if (mMultiMediaStreamService != null) {
                 if (mEtStreamId.getText() != null && !mEtStreamId.getText().toString().isEmpty()) {
                     mMultiMediaStreamService.sendMotionEvent(mEtStreamId.getText().toString(), MotionEvent.ACTION_DOWN, 0.5f, 0.9f);
-                    try {
-                        Thread.sleep(50);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
                     mMultiMediaStreamService.sendMotionEvent(mEtStreamId.getText().toString(), MotionEvent.ACTION_MOVE, 0.6f, 0.9f);
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
                     mMultiMediaStreamService.sendMotionEvent(mEtStreamId.getText().toString(), MotionEvent.ACTION_UP, 0.6f, 0.9f);
                 }
                 else {
@@ -546,11 +550,19 @@ public class MultiMediaStreamActivity extends AppCompatActivity
         String roundId = "roundId_123";
         String userId = "userId_" + System.currentTimeMillis();
 
+        /**
+         * VeDisplay指定了取流的屏幕参数，其包含多个配置，详见{@link VeDisplay.Builder}
+         */
         Map<String, VeDisplay> displayMap = new HashMap<>();
         displayMap.put("0-0", new VeDisplay.Builder()
-                .mainScreen(true)
+                .container(mMainContainer) // 指定当前屏幕渲染视图的容器，必填项
+                .mainScreen(true) // 指定当前屏幕是否为主屏，当有多个屏幕时只允许有一个主屏，非必填项
+                .videoStreamProfileId(16310) // 指定当前屏幕的清晰度档位，非必填项
+                .build());
+        displayMap.put("0-1", new VeDisplay.Builder()
+                .container(mSecondaryContainer)
+                .mainScreen(false)
                 .videoStreamProfileId(16310)
-                .container(mContainer)
                 .build());
 
         mBuilder = new PhonePlayConfig.Builder();
@@ -558,7 +570,7 @@ public class MultiMediaStreamActivity extends AppCompatActivity
                 .ak(ak)
                 .sk(sk)
                 .token(token)
-                .container(mContainer)
+                .container(mMainContainer)
                 .roundId(roundId)
                 .podId(podId)
                 .videoStreamProfileId(16310)
@@ -594,8 +606,8 @@ public class MultiMediaStreamActivity extends AppCompatActivity
     }
 
     @Override
-    public void onServiceInit() {
-        AcLog.d(TAG, "[onServiceInit]");
+    public void onServiceInit(@NonNull Map<String, Object> extras) {
+        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
         mMultiMediaStreamService = VePhoneEngine.getInstance().getMultiMediaStreamService();
         if (mMultiMediaStreamService != null) {
             /**
@@ -663,7 +675,7 @@ public class MultiMediaStreamActivity extends AppCompatActivity
                 }
 
                 /**
-                 * 当远端实例屏幕旋转时收到此回调
+                 * 当远端实例屏幕旋转时收到此回调，建议在该回调旋转副屏的方向
                  *
                  * @param streamId 音视频流ID
                  * @param rotation 0、180-竖屏；270、90-横屏
@@ -883,9 +895,12 @@ public class MultiMediaStreamActivity extends AppCompatActivity
         }
     }
 
+    /**
+     * 即将废弃，建议使用{@link IPlayerListener#onServiceInit(Map)}
+     */
     @Override
-    public void onServiceInit(@NonNull Map<String, Object> extras) {
-        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
+    public void onServiceInit() {
+        AcLog.d(TAG, "[onServiceInit]");
     }
 
     @Override
