@@ -1,45 +1,70 @@
-﻿# 云手机 Web SDK demo
-
-这个开源项目展示了火山引擎云手机 Web SDK 的以下功能：
+﻿# 云手机 WebSDK Quick Start
+本项目是火山引擎云手机 Web SDK 的 Quick Start Example，借助 Web SDK 实现了以下功能，方便用户快速接入云手机 Web SDK。
 
 1. 启动云手机和停止云手机
+2. 旋转屏幕
+3. 屏幕截图
+4. 屏幕录制
 
-方便用户快速接入云手机 Web SDK。
+> 注意：本项目中有较多链接会跳转到云手机火山引擎文档中心，如果跳转到火山引擎文档中心没有显示 SDK 下载链接或 SDK 接口文档，需要先使用已经开通云手机服务的账号登录火山引擎官网
+
+## 目录结构
+```js
+src
+├── config.js // 导出 Web SDK 需要的配置
+├── index.html // 页面布局
+├── lib // Web SDK 资源包所在的目录
+├── .env // Web SDK 启动需要的配置
+├── main.js // 主要的实现逻辑
+└── utils.js // 工具函数
+```
 
 ## 运行示例程序
+> 首先需要确保拥有 `node` 环境，如果没有，请前往 [nodejs 官网](https://nodejs.org/zh-cn/download)下载并安装 `nodejs`
 
-1. 将 Web SDK demo 代码下载到本地；
-2. 下载 Web SDK；解压后将其复制到 `lib` 文件夹下，并重命名为 `vePhoneSDK-Web.js`；
-3. 在 `config.js` 中补全以下配置信息：
+1. 下载项目到本地
+```bash
+git clone https://github.com/volcengine/vePhone.git
+```
 
-```js
+2. 进入 Web Quick Start 目录
+```bash
+cd vePhone/Quick Start/Web
+```
 
-// 实例化 vePhoneSDK 的参数
-const initConfig = {
-    userId: '',
-    accountId: '',
-    enableLocalKeyboard: true, // 是否开启本地键盘输入。前提：需要联系运营同学给云手机所在业务开启「拉起本地输入法配置」
-};
+3. 安装依赖
+```bash
+npm install
+```
 
-// 调用 vePhoneSDK.start 的参数
-// 以下只列出调用参数的必传参数，更多参数参考 Web SDK 的使用文档
-const startConfig = {
-  token: {
-    CurrentTime: '',
-    ExpiredTime: '',
-    SessionToken: '',
-    AccessKeyID: '',
-    SecretAccessKey: ''
-  },
-  productId: '',
-  roundId: 'vephone-demo-roundid',
-  rotation: 'portrait', // landscape：横屏应用启动; portrait：竖屏应用启动
-};
+4. 前往[云手机火山引擎文档中心](https://www.volcengine.com/docs/6394/75741)下载 Web/h5 SDK；解压后将其复制到 `src/lib` 文件夹下，并重命名为 `vePhoneSDK-Web.js`；
+
+5. 在 src 目录的`.env`文件，填写启动云手机需要的配置，配置如下：
+```bash
+# init config
+VEPHONE_ACCOUNT_ID="your accountId" # 火山引擎用户账号，可通过火山引擎官网页面右上角 用户 > 账号管理 > 主账号信息 获取
+
+# start config
+VEPHONE_PRODUCT_ID="your productId" # 云手机业务 ID，可通过火山引擎云手机控制台『业务管理』页面获取
+VEPHONE_POD_ID="your podId" # 实例 ID，可通过火山引擎云手机控制台『实例管理』页面获取
+
+# start token 启动云手机的令牌（通过调用服务端 STSToken 接口获取），有关服务端 STSToken 接口的详细信息，参考 [签发临时 Token](https://www.volcengine.com/docs/6394/75752)
+ # Token 创建时间
+VEPHONE_TOKEN_CURRENT_TIME=""
+ #Token 过期时间
+VEPHONE_TOKEN_EXPIRED_TIME=""
+# 用于鉴权的临时 Token
+VEPHONE_TOKEN_SESSION_TOKEN=""
+# 用于鉴权的临时 Access Key
+VEPHONE_TOKEN_ACCESS_KEY_ID=""
+# 用于鉴权的临时 Secret Key
+VEPHONE_TOKEN_SECRET_ACCESS_KEY=""
 
 ```
 
-3. 在浏览器中打开 `index.html` 文件；
-   
-4. 点击启动云手机（开始游戏）。
+6. 执行启动命令
+```bash
+npm run dev
+```
 
-
+7. 打开浏览器，访问 `localhost:8080` 即可
