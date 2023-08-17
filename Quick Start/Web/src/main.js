@@ -224,6 +224,16 @@ const handleStopSuccess = () => {
   hideDom(stopScreenRecordBtn);
 };
 
-// main
-const vePhoneInstance = init();
-bindEventListener(vePhoneInstance, handleStartSuccess, handleStopSuccess);
+
+
+(async () => {
+  // 在启动云手机之前，先检测用户的浏览器是否支持 rtc， 如果不支持，提示用户更换浏览器
+  const isSupportRtc = await window.vePhoneSDK.isRtcSupported();
+  if (!isSupportRtc) {
+    console.log('当前浏览器不支持 WebRTC，请更换浏览器');
+    return;
+  }
+  // main
+  const vePhoneInstance = init();
+  bindEventListener(vePhoneInstance, handleStartSuccess, handleStopSuccess);
+})();
