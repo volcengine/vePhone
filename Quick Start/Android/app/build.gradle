@@ -45,12 +45,15 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
     // 从Maven仓库获取sdk
-    implementation 'com.volcengine.vephone:vephone:1.17.0'
+    implementation 'com.volcengine.vephone:vephone:1.26.0'
     // 或者依赖离线包
-//    implementation file('libs/phone-release.aar')
+//    implementation files('libs/phone-lite-release.aar')
+
+    implementation 'com.volcengine.vegame:VeGameConsole:1.0.0-beta2'
 
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
+    implementation 'com.blankj:utilcodex:1.31.0'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'

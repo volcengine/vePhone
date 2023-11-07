@@ -1,0 +1,51 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.hidden {
+    display: none !important;
+}
+.action-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 42px;
+}
+.action-container > button:not(:last-child) {
+    margin-right: 4px;
+}
+
+#player {
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.pc-landscape {
+    height: 100vw;
+    max-height: calc(calc(100vh - 42px) / 1920 * 1080);
+    width: calc(100vh - 42px);
+}
+
+.pc-portrait {
+    width: 100vw;
+    max-width: calc(calc(100vh - 42px) / 1920 * 1080);
+    height: calc(100vh - 42px);
+}
+
+@media screen and (max-width: 980px) {
+    #player {
+        width: 100vw;
+        max-height: initial;
+        max-width: initial;
+        height: calc(100vw * 1920 / 1080);
+    }
+}
+
+@media screen and (min-width: 980px) {
+    #player {
+        border: 1px solid #DDE2E9;
+        box-shadow: 0px 50px 80px rgba(0, 0, 0, 0.12);
+        border-radius: 12px;
+    }
+}

@@ -13,7 +13,9 @@
     <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:name=".InitApplication"
@@ -24,8 +26,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SDKDemo">
+
+        <activity
+            android:name=".FeatureActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WebViewActivity"
+            android:exported="false" />
+
         <activity
             android:name=".PhoneActivity"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+
+        <!-- rotation设置为 PORTRAIT 模式时，activity的方向需要设置为portrait。 -->
+        <activity
+            android:name=".feature.RotationModeActivity"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".feature.MultiMediaStreamActivity"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
 
@@ -40,7 +62,7 @@
         <!-- 从火山控制台获取您的accountId输入即可，注意此为必填项 -->
         <meta-data
             android:name="VOLC_ACCOUNT_ID"
-            android:value="your_account_id" />
+            android:value="2100052949" />
     </application>
 
 </manifest>

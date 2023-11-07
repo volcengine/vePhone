@@ -1,34 +1,166 @@
 <resources>
-    <string name="app_name">SDKDemo</string>
-    <string name="restart">Restart</string>
-    <string name="stop">Stop</string>
-    <string name="start">StartGame</string>
-    <string name="pause">pause</string>
-    <string name="resume">resume</string>
+    <string name="app_name">火山引擎云手机</string>
     <string name="release">release</string>
-    <string name="mute">mute</string>
     <string name="ak">ak</string>
     <string name="sk">sk</string>
-    <string name="gameId">gameId</string>
     <string name="sessionId">sessionId</string>
     <string name="volumeup">volumeUp</string>
     <string name="volumedown">volumeDown</string>
-    <string name="roll_orientation">旋转</string>
     <string name="round_id">roundId</string>
     <string name="startPhone">startPhone</string>
-    <string name="game">云游戏</string>
-    <string name="phone">云手机</string>
     <string name="hide_or_show">点击隐藏/展示</string>
-    <string name="magnetic">Magnetic</string>
     <string name="acc">Acc</string>
-    <string name="gravity">Gravity</string>
-    <string name="vibrator">Vibrator</string>
     <string name="orientation_sensor">orientation_sensor</string>
-    <string name="gyroscope">gyroscope</string>
     <string name="sendTestMessage">sendTestMessage</string>
     <string name="send_message_not_ack">send message not ack</string>
-    <string name="back">back</string>
-    <string name="send_clipboard_data">发送剪贴板数据</string>
-    <string name="set_keep_alive_time">设置保活时间3分钟</string>
     <string name="instructions_for_use">这是一个示例代码，需要修改源码填入对应的ak，sk ，token， productId，编译后才能使用</string>
+
+    <string name="start_game">开始云游戏</string>
+    <string name="start_phone">开启云手机</string>
+    <string name="cloud_game">云游戏</string>
+    <string name="cloud_phone">云手机</string>
+    <string name="pod_id">podId</string>
+    <string name="product_id">productId</string>
+    <string name="session_id">sessionId</string>
+    <string name="clarity_id">clarityId</string>
+    <string name="reserved_id">reservedId</string>
+    <string name="back_again_to_exit">连按两次退出</string>
+
+    <!--  音频相关  -->
+    <string name="audio">音频</string>
+    <string name="mute">静音</string>
+    <string name="volume_up">音量+</string>
+    <string name="volume_down">音量-</string>
+    <string name="enable_send_audio">是否发送音频流</string>
+    <string name="start_send_audio">开始发送音频</string>
+    <string name="stop_send_audio">停止发送音频</string>
+    <string name="local_audio_playback_volume">本地音频播放音量</string>
+    <string name="remote_audio_playback_volume">云端音频播放音量</string>
+    <string name="local_audio_capture_volume">本地音频采集音量</string>
+    <string name="audio_playback_device">音频播放设备</string>
+    <string name="headset">有线耳机</string>
+    <string name="earpiece">听筒</string>
+    <string name="speakerphone">扬声器</string>
+    <string name="bluetooth_headset">蓝牙耳机</string>
+    <string name="audio_desc">在该演示中你可以体验与音频相关的功能接口</string>
+
+    <!--  相机相关  -->
+    <string name="camera">相机</string>
+    <string name="is_open_camera_mirror">是否开启相机镜像</string>
+    <string name="add_local_canvas">添加本地画布</string>
+    <string name="push_multiple_streams">推送多路流</string>
+    <string name="switch_rear_camera">切换后置相机</string>
+    <string name="switch_front_camera">切换前置相机</string>
+    <string name="camera_desc">在该演示中你可以体验与相机相关的功能接口</string>
+
+    <!--  清晰度相关  -->
+    <string name="clarity">清晰度</string>
+
+    <!--  剪切板相关  -->
+    <string name="clipboard">剪切板</string>
+    <string name="send_clipboard_data">发送剪切板模拟数据</string>
+    <string name="clipboard_desc">在该演示中你可以体验与剪切板相关的功能接口</string>
+
+    <!-- 文件通道相关 -->
+    <string name="file_channel">文件通道</string>
+    <string name="file_channel_desc">在该演示中你可以体验与文件通道相关的功能接口</string>
+
+    <!-- 大文件通道相关 -->
+    <string name="file_exchange">大文件通道</string>
+    <string name="input_filepath">请输入文件路径</string>
+    <string name="file_exchange_desc">在该演示中你可以体验与大文件通道相关的功能接口</string>
+
+    <!-- Ground相关 -->
+    <string name="ground">ground</string>
+
+    <!--定位服务相关-->
+    <string name="location">定位服务</string>
+    <string name="enable_location_service">是否开启定位服务</string>
+    <string name="location_event_listener">位置事件监听</string>
+    <string name="location_service_mode">定位服务模式</string>
+    <string name="auto">自动</string>
+    <string name="manual">手动</string>
+    <string name="request_remote_location">请求云端位置</string>
+    <string name="set_remote_location">设置云端位置</string>
+    <string name="longitude">经度</string>
+    <string name="latitude">纬度</string>
+    <string name="location_desc">在该演示中你可以体验与定位相关的功能接口</string>
+
+    <!--消息通道相关-->
+    <string name="message_channel">消息通道</string>
+    <string name="type_of_send_message">发送类型: </string>
+    <string name="content_of_message">发送内容(上限60K)</string>
+    <string name="dst_channel_uid">目标消息通道ID（使用,隔开）</string>
+    <string name="need_ack">是否需要ACK回执</string>
+    <string name="period_pressure_test">1秒压测轮询周期/ms</string>
+    <string name="timeout">超时时长/ms</string>
+    <string name="send_message">发送</string>
+    <string-array name="send_message_type">
+        <item>请选择发送消息类型</item>
+        <item>ACK</item>
+        <item>Timeout</item>
+        <item>ACK_MultiChannel</item>
+        <item>Timeout_MultiChannel</item>
+    </string-array>
+    <string name="message_channel_desc">在该演示中你可以体验与消息通道相关的功能接口</string>
+
+    <!--PadConsole相关-->
+    <string name="pad_console">游戏手柄</string>
+    <string name="init_game_pad">初始化手柄</string>
+    <string name="show_game_pad">显示手柄</string>
+    <string name="hide_game_pad">隐藏手柄</string>
+    <string name="release_game_pad">销毁手柄</string>
+    <string name="pad_console_desc">在该演示中你可以体验与游戏手柄相关的功能接口</string>
+
+    <!--Pod控制相关-->
+    <string name="pod_control">Pod控制</string>
+    <string name="hint_idle_time">保活时长/秒</string>
+    <string name="set_idle_time">设置保活时长</string>
+    <string name="hint_auto_recycle_time">无操作回收时长/秒</string>
+    <string name="set_auto_recycle_time">设置无操作回收时长</string>
+    <string name="get_auto_recycle_time">查询无操作回收时长</string>
+    <string name="set_keep_alive_time">设置Pod保活时间3min</string>
+    <string name="switch_background">开启前后台切换</string>
+    <string name="pod_control_desc">在该演示中你可以体验与Pod控制相关的功能接口</string>
+
+    <!--  旋转相关  -->
+    <string name="roll_orientation">旋转</string>
+    <string name="rotation_mode">旋转模式</string>
+    <string name="rotation_mode_desc">在该演示中你可以体验与旋转模式相关的功能接口</string>
+
+    <!--  多屏取流相关  -->
+    <string name="multi_media_stream">多屏取流</string>
+    <string name="multi_media_stream_desc">在该演示中你可以体验与多屏取流相关的功能接口</string>
+
+    <!--  传感器相关  -->
+    <string name="sensor">传感器</string>
+    <string name="magnetic">磁力传感器</string>
+    <string name="accelerator">加速度传感器</string>
+    <string name="gravity">重力传感器</string>
+    <string name="orientation">方向传感器</string>
+    <string name="gyroscope">陀螺仪</string>
+    <string name="vibrator">振动</string>
+    <string name="sensor_desc">在该演示中你可以体验与传感器相关的功能接口</string>
+
+    <!--  其他  -->
+    <string name="unclassified">其他</string>
+    <string name="restart">重启云游戏</string>
+    <string name="stop">关闭云游戏</string>
+    <string name="pause">暂停拉流</string>
+    <string name="resume">恢复拉流</string>
+    <string name="back">返回</string>
+    <string name="test_exception">异常测试</string>
+    <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
+
+    <!--  网络探测相关  -->
+    <string name="probe_network">网络探测</string>
+    <string name="probe_network_desc">在该演示中你可以体验与网络探测相关的功能接口</string>
+
+    <!--  本地输入相关  -->
+    <string name="local_input">本地输入</string>
+    <string name="local_input_desc">在该演示中你可以体验与本地输入相关的功能接口</string>
+
+
+    <string name="official_website">火山官网</string>
+    <string name="official_website_url">https://www.volcengine.com/docs/6394/75735</string>
 </resources>
