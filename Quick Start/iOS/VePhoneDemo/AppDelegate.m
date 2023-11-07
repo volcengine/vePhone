@@ -58,7 +58,7 @@
 
 - (void)configVePhone
 {
-    [VePhoneManager setupConfigWithAccountId: @""];
+    [[VePhoneManager sharedInstance] initWithAccountId:@"------AccountID------"];
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application

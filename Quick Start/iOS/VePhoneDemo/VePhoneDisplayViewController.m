@@ -60,7 +60,8 @@
     self.rotation = 0;
     [SVProgressHUD showWithStatus: @"正在启动..."];
     // 初始化云手机实例
-    [VePhoneManager sharedManagerWithContainerView: self.containerView delegate: self];
+    [VePhoneManager sharedInstance].containerView = self.containerView;
+    [VePhoneManager sharedInstance].delegate = self;
     // 相关开关
     [VePhoneManager sharedInstance].gyroEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingGyroEnabled];
     [VePhoneManager sharedInstance].vibratorEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingVibratorEnabled];
@@ -87,7 +88,7 @@
     VeBaseLocationInfo *location = [VeBaseLocationInfo new];
     location.latitude = [UserInfoManager sharedInstance].latitude;
     location.longitude = [UserInfoManager sharedInstance].longitude;
-    configObj.remoteLocationMock = location;
+//    configObj.remoteLocationMock = location;
     // 订阅类型
     [VePhoneManager sharedInstance].streamType = self.configObj.streamType;
     // 启动
@@ -712,16 +713,18 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         [SVProgressHUD dismiss];
         NSString *toast = @"";
-        if (errCode == ERROR_GAME_ABNORMAL_EXIT) {
-            toast = @"40000 游戏停止，原因：云端服务异常退出";
-        } else if (errCode == ERROR_GAME_CRASH) {
-            toast = @"40001 服务端游戏奔溃";
-        } else if (errCode == ERROR_GAME_STOPPED_IDLE) {
-            toast = @"40004 长期未操作，服务端自动断开游戏连接";
-        } else if (errCode == ERROR_GAME_STOPPED_API) {
-            toast = @"40006 服务端主动停止了游戏";
+        if (errCode == ERROR_REMOTE_ABNORMAL_EXIT) {
+            toast = @"40000 云端服务异常退出";
+        } else if (errCode == ERROR_REMOTE_CRASH) {
+            toast = @"40001 云端服务崩溃";
+        } else if (errCode == ERROR_STREAM_STOPPED_AUTO_RECYCLE) {
+            toast = @"40004 长期未操作，云端服务自动断开";
+        } else if (errCode == ERROR_REMOTE_STOPPED_API) {
+            toast = @"40006 服务端主动停止云端服务";
         } else if (errCode == ERROR_POD_STOPPED_BACKGROUND_TIMEOUT) {
-            toast = @"40008 后台超时";
+            toast = @"40008 云端服务后台超时";
+        } else if (errCode == ERROR_POD_EXIT_GENERAL) {
+            toast = @"40009 云端游戏退出";
         }
         if (toast.length > 0) {
             [self.view makeToast: toast
@@ -791,13 +794,15 @@
             toast = @"10009 鉴权 Token 过期";
         } else if (errCode == ERROR_START_CONNECTION_ENDED) {
             toast = @"10011 启动云手机失败，原因：在调用start接口后，start成功回调触发前，游戏被停止";
+        } else if (errCode == ERROR_START_INVALID_LOCAL_TIME) {
+            toast = @"10027 本地时间导致token过期";
         } else if (errCode == ERROR_START_PRODUCT_NOT_EXIST) {
             toast = @"11001 业务不存在";
         } else if (errCode == ERROR_START_APPLICATION_NOT_EXIST) {
             toast = @"11002 应用不存在";
-        } else if (errCode == ERROR_START_POD_NOT_EXIST) {
-            toast = @"11003 请求套餐错误";
         } else if (errCode == ERROR_START_PHONE_CONFIGURATION_CODE_NOT_EXIST) {
+            toast = @"11003 请求套餐错误";
+        } else if (errCode == ERROR_START_POD_NOT_EXIST) {
             toast = @"11004 实例不存在";
         } else if (errCode == ERROR_REQUEST_PARAMETER_BINDING_ERROR) {
             toast = @"11005 请求参数错误";
@@ -817,12 +822,18 @@
             toast = @"11012 设备离线";
         } else if (errCode == ERROR_UNIVERSAL_STARTUP_FAILED) {
             toast = @"11013 通用启动失败（云原生）";
-        } else if (errCode == ERROR_INTERNAL_SDK_CALL_FAILED) {
-            toast = @"11017 服务内部错误";
-        } else if (errCode == ERROR_INTERNAL_SDK_IS_NOT_ENABLED) {
-            toast = @"11018 服务内部错误";
+        } else if (errCode == ERROR_INTERNAL_POD_START_FAILED) {
+            toast = @"11014 Pod 启动失败";
+        } else if (errCode == ERROR_INTERNAL_POD_MUTE_FAILED) {
+            toast = @"11015 启动内部错误";
+        } else if (errCode == ERROR_INTERNAL_CONFIG_FAILED) {
+            toast = @"11016 启动内部错误";
         } else if (errCode == ERROR_ACCOUNTID_MISMATCH) {
             toast = @"11019 火山账号不匹配";
+        } else if (errCode == ERROR_POD_NOT_READY) {
+            toast = @"11014 Pod 未就绪";
+        } else if (errCode == ERROR_DOWN_STREAM_UNKNOWN_ERROR) {
+            toast = @"11021 服务下游未知错误";
         } else if (errCode == ERROR_STREAM_GENERAL) {
             toast = @"20000 游戏串流连接错误";
         } else if (errCode == ERROR_STREAM_CHANGE_CLARITY_ID_NOT_IN_START_STATE) {
@@ -837,8 +848,6 @@
             toast = @"30008 画布尺寸无效";
         } else if (errCode == ERROR_INIT_ACCOUNT_ID_ILLEGAL) {
             toast = @"30009 火山账户ID非法";
-        } else if (errCode == ERROR_GAME_STOPPED_DUPLICATE_START) {
-            toast = @"40007 游戏停止，原因：在不同设备上，前后使用了相同参数，前一个Start请求会返回此错误码";
         } else if (errCode == ERROR_NET_REQUEST_ERROR) {
             toast = @"60001 网络请求失败";
         } else if (errCode == ERROR_HTTP_REQUEST_ERROR) {
@@ -1045,8 +1054,8 @@
         [self presentViewController:imagePicker animated:YES completion:nil];
     } else if (btn.tag == 122) {
         VeFile *file = [VeFile new];
-        file.name = @"1.mp4";
-        file.path = @"/sdcard/Download/";
+        file.name = @"1.png";
+        file.podFilePath = @"/sdcard/Download/";
         [[VePhoneManager sharedInstance] startPullFile:file onStart:^(VeFile *file) {
             NSLog(@"拉取文件开始-------%@\n", file);
         } onProgress:^(VeFile *file, NSInteger progress) {
