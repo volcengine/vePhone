@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="21507" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="22155" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21505"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22131"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -11,6 +11,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="VePhoneViewController">
             <connections>
                 <outlet property="akTextField" destination="Df8-V9-mMR" id="8Qd-9t-IzO"/>
+                <outlet property="podIdTextField" destination="Ym0-3a-SBS" id="UjL-Mj-8Ps"/>
                 <outlet property="productIdTextField" destination="vak-Dn-dqO" id="wQS-uA-XP6"/>
                 <outlet property="rotationTextField" destination="mlv-C7-yx1" id="zt5-rr-NTm"/>
                 <outlet property="skTextField" destination="d30-I0-6w8" id="H0b-YS-kCD"/>
@@ -136,11 +137,26 @@
                     <color key="textColor" white="0.66666666669999997" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <nil key="highlightedColor"/>
                 </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="PodId" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="w9U-I9-deo">
+                    <rect key="frame" x="15" y="436" width="40" height="18"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="请输入PodId" textAlignment="natural" minimumFontSize="17" clearButtonMode="whileEditing" translatesAutoresizingMaskIntoConstraints="NO" id="Ym0-3a-SBS">
+                    <rect key="frame" x="100" y="423" width="304" height="44"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="44" id="FHf-vS-LnD"/>
+                    </constraints>
+                    <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                    <textInputTraits key="textInputTraits" keyboardType="decimalPad"/>
+                </textField>
             </subviews>
             <viewLayoutGuide key="safeArea" id="GnK-XL-v4V"/>
             <color key="backgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.94901960780000005" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
             <constraints>
                 <constraint firstItem="8dX-0Z-Tci" firstAttribute="top" secondItem="Aj4-5V-Rvh" secondAttribute="bottom" constant="40" id="0yq-Cf-xyP"/>
+                <constraint firstItem="Ym0-3a-SBS" firstAttribute="centerY" secondItem="w9U-I9-deo" secondAttribute="centerY" id="69n-gq-YCo"/>
                 <constraint firstItem="zDY-W1-dIG" firstAttribute="leading" secondItem="WEI-yY-vpR" secondAttribute="leading" id="7oo-zM-yJV"/>
                 <constraint firstItem="GnK-XL-v4V" firstAttribute="bottom" secondItem="qCl-Y5-LVg" secondAttribute="bottom" constant="25" id="8m4-kv-c6V"/>
                 <constraint firstItem="fyV-54-uoA" firstAttribute="leading" secondItem="GnK-XL-v4V" secondAttribute="leading" constant="20" id="8rk-p5-o1t"/>
@@ -161,14 +177,18 @@
                 <constraint firstItem="GnK-XL-v4V" firstAttribute="trailing" secondItem="vak-Dn-dqO" secondAttribute="trailing" constant="10" id="Z0n-ik-yJy"/>
                 <constraint firstItem="zDY-W1-dIG" firstAttribute="top" secondItem="WEI-yY-vpR" secondAttribute="bottom" constant="40" id="Zgj-Zd-Q9D"/>
                 <constraint firstItem="hxd-MC-tNx" firstAttribute="top" secondItem="8dX-0Z-Tci" secondAttribute="bottom" constant="40" id="avZ-cy-02t"/>
+                <constraint firstItem="w9U-I9-deo" firstAttribute="top" secondItem="zDY-W1-dIG" secondAttribute="bottom" constant="40" id="cI0-Up-J1f"/>
                 <constraint firstItem="gaB-XX-jgx" firstAttribute="leading" secondItem="WEI-yY-vpR" secondAttribute="leading" id="crd-HL-3s7"/>
                 <constraint firstItem="mlv-C7-yx1" firstAttribute="leading" secondItem="vak-Dn-dqO" secondAttribute="leading" id="eBf-Se-iKv"/>
+                <constraint firstItem="w9U-I9-deo" firstAttribute="leading" secondItem="zDY-W1-dIG" secondAttribute="leading" id="eqa-EF-z7p"/>
                 <constraint firstItem="d30-I0-6w8" firstAttribute="leading" secondItem="Df8-V9-mMR" secondAttribute="leading" id="iBJ-GE-htK"/>
                 <constraint firstItem="LG7-MZ-mFC" firstAttribute="trailing" secondItem="d30-I0-6w8" secondAttribute="trailing" id="iTb-9k-ZZR"/>
                 <constraint firstItem="vak-Dn-dqO" firstAttribute="leading" secondItem="50w-gM-mVW" secondAttribute="leading" id="ipi-Or-O6P"/>
+                <constraint firstItem="Ym0-3a-SBS" firstAttribute="leading" secondItem="mlv-C7-yx1" secondAttribute="leading" id="lGc-bR-wrt"/>
                 <constraint firstItem="WEI-yY-vpR" firstAttribute="top" secondItem="hxd-MC-tNx" secondAttribute="bottom" constant="40" id="le0-a4-gCN"/>
                 <constraint firstItem="gaB-XX-jgx" firstAttribute="top" secondItem="GnK-XL-v4V" secondAttribute="top" constant="40" id="lid-6K-fSW"/>
                 <constraint firstItem="WEI-yY-vpR" firstAttribute="leading" secondItem="GnK-XL-v4V" secondAttribute="leading" constant="15" id="mhx-Xc-W47"/>
+                <constraint firstItem="Ym0-3a-SBS" firstAttribute="trailing" secondItem="mlv-C7-yx1" secondAttribute="trailing" id="p0t-rg-izv"/>
                 <constraint firstItem="vak-Dn-dqO" firstAttribute="centerY" secondItem="WEI-yY-vpR" secondAttribute="centerY" id="seT-qc-Boy"/>
                 <constraint firstItem="Df8-V9-mMR" firstAttribute="trailing" secondItem="vak-Dn-dqO" secondAttribute="trailing" id="wlV-s4-CUc"/>
                 <constraint firstItem="GnK-XL-v4V" firstAttribute="trailing" secondItem="fyV-54-uoA" secondAttribute="trailing" constant="20" id="wt3-m3-WBj"/>

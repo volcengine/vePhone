@@ -21,6 +21,7 @@
 @property (weak, nonatomic) IBOutlet UITextField *userIdTextField;
 @property (weak, nonatomic) IBOutlet UITextField *productIdTextField;
 @property (weak, nonatomic) IBOutlet UITextField *rotationTextField;
+@property (weak, nonatomic) IBOutlet UITextField *podIdTextField;
 
 @end
 
@@ -32,13 +33,7 @@
 
     self.navigationItem.title = @"云手机演示";
     
-    self.akTextField.text = @"===================ak==================";
-    self.skTextField.text = @"===================sk==================";
-    self.tokenTextField.text = @"===================token==================";
-    
     self.rotationTextField.text = @"0";
-    self.userIdTextField.text = @"";
-    self.productIdTextField.text = @"";
     // 版本号
     self.versionLabel.text = [NSString stringWithFormat: @"VePhoneSDK版本: V%@\nDeviceId: %@", [VePhoneManager currentVersion], [VePhoneManager currentDeviceId]];
 }
@@ -79,7 +74,7 @@
     configObj.ak = self.akTextField.text;
     configObj.sk = self.skTextField.text;
     configObj.token = self.tokenTextField.text;
-//    configObj.podId = self.podIdTextField.text;
+    configObj.podId = self.podIdTextField.text;
     configObj.userId = self.userIdTextField.text;
     configObj.productId = self.productIdTextField.text;
     phoneDisplayVc.configObj = configObj;

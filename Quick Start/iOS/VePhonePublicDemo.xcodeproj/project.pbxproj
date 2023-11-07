@@ -19,6 +19,10 @@
 		2B9EDDCC29DFEA4A00492221 /* UserInfoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */; };
 		2B9EDDCF29DFEA6600492221 /* VeCloudPhonePreview.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */; };
 		2B9EDDD229DFEAE300492221 /* CustomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDD029DFEAE300492221 /* CustomViewController.m */; };
+		2BB405E42AF9E918003FF073 /* VePhone.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB405E22AF9E918003FF073 /* VePhone.framework */; };
+		2BB405E52AF9EA9C003FF073 /* VolcEngineRTC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */; };
+		2BB405E72AF9EB30003FF073 /* VePhone.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2BB405E22AF9E918003FF073 /* VePhone.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		2BB405E82AF9EB30003FF073 /* VolcEngineRTC.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */; };
 		C83BF0051E1234250016E53D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0041E1234250016E53D /* main.m */; };
 		C83BF0081E1234250016E53D /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0071E1234250016E53D /* AppDelegate.m */; };
@@ -35,6 +39,17 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2BB405E62AF9EB21003FF073 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				2BB405E72AF9EB30003FF073 /* VePhone.framework in CopyFiles */,
+				2BB405E82AF9EB30003FF073 /* VolcEngineRTC.framework in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -66,6 +81,8 @@
 		2B9EDDD029DFEAE300492221 /* CustomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CustomViewController.m; sourceTree = "<group>"; };
 		2B9EDDD129DFEAE300492221 /* CustomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CustomViewController.h; sourceTree = "<group>"; };
 		2B9EDDD329DFEAFB00492221 /* Define.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Define.h; sourceTree = "<group>"; };
+		2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = VolcEngineRTC.framework; sourceTree = "<group>"; };
+		2BB405E22AF9E918003FF073 /* VePhone.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = VePhone.framework; sourceTree = "<group>"; };
 		2BDE095E29ADE84E00874209 /* libMasonry.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libMasonry.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = "libPods-VePhonePublicDemo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5AC2CB67B6DAD858109A17C3 /* Pods-VePhonePublicDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VePhonePublicDemo.release.xcconfig"; path = "Pods/Target Support Files/Pods-VePhonePublicDemo/Pods-VePhonePublicDemo.release.xcconfig"; sourceTree = "<group>"; };
@@ -86,7 +103,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2BB405E52AF9EA9C003FF073 /* VolcEngineRTC.framework in Frameworks */,
 				2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */,
+				2BB405E42AF9E918003FF073 /* VePhone.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +115,8 @@
 		2B0C8D6D26E0B38400753D2A /* VePhoneSDK */ = {
 			isa = PBXGroup;
 			children = (
+				2BB405E22AF9E918003FF073 /* VePhone.framework */,
+				2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */,
 			);
 			path = VePhoneSDK;
 			sourceTree = "<group>";
@@ -198,6 +219,7 @@
 				C83BEFFE1E1234250016E53D /* Resources */,
 				2B12E4FC25EE6ADC00DE21A3 /* Embed Frameworks */,
 				39431702E3052C0FF01670FB /* [CP] Copy Pods Resources */,
+				2BB405E62AF9EB21003FF073 /* CopyFiles */,
 			);
 			buildRules = (
 			);
