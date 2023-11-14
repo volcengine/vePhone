@@ -35,7 +35,6 @@ import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
-import com.example.sdkdemo.feature.PodControlServiceView;
 import com.example.sdkdemo.feature.SensorView;
 import com.example.sdkdemo.feature.UnclassifiedView;
 import com.example.sdkdemo.util.AssetsUtil;
@@ -287,13 +286,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                     new LocationServiceView(this, vePhoneEngine.getLocationService(), btnLocation);
                 } else {
                     AcLog.d(TAG, "LocationService is null!");
-                }
-                break;
-            case FEATURE_POD_CONTROL: // Pod控制
-                if (vePhoneEngine.getPodControlService() != null) {
-                    new PodControlServiceView(this, vePhoneEngine.getPodControlService(), btnPodControl);
-                } else {
-                    AcLog.d(TAG, "PodControlService is null!");
                 }
                 break;
             case FEATURE_SENSOR: // 传感器

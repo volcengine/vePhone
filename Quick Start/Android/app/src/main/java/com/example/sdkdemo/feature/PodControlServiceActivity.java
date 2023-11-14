@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -21,8 +20,7 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
-import com.volcengine.cloudphone.apiservice.StreamProfileChangeCallBack;
-import com.volcengine.cloudphone.apiservice.StreamProfileManager;
+import com.volcengine.cloudphone.apiservice.PodControlService;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -31,31 +29,29 @@ import com.volcengine.phone.VePhoneEngine;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-/**
- * 该类用于展示与清晰度{@link StreamProfileManager}相关的功能接口
- */
-public class ClarityServiceActivity extends BasePlayActivity
+public class PodControlServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = "ClarityServiceActivity";
+    private final String TAG = "PodControlServiceActivity";
 
     private FrameLayout mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private StreamProfileManager mClarityService;
+    private PodControlService mPodControlService;
     private SwitchCompat mSwShowOrHide;
+    private Button mBtnSwitchBackground, mBtnSwitchForeground, mBtnSetIdleTime,
+            mBtnGetAutoRecycleTime, mBtnSetAutoRecycleTime;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnSend, mBtnGet;
-    EditText mEtClarityId;
-
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_clarity);
+        setContentView(R.layout.activity_pod_control);
         initView();
         initPhonePlayConfig();
     }
@@ -64,26 +60,84 @@ public class ClarityServiceActivity extends BasePlayActivity
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mEtClarityId = findViewById(R.id.et_clarity_id);
-        mBtnSend = findViewById(R.id.btn_send);
-        mBtnGet = findViewById(R.id.btn_get_profile);
+        mBtnSwitchBackground = findViewById(R.id.btn_switch_background);
+        mBtnSwitchForeground = findViewById(R.id.btn_switch_foreground);
+        mBtnSetIdleTime = findViewById(R.id.btn_set_idle_time);
+        mBtnGetAutoRecycleTime = findViewById(R.id.btn_get_auto_recycle_time);
+        mBtnSetAutoRecycleTime = findViewById(R.id.btn_set_auto_recycle_time);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        mBtnSend.setOnClickListener(view -> {
-            int clarityId = Integer.parseInt(mEtClarityId.getText().toString());
-            if (mClarityService != null) {
-                mClarityService.switchVideoStreamProfileId(clarityId);
+        /**
+         * switchBackground(boolean on) -- 设置客户端应用切换前后台的状态
+         *
+         * @param on true -- 切后台
+         *           false -- 切前台
+         */
+        mBtnSwitchBackground.setOnClickListener(view -> {
+            if (mPodControlService != null) {
+                mPodControlService.switchBackground(true);
+            }
+        });
+        mBtnSwitchForeground.setOnClickListener(view -> {
+            if (mPodControlService != null) {
+                mPodControlService.switchBackground(false);
             }
         });
 
-        mBtnGet.setOnClickListener(view -> {
-            if (mClarityService != null) {
-                Toast.makeText(this, mClarityService.getCurrentVideoStreamProfile().toString(), Toast.LENGTH_SHORT).show();
+        /**
+         * setIdleTime(long time) -- 设置客户端切后台之后，云端实例的保活时间
+         *
+         * @param time 保活时长，单位秒
+         */
+        mBtnSetIdleTime.setOnClickListener(v -> {
+            if (mPodControlService != null) {
+                int idleTime = 10;
+                mPodControlService.setIdleTime(idleTime);
             }
         });
+
+        /**
+         * setAutoRecycleTime(int time, SetAutoRecycleTimeCallback callback) -- 设置无操作回收服务时长
+         *
+         * @param time 无操作回收服务时长，单位秒
+         * @param callback 设置无操作回收服务时长的回调
+         * @return 0 -- 正常返回
+         *        -1 -- 内部错误
+         *        -2 -- time参数小于0
+         */
+        mBtnSetAutoRecycleTime.setOnClickListener(v -> {
+            if (mPodControlService != null) {
+                int autoRecycleTime = 20;
+                mPodControlService.setAutoRecycleTime(autoRecycleTime, new PodControlService.SetAutoRecycleTimeCallback() {
+                    @Override
+                    public void onResult(int result, long time) {
+                        showToast("[setAutoRecycleTimeResult] result: " + result + ", time: " + time);
+                    }
+                });
+            }
+        });
+
+        /**
+         * getAutoRecycleTime(GetAutoRecycleTimeCallback callback) -- 查询无操作回收服务时长
+         *
+         * @param callback 查询无操作回收服务时长的回调
+         * @return 0 -- 正常返回
+         *        -1 -- 内部错误
+         */
+        mBtnGetAutoRecycleTime.setOnClickListener(v -> {
+            if (mPodControlService != null) {
+                mPodControlService.getAutoRecycleTime(new PodControlService.GetAutoRecycleTimeCallback() {
+                    @Override
+                    public void onResult(int result, long time) {
+                        showToast("[getAutoRecycleTimeResult] result: " + result + ", time: " + time);
+                    }
+                });
+            }
+        });
+
     }
 
     private void initPhonePlayConfig() {
@@ -174,7 +228,7 @@ public class ClarityServiceActivity extends BasePlayActivity
      */
     @Override
     public void onPlaySuccess(String roundId, int clarityId) {
-        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId);
+        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId + " clarityId " + clarityId);
     }
 
     /**
@@ -230,23 +284,28 @@ public class ClarityServiceActivity extends BasePlayActivity
      * 加入房间前回调，用于获取并初始化各个功能服务，例如设置各种事件监听回调。
      */
     @Override
-    public void onServiceInit(@NonNull Map<String, Object> map) {
+    public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit]");
-        mClarityService = VePhoneEngine.getInstance().getClarityService();
-        if (mClarityService != null) {
-            mClarityService.setStreamProfileChangeListener(new StreamProfileChangeCallBack() {
+        mPodControlService = VePhoneEngine.getInstance().getPodControlService();
+        if (mPodControlService != null) {
+            /**
+             * setBackgroundSwitchListener(BackgroundSwitchListener listener) -- 设置云端应用切换前后台监听器
+             */
+            mPodControlService.setBackgroundSwitchListener(new PodControlService.BackgroundSwitchListener() {
+                /**
+                 * 云端应用切换前后台的回调
+                 *
+                 * @param on true -- 切换到后台
+                 *          false -- 切换到前台
+                 */
                 @Override
-                public void onVideoStreamProfileChange(boolean success, int from, int to) {
-                    AcLog.d(TAG, "[onVideoStreamProfileChange] success: " + success + ", from: " + from + ", to: " + to);
-                    Toast.makeText(ClarityServiceActivity.this, "success: " + success + ", from: " + from + ", to: " + to, Toast.LENGTH_SHORT).show();
-                }
-
-                @Override
-                public void onError(int errorCode, String errorMessage) {
-                    AcLog.d(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
+                public void onBackgroundSwitched(boolean on) {
+                    AcLog.d(TAG, "[onBackgroundSwitched] isBackground: " + on);
+                    showToast("[onBackgroundSwitched] isBackground: " + on);
                 }
             });
         }
+
     }
 
     /**
@@ -346,7 +405,7 @@ public class ClarityServiceActivity extends BasePlayActivity
      * 远端实例通过该回调向客户端发送视频流的方向(横屏或竖屏)，为保证视频流方向与Activity方向一致，
      * 需要在该回调中根据rotation参数，调用 {@link BasePlayActivity#setRotation(int)} 来调整Activity的方向，
      * 0/180需将Activity调整为竖屏，90/270则将Activity调整为横屏；
-     * 同时，需要在 {@link ClarityServiceActivity#onConfigurationChanged(Configuration)} 回调中，
+     * 同时，需要在 {@link MessageChannelActivity#onConfigurationChanged(Configuration)} 回调中，
      * 根据当前Activity的方向，调用 {@link VePhoneEngine#rotate(int)} 来调整视频流的方向。
      *
      * @param rotation 旋转方向
