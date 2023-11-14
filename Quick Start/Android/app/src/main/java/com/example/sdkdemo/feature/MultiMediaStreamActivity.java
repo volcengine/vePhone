@@ -529,24 +529,33 @@ public class MultiMediaStreamActivity extends AppCompatActivity
 
     private void initPhonePlayConfig() {
         /**
-         * 这里需要替换成你的 ak/sk/token
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         * ak/sk/token用于用户鉴权，需要从火山官网上获取，具体步骤详见README[鉴权相关]。
+         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+         *
+         * ak/sk/token/podId的值从assets目录下的sts.json文件中读取，该目录及文件需要自行创建。
+         * sts.json的格式形如
+         * {
+         *     "podId": "your_pod_id",
+         *     "productId": "your_product_id",
+         *     "ak": "your_ak",
+         *     "sk": "your_sk",
+         *     "token": "your_token"
+         * }
          */
-        String ak = "", sk = "", token = "";
+        String ak = "", sk = "", token = "", podId = "", productId = "";  // 这里需要替换成你的 ak/sk/token/podId/productId
         String sts = AssetsUtil.getTextFromAssets(this.getApplicationContext(), "sts.json");
         try {
             JSONObject stsJObj = new JSONObject(sts);
             ak = stsJObj.getString("ak");
             sk = stsJObj.getString("sk");
             token = stsJObj.getString("token");
+            podId = stsJObj.getString("podId");
+            productId = stsJObj.getString("productId");
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
-        /**
-         * 这里需要替换成你的 podId和productId
-         */
-        String podId = "7257048056544221996";
-        String productId = "1677237029647159296";
         String roundId = "roundId_123";
         String userId = "userId_" + System.currentTimeMillis();
 

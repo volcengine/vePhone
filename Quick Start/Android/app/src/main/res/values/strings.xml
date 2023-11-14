@@ -81,7 +81,7 @@
     <string name="set_remote_location">设置云端位置</string>
     <string name="longitude">经度</string>
     <string name="latitude">纬度</string>
-    <string name="location_desc">在该演示中你可以体验与定位相关的功能接口</string>
+    <string name="location_desc">在该演示中你可以体验与定位服务相关的功能接口</string>
 
     <!--消息通道相关-->
     <string name="message_channel">消息通道</string>
@@ -115,7 +115,7 @@
     <string name="set_keep_alive_time">设置实例保活时间3min</string>
     <string name="switch_background">切后台</string>
     <string name="switch_foreground">切前台</string>
-    <string name="pod_control_desc">在该演示中你可以体验与Pod控制相关的功能接口</string>
+    <string name="pod_control_desc">在该演示中你可以体验与实例控制相关的功能接口</string>
 
     <!--  旋转相关  -->
     <string name="roll_orientation">旋转</string>
