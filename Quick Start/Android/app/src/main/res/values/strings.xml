@@ -55,15 +55,12 @@
 
     <!--  清晰度相关  -->
     <string name="clarity">清晰度</string>
+    <string name="clarity_desc">在该演示中你可以体验与清晰度相关的功能接口</string>
 
     <!--  剪切板相关  -->
     <string name="clipboard">剪切板</string>
     <string name="send_clipboard_data">发送剪切板模拟数据</string>
     <string name="clipboard_desc">在该演示中你可以体验与剪切板相关的功能接口</string>
-
-    <!-- 文件通道相关 -->
-    <string name="file_channel">文件通道</string>
-    <string name="file_channel_desc">在该演示中你可以体验与文件通道相关的功能接口</string>
 
     <!-- 大文件通道相关 -->
     <string name="file_exchange">大文件通道</string>
@@ -104,22 +101,14 @@
     </string-array>
     <string name="message_channel_desc">在该演示中你可以体验与消息通道相关的功能接口</string>
 
-    <!--PadConsole相关-->
-    <string name="pad_console">游戏手柄</string>
-    <string name="init_game_pad">初始化手柄</string>
-    <string name="show_game_pad">显示手柄</string>
-    <string name="hide_game_pad">隐藏手柄</string>
-    <string name="release_game_pad">销毁手柄</string>
-    <string name="pad_console_desc">在该演示中你可以体验与游戏手柄相关的功能接口</string>
-
-    <!--Pod控制相关-->
-    <string name="pod_control">Pod控制</string>
+    <!--实例控制相关-->
+    <string name="pod_control">实例控制</string>
     <string name="hint_idle_time">保活时长/秒</string>
     <string name="set_idle_time">设置保活时长</string>
     <string name="hint_auto_recycle_time">无操作回收时长/秒</string>
     <string name="set_auto_recycle_time">设置无操作回收时长</string>
     <string name="get_auto_recycle_time">查询无操作回收时长</string>
-    <string name="set_keep_alive_time">设置Pod保活时间3min</string>
+    <string name="set_keep_alive_time">设置实例保活时间3min</string>
     <string name="switch_background">开启前后台切换</string>
     <string name="pod_control_desc">在该演示中你可以体验与Pod控制相关的功能接口</string>
 
@@ -151,10 +140,6 @@
     <string name="back">返回</string>
     <string name="test_exception">异常测试</string>
     <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
-
-    <!--  网络探测相关  -->
-    <string name="probe_network">网络探测</string>
-    <string name="probe_network_desc">在该演示中你可以体验与网络探测相关的功能接口</string>
 
     <!--  本地输入相关  -->
     <string name="local_input">本地输入</string>

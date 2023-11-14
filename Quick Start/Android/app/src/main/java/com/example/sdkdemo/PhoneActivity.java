@@ -34,13 +34,11 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.CameraManagerView;
-import com.example.sdkdemo.feature.ClarityServiceView;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
 import com.example.sdkdemo.feature.MessageChannelView;
-import com.example.sdkdemo.feature.PadConsoleManagerView;
 import com.example.sdkdemo.feature.PodControlServiceView;
 import com.example.sdkdemo.feature.SensorView;
 import com.example.sdkdemo.feature.UnclassifiedView;
@@ -75,9 +73,9 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     DialogUtils.DialogWrapper mDialogWrapper;
     private PhonePlayConfig mPhonePlayConfig;
 
-    private Button btnAudio, btnCamera, btnClarity, btnClipBoard, btnFileChannel, btnLocation;
+    private Button btnAudio, btnCamera, btnClarity, btnClipBoard, btnLocation;
     private Button btnMessageChannel, btnPodControl, btnRotation, btnSensor, btnUnclassified;
-    private Button btnLocalInput, btnPadConsole, btnFileExchange, btnGround;
+    private Button btnLocalInput, btnFileExchange, btnGround;
     private TextView tvInfo;
     private boolean isLand = false;
     private boolean isShowInfo = false;
@@ -224,13 +222,11 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
         btnCamera = findViewById(R.id.btn_camera);
         btnClarity = findViewById(R.id.btn_clarity);
         btnClipBoard = findViewById(R.id.btn_clipboard);
-        btnFileChannel = findViewById(R.id.btn_file_channel);
         btnFileExchange = findViewById(R.id.btn_file_exchange);
         btnGround = findViewById(R.id.btn_ground);
         btnLocation = findViewById(R.id.btn_location);
         btnMessageChannel = findViewById(R.id.btn_message_channel);
         btnPodControl = findViewById(R.id.btn_pod_control);
-        btnPadConsole = findViewById(R.id.btn_pad_console);
         btnRotation = findViewById(R.id.btn_orientation);
         btnSensor = findViewById(R.id.btn_sensor);
         btnUnclassified = findViewById(R.id.btn_unclassified);
@@ -245,12 +241,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
             mIsHideButtons = !mIsHideButtons;
             mContainers.setVisibility(mIsHideButtons ? View.GONE : View.VISIBLE);
         });
-
-        if (vePhoneEngine.getClarityService() != null) {
-            new ClarityServiceView(this, vePhoneEngine.getClarityService(), btnClarity);
-        } else {
-            AcLog.d(TAG, "ClarityService is null!");
-        }
 
         btnRotation.setOnClickListener(view -> {
             if (isLand) {
@@ -315,13 +305,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                     new MessageChannelView(this, vePhoneEngine.getMessageChannel(), btnMessageChannel);
                 } else {
                     AcLog.d(TAG, "MessageChannel is null!");
-                }
-                break;
-            case FEATURE_PAD_CONSOLE: // 游戏手柄
-                if (vePhoneEngine.getGamePadService() != null) {
-                    new PadConsoleManagerView(this, vePhoneEngine.getGamePadService(), btnPadConsole);
-                } else {
-                    AcLog.d(TAG, "GamePadService is null!");
                 }
                 break;
             case FEATURE_POD_CONTROL: // Pod控制

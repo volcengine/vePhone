@@ -97,9 +97,6 @@ class FeatureActivity : BaseSampleActivity() {
             Feature.FEATURE_MESSAGE_CHANNEL -> {
                 return R.string.message_channel
             }
-            Feature.FEATURE_PAD_CONSOLE -> {
-                return R.string.pad_console
-            }
             Feature.FEATURE_POD_CONTROL -> {
                 return R.string.pod_control
             }

@@ -82,13 +82,6 @@
                     android:text="@string/clipboard" />
 
                 <Button
-                    android:id="@+id/btn_file_channel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:visibility="gone"
-                    android:text="@string/file_channel" />
-
-                <Button
                     android:id="@+id/btn_file_exchange"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -117,13 +110,6 @@
                     android:text="@string/message_channel" />
 
                 <Button
-                    android:id="@+id/btn_pad_console"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:visibility="gone"
-                    android:text="@string/pad_console" />
-
-                <Button
                     android:id="@+id/btn_pod_control"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -143,13 +129,6 @@
                     android:layout_height="wrap_content"
                     android:visibility="gone"
                     android:text="@string/unclassified" />
-
-                <Button
-                    android:id="@+id/btn_probe_network"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:visibility="gone"
-                    android:text="@string/probe_network" />
 
                 <Button
                     android:id="@+id/btn_local_input"
