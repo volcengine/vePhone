@@ -131,8 +131,10 @@ android {
 #### 一、初始化 VePhoneEngine
 
 ```java
-VePhoneEngine.getInstance().init();
+VePhoneEngine.getInstance().prepare();
 ```
+
+注：VePhone SDK版本在1.28.0之后，init()方法会废弃，请使用prepare()方法进行VePhoneEngine的初始化。
 
 #### 二、配置 PhonePlayConfig
 

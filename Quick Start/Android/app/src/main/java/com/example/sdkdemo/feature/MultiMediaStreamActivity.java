@@ -900,7 +900,7 @@ public class MultiMediaStreamActivity extends AppCompatActivity
      */
     @Override
     public void onServiceInit() {
-        AcLog.d(TAG, "[onServiceInit]");
+
     }
 
     @Override

@@ -36,7 +36,7 @@ import java.util.Map;
 public class RotationModeActivity extends AppCompatActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = getClass().getSimpleName();
+    private final String TAG = "RotationModeActivity";
 
     private ViewGroup mContainer;
     private PhonePlayConfig mPhonePlayConfig;
@@ -168,11 +168,18 @@ public class RotationModeActivity extends AppCompatActivity
         AcLog.d(TAG, "[onNetworkChanged] network: " + i);
     }
 
+    /**
+     * 即将废弃，建议使用{@link IPlayerListener#onServiceInit(Map)}
+     */
+    @Deprecated
     @Override
     public void onServiceInit() {
         AcLog.d(TAG, "[onServiceInit]");
     }
 
+    /**
+     * 加入房间前回调，用于获取并初始化各个功能服务，例如设置各种事件监听回调。
+     */
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);

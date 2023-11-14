@@ -61,7 +61,7 @@ import java.util.Map;
 
 public class PhoneActivity extends AppCompatActivity implements IPlayerListener, IStreamListener {
 
-    private final String TAG = getClass().getSimpleName();
+    private final String TAG = "PhoneActivity";
     private ViewGroup mContainer;
     public static final String KEY_POD_ID = "podId";
     public static final String KEY_PRODUCT_ID = "productId";
@@ -399,16 +399,21 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
     }
 
     /**
+     * 即将废弃，建议使用{@link IPlayerListener#onServiceInit(Map)}
+     */
+    @Deprecated
+    @Override
+    public void onServiceInit() {
+
+    }
+
+    /**
      * 加入房间前回调，用于获取并初始化各个功能服务，例如设置各种事件监听回调。
      */
     @Override
-    public void onServiceInit() {
-        initFeatures();
-    }
-
-    @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);
+        initFeatures();
     }
 
     /**

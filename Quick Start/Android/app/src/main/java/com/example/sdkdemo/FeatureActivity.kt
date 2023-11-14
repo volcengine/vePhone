@@ -21,7 +21,7 @@ class FeatureActivity : BaseSampleActivity() {
     private lateinit var btnStartPhone: Button
 
     // 这里请输入你的podId和productId
-    private val testBean = TestBean(podId = "7224377403220155173", productId = "1608456935646957568")
+    private val testBean = TestBean(podId = "7292728071466179382", productId = "1591495366954455040")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         mFeatureId = intent.getIntExtra("featureId", -1)
