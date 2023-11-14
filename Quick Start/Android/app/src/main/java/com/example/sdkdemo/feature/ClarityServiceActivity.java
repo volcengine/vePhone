@@ -230,8 +230,8 @@ public class ClarityServiceActivity extends BasePlayActivity
      * 加入房间前回调，用于获取并初始化各个功能服务，例如设置各种事件监听回调。
      */
     @Override
-    public void onServiceInit(@NonNull Map<String, Object> map) {
-        AcLog.d(TAG, "[onServiceInit]");
+    public void onServiceInit(@NonNull Map<String, Object> extras) {
+        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
         mClarityService = VePhoneEngine.getInstance().getClarityService();
         if (mClarityService != null) {
             mClarityService.setStreamProfileChangeListener(new StreamProfileChangeCallBack() {

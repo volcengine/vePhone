@@ -35,8 +35,6 @@ import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
-import com.example.sdkdemo.feature.SensorView;
-import com.example.sdkdemo.feature.UnclassifiedView;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
 import com.volcengine.androidcloud.common.log.AcLog;
@@ -287,12 +285,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                 } else {
                     AcLog.d(TAG, "LocationService is null!");
                 }
-                break;
-            case FEATURE_SENSOR: // 传感器
-                new SensorView(this, btnSensor);
-                break;
-            case FEATURE_UNCLASSIFIED: // 其他
-                new UnclassifiedView(this, btnUnclassified);
                 break;
             default:
                 break;

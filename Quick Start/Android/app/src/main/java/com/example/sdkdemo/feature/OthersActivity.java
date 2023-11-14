@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -30,15 +31,9 @@ import org.json.JSONObject;
 import java.util.Map;
 
 /**
- * 该类用于展示与本地传感器相关的功能接口
- *
- * 是否开启传感器有两种方式，
- * 一种是通过{@link com.volcengine.phone.PhonePlayConfig.Builder}来设置，
- * 具体示例代码见{@link SensorActivity#initPhonePlayConfig()}；
- * 另一种是通过{@link VePhoneEngine#enableAccelSensor(boolean)}等接口来设置，
- * 具体示例代码见{@link SensorActivity#initView()}。
+ * 该类用于展示主功能以外的其他功能接口
  */
-public class SensorActivity extends BasePlayActivity
+public class OthersActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
     private final String TAG = "SensorActivity";
@@ -46,15 +41,15 @@ public class SensorActivity extends BasePlayActivity
     private ViewGroup mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private SwitchCompat mSwShowOrHide, mSwEnableMagnetic, mSwEnableAccelerator,
-            mSwEnableGravity, mSwEnableOrientation, mSwEnableGyroscope, mSwEnableVibrator;
+    private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
+    private Button mBtnPause, mBtnResume;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_sensor);
+        setContentView(R.layout.activity_others);
         initView();
         initPhonePlayConfig();
     }
@@ -63,63 +58,24 @@ public class SensorActivity extends BasePlayActivity
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mSwEnableMagnetic = findViewById(R.id.sw_enable_magnetic);
-        mSwEnableAccelerator = findViewById(R.id.sw_enable_accelerator);
-        mSwEnableGravity = findViewById(R.id.sw_enable_gravity);
-        mSwEnableOrientation = findViewById(R.id.sw_enable_orientation);
-        mSwEnableGyroscope = findViewById(R.id.sw_enable_gyroscope);
-        mSwEnableVibrator = findViewById(R.id.sw_enable_vibrator);
+        mBtnPause = findViewById(R.id.btn_pause);
+        mBtnResume = findViewById(R.id.btn_resume);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        mSwEnableMagnetic.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        mBtnPause.setOnClickListener(view -> {
             /**
-             * enableMagneticSensor(boolean enable) -- 本地磁力传感器开关
+             * pause() -- 暂停从云端拉流
              */
-            VePhoneEngine.getInstance().enableMagneticSensor(isChecked);
-            Toast.makeText(SensorActivity.this, "本地磁力传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
+            VePhoneEngine.getInstance().pause();
         });
-
-        mSwEnableAccelerator.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        mBtnResume.setOnClickListener(view -> {
             /**
-             * enableAccelSensor(boolean enable) -- 本地加速度传感器开关
+             * resume() -- 恢复从云端拉流
              */
-            VePhoneEngine.getInstance().enableAccelSensor(isChecked);
-            Toast.makeText(SensorActivity.this, "本地加速度传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
-        });
-
-        mSwEnableGravity.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            /**
-             * enableGravitySensor(boolean enable) -- 本地重力传感器开关
-             */
-            VePhoneEngine.getInstance().enableGravitySensor(isChecked);
-            Toast.makeText(SensorActivity.this, "本地重力传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
-        });
-
-        mSwEnableOrientation.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            /**
-             * enableOrientationSensor(boolean enable) -- 本地方向传感器开关
-             */
-            VePhoneEngine.getInstance().enableOrientationSensor(isChecked);
-            Toast.makeText(SensorActivity.this, "本地方向传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
-        });
-
-        mSwEnableGyroscope.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            /**
-             * enableGyroscopeSensor(boolean enable) -- 本地陀螺仪传感器开关
-             */
-            VePhoneEngine.getInstance().enableGyroscopeSensor(isChecked);
-            Toast.makeText(SensorActivity.this, "本地陀螺仪传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
-        });
-
-        mSwEnableVibrator.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            /**
-             * enableVibrator(boolean enable) -- 本地振动传感器开关
-             */
-            VePhoneEngine.getInstance().enableVibrator(isChecked);
-            Toast.makeText(SensorActivity.this, "本地振动传感器" + (isChecked ? "已开启" : "已关闭"), Toast.LENGTH_SHORT).show();
+            VePhoneEngine.getInstance().resume();
         });
     }
 
@@ -255,6 +211,9 @@ public class SensorActivity extends BasePlayActivity
         AcLog.d(TAG, "[onNetworkChanged] networkType: " + networkType);
     }
 
+    /**
+     * 即将废弃，建议使用{@link IPlayerListener#onServiceInit(Map)}
+     */
     @Override
     public void onServiceInit() {
 

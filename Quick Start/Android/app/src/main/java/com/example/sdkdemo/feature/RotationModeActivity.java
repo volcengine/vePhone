@@ -174,7 +174,7 @@ public class RotationModeActivity extends AppCompatActivity
     @Deprecated
     @Override
     public void onServiceInit() {
-        AcLog.d(TAG, "[onServiceInit]");
+
     }
 
     /**

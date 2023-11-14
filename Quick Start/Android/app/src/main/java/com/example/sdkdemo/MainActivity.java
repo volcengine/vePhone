@@ -7,6 +7,7 @@ import com.example.sdkdemo.feature.ClarityServiceActivity;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerActivity;
 import com.example.sdkdemo.feature.MessageChannelActivity;
 import com.example.sdkdemo.feature.MultiMediaStreamActivity;
+import com.example.sdkdemo.feature.OthersActivity;
 import com.example.sdkdemo.feature.PodControlServiceActivity;
 import com.example.sdkdemo.feature.RotationModeActivity;
 import com.example.sdkdemo.feature.SensorActivity;
@@ -32,6 +33,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.rotation_mode, R.string.rotation_mode_desc, RotationModeActivity.class, Feature.FEATURE_ROTATION_MODE);
         holder.addItem(R.string.multi_media_stream, R.string.multi_media_stream_desc, MultiMediaStreamActivity.class, Feature.FEATURE_MULTI_MEDIA_STREAM);
         holder.addItem(R.string.sensor, R.string.sensor_desc, SensorActivity.class, -1);
+        holder.addItem(R.string.unclassified, R.string.unclassified_desc, OthersActivity.class, -1);
     }
 
     @Override

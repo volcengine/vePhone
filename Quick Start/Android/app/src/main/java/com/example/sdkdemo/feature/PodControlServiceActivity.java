@@ -20,6 +20,7 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
+import com.volcengine.cloudphone.apiservice.GamePodControlService;
 import com.volcengine.cloudphone.apiservice.PodControlService;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
@@ -29,10 +30,11 @@ import com.volcengine.phone.VePhoneEngine;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
+/**
+ * 该类用于展示与实例控制{@link PodControlService}和{@link GamePodControlService}相关的功能接口
+ */
 public class PodControlServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
@@ -285,7 +287,7 @@ public class PodControlServiceActivity extends BasePlayActivity
      */
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
-        AcLog.d(TAG, "[onServiceInit]");
+        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
         mPodControlService = VePhoneEngine.getInstance().getPodControlService();
         if (mPodControlService != null) {
             /**
