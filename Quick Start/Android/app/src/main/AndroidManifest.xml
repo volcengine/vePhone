@@ -45,15 +45,26 @@
         <!-- rotation设置为 PORTRAIT 模式时，activity的方向需要设置为portrait。 -->
         <activity
             android:name=".feature.RotationModeActivity"
+            android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
 
         <activity
             android:name=".feature.MultiMediaStreamActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
 
         <activity
             android:name=".feature.ClarityServiceActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
+
+        <activity
+            android:name=".feature.ClipBoardServiceManagerActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
 
         <activity android:name=".MainActivity">

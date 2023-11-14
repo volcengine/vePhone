@@ -4,6 +4,7 @@ import android.os.Bundle;
 
 import com.example.sdkdemo.base.BaseListActivity;
 import com.example.sdkdemo.feature.ClarityServiceActivity;
+import com.example.sdkdemo.feature.ClipBoardServiceManagerActivity;
 import com.example.sdkdemo.feature.MultiMediaStreamActivity;
 import com.example.sdkdemo.feature.RotationModeActivity;
 import com.example.sdkdemo.util.Feature;
@@ -20,6 +21,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.audio, R.string.audio_desc, FeatureActivity.class, Feature.FEATURE_AUDIO);
         holder.addItem(R.string.camera, R.string.camera_desc, FeatureActivity.class, Feature.FEATURE_CAMERA);
         holder.addItem(R.string.clarity, R.string.clarity_desc, ClarityServiceActivity.class, Feature.FEATURE_CAMERA);
+        holder.addItem(R.string.clipboard, R.string.clipboard_desc, ClipBoardServiceManagerActivity.class, Feature.FEATURE_CAMERA);
         holder.addItem(R.string.file_exchange, R.string.file_exchange_desc, FeatureActivity.class, Feature.FEATURE_FILE_EXCHANGE);
         holder.addItem(R.string.location, R.string.location_desc, FeatureActivity.class, Feature.FEATURE_LOCATION);
         holder.addItem(R.string.pod_control, R.string.pod_control_desc, FeatureActivity.class, Feature.FEATURE_POD_CONTROL);

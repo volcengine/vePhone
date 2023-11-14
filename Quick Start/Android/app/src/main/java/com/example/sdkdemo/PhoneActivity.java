@@ -34,7 +34,6 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.CameraManagerView;
-import com.example.sdkdemo.feature.ClipBoardServiceManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
@@ -269,13 +268,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                     new CameraManagerView(this, vePhoneEngine.getCameraManager(), btnCamera);
                 } else {
                     AcLog.d(TAG, "CameraManager is null!");
-                }
-                break;
-            case FEATURE_CLIPBOARD: // 剪切板
-                if (vePhoneEngine.getClipBoardServiceManager() != null) {
-                    new ClipBoardServiceManagerView(this, vePhoneEngine.getClipBoardServiceManager(), btnClipBoard);
-                } else {
-                    AcLog.d(TAG, "ClipBoardServiceManager is null!");
                 }
                 break;
             case FEATURE_FILE_EXCHANGE: // 大文件通道
