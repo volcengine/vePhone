@@ -5,6 +5,7 @@ import android.os.Bundle;
 import com.example.sdkdemo.base.BaseListActivity;
 import com.example.sdkdemo.feature.ClarityServiceActivity;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerActivity;
+import com.example.sdkdemo.feature.LocalInputManagerActivity;
 import com.example.sdkdemo.feature.LocationServiceActivity;
 import com.example.sdkdemo.feature.MessageChannelActivity;
 import com.example.sdkdemo.feature.MultiMediaStreamActivity;
@@ -28,6 +29,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.clarity, R.string.clarity_desc, ClarityServiceActivity.class, -1);
         holder.addItem(R.string.clipboard, R.string.clipboard_desc, ClipBoardServiceManagerActivity.class, -1);
         holder.addItem(R.string.file_exchange, R.string.file_exchange_desc, FeatureActivity.class, Feature.FEATURE_FILE_EXCHANGE);
+        holder.addItem(R.string.local_input, R.string.local_input_desc, LocalInputManagerActivity.class, -1);
         holder.addItem(R.string.location, R.string.location_desc, LocationServiceActivity.class, -1);
         holder.addItem(R.string.message_channel, R.string.message_channel_desc, MessageChannelActivity.class, -1);
         holder.addItem(R.string.pod_control, R.string.pod_control_desc, PodControlServiceActivity.class, -1);

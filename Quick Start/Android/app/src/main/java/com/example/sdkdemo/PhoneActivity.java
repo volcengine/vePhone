@@ -33,7 +33,6 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
-import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
 import com.volcengine.androidcloud.common.log.AcLog;
@@ -269,13 +268,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                 }
                 else {
                     AcLog.d(TAG, "FileChannelExt is null!");
-                }
-                break;
-            case FEATURE_LOCAL_INPUT: // 本地输入
-                if (vePhoneEngine.getLocalInputManager() != null) {
-                    new LocalInputManagerView(this, vePhoneEngine.getLocalInputManager(), btnLocalInput);
-                } else {
-                    AcLog.d(TAG, "LocalInputManager is null!");
                 }
                 break;
             default:
