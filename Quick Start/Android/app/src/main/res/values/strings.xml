@@ -99,6 +99,10 @@
         <item>ACK_MultiChannel</item>
         <item>Timeout_MultiChannel</item>
     </string-array>
+    <string name="ack_msg">回执消息</string>
+    <string name="uid_ack_msg">回执消息\n(指定用户)</string>
+    <string name="timeout_msg">超时消息</string>
+    <string name="uid_timeout_msg">超时消息\n(指定用户)</string>
     <string name="message_channel_desc">在该演示中你可以体验与消息通道相关的功能接口</string>
 
     <!--实例控制相关-->

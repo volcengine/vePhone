@@ -5,12 +5,10 @@ import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
 
 import static com.example.sdkdemo.util.Feature.FEATURE_AUDIO;
 import static com.example.sdkdemo.util.Feature.FEATURE_CAMERA;
-import static com.example.sdkdemo.util.Feature.FEATURE_CLIPBOARD;
 import static com.example.sdkdemo.util.Feature.FEATURE_FILE_EXCHANGE;
 import static com.example.sdkdemo.util.Feature.FEATURE_LOCAL_INPUT;
 import static com.example.sdkdemo.util.Feature.FEATURE_LOCATION;
 import static com.example.sdkdemo.util.Feature.FEATURE_MESSAGE_CHANNEL;
-import static com.example.sdkdemo.util.Feature.FEATURE_PAD_CONSOLE;
 import static com.example.sdkdemo.util.Feature.FEATURE_POD_CONTROL;
 import static com.example.sdkdemo.util.Feature.FEATURE_SENSOR;
 import static com.example.sdkdemo.util.Feature.FEATURE_UNCLASSIFIED;
@@ -37,7 +35,6 @@ import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
 import com.example.sdkdemo.feature.LocationServiceView;
-import com.example.sdkdemo.feature.MessageChannelView;
 import com.example.sdkdemo.feature.PodControlServiceView;
 import com.example.sdkdemo.feature.SensorView;
 import com.example.sdkdemo.feature.UnclassifiedView;
@@ -290,13 +287,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                     new LocationServiceView(this, vePhoneEngine.getLocationService(), btnLocation);
                 } else {
                     AcLog.d(TAG, "LocationService is null!");
-                }
-                break;
-            case FEATURE_MESSAGE_CHANNEL: // 消息通道
-                if (vePhoneEngine.getMessageChannel() != null) {
-                    new MessageChannelView(this, vePhoneEngine.getMessageChannel(), btnMessageChannel);
-                } else {
-                    AcLog.d(TAG, "MessageChannel is null!");
                 }
                 break;
             case FEATURE_POD_CONTROL: // Pod控制

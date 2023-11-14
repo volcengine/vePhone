@@ -1,6 +1,5 @@
 package com.example.sdkdemo.feature;
 
-import android.content.ClipData;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
@@ -21,8 +20,7 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
-import com.volcengine.cloudphone.apiservice.IClipBoardListener;
-import com.volcengine.cloudphone.apiservice.IClipBoardServiceManager;
+import com.volcengine.cloudphone.apiservice.IMessageChannel;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -33,29 +31,28 @@ import org.json.JSONObject;
 
 import java.util.Map;
 
-
 /**
- * 该类用于展示与清晰度{@link IClipBoardServiceManager}相关的功能接口
+ * 该类用于展示与消息通道{@link IMessageChannel}相关的功能接口
  */
-public class ClipBoardServiceManagerActivity extends BasePlayActivity
+public class MessageChannelActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = "ClipBoardServiceManagerActivity";
+    private final String TAG = "MessageChannelActivity";
 
     private FrameLayout mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private IClipBoardServiceManager mClipBoardServiceManager;
+    private IMessageChannel mMessageChannel;
     private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnSend;
+    private Button mBtnAckMsg, mBtnUidAckMsg, mBtnTimeoutMsg, mBtnUidTimeoutMsg;
 
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_clipboard);
+        setContentView(R.layout.activity_message_channel);
         initView();
         initPhonePlayConfig();
     }
@@ -64,21 +61,76 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mBtnSend = findViewById(R.id.btn_send);
+        mBtnAckMsg = findViewById(R.id.btn_ack_msg);
+        mBtnUidAckMsg = findViewById(R.id.btn_uid_ack_msg);
+        mBtnTimeoutMsg = findViewById(R.id.btn_timeout_msg);
+        mBtnUidTimeoutMsg = findViewById(R.id.btn_uid_timeout_msg);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        mBtnSend.setOnClickListener(view -> {
-            if (mClipBoardServiceManager != null) {
+        String channelUid = "com.bytedance.vemessagechannelprj.prj1";
+        mBtnAckMsg.setOnClickListener(v -> {
+            if (mMessageChannel != null) {
                 /**
-                 * sendClipBoardMessage(ClipData clipData) -- 发送本地剪切板消息到云端实例
+                 * 发送回执消息到云端应用(当云端只有一个应用注册消息通道时使用)
                  *
-                 * @param clipData 剪切板数据
+                 * @param payload 发送内容，size：60KB
+                 * @param needAck 是否需要云端Ack回执
+                 * @return 消息实体
                  */
-                mClipBoardServiceManager.sendClipBoardMessage(
-                        ClipData.newPlainText("test", "test data"));
+                IMessageChannel.IChannelMessage ackMsg =
+                        mMessageChannel.sendMessage("ackMsg", true);
+                AcLog.d(TAG, "ackMsg: " + ackMsg);
+            }
+        });
+        mBtnUidAckMsg.setOnClickListener(v -> {
+            if (mMessageChannel != null) {
+                /**
+                 * 发送回执消息到云端应用(当云端有多个应用注册消息通道时使用，需要指定目标用户ID，即应用包名)
+                 *
+                 * @param payload        发送内容，size：60KB
+                 * @param needAck        是否需要云端Ack回执
+                 * @param destChannelUid 目标用户消息通道ID
+                 * @return 消息实体
+                 */
+                IMessageChannel.IChannelMessage uidAckMsg =
+                        mMessageChannel.sendMessage("uidAckMsg", true, channelUid);
+                AcLog.d(TAG, "uidAckMsg: " + uidAckMsg);
+            }
+        });
+        mBtnTimeoutMsg.setOnClickListener(v -> {
+            if (mMessageChannel != null) {
+                /**
+                 * 发送超时消息到云端应用(当云端只有一个应用注册消息通道时使用)
+                 *
+                 * @param payload 发送内容，size：60KB
+                 * @param timeout 消息超时时长，单位：ms，需要大于0；当小于等于0时，通过
+                 *                  {@link com.volcengine.cloudphone.apiservice.IMessageChannel.IMessageReceiver#onError(int, String)}
+                 *                  返回错误信息
+                 * @return 消息实体
+                 */
+                IMessageChannel.IChannelMessage timeoutMsg =
+                        mMessageChannel.sendMessage("timeoutMsg", 3000);
+                AcLog.d(TAG, "timeoutMsg: " + timeoutMsg);
+            }
+        });
+        mBtnUidTimeoutMsg.setOnClickListener(v -> {
+            if (mMessageChannel != null) {
+                /**
+                 * 发送超时消息到云端应用(当云端有多个应用注册消息通道时使用，需要指定目标用户ID，即应用包名)
+                 *
+                 * @param payload        发送内容，size：60KB
+                 * @param timeout        消息超时时长，单位：ms，需要大于0；当小于等于0时，通过
+                 *                         {@link com.volcengine.cloudphone.apiservice.IMessageChannel.IMessageReceiver#onError(int, String)}
+                 *                         返回错误信息
+                 * @param destChannelUid 目标用户消息通道ID
+                 * @return 消息实体
+                 */
+                IMessageChannel.IChannelMessage uidTimeoutMsg =
+                        mMessageChannel.sendMessage("uidTimeoutMsg", 3000, channelUid);
+                AcLog.d(TAG, "uidTimeoutMsg: " + uidTimeoutMsg);
             }
         });
     }
@@ -171,7 +223,7 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
      */
     @Override
     public void onPlaySuccess(String roundId, int clarityId) {
-        AcLog.d(TAG, "[onPlaySuccess] roundId: " + roundId + ", clarityId: " + clarityId);
+        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId + " clarityId " + clarityId);
     }
 
     /**
@@ -229,21 +281,77 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);
-        mClipBoardServiceManager = VePhoneEngine.getInstance().getClipBoardServiceManager();
-        if (mClipBoardServiceManager != null) {
+        mMessageChannel = VePhoneEngine.getInstance().getMessageChannel();
+        if (mMessageChannel != null) {
             /**
-             * setBoardSyncClipListener(IClipBoardListener listener) -- 设置云端同步剪切板数据的监听器
+             * 设置消息接收回调监听
+             *
+             * @param listener 消息接收回调监听器
              */
-            mClipBoardServiceManager.setBoardSyncClipListener(new IClipBoardListener() {
+            mMessageChannel.setMessageListener(new IMessageChannel.IMessageReceiver() {
                 /**
-                 * 云端收到本地发送的剪切板数据后的回调
+                 * 消息接收回调
                  *
-                 * @param clipData 云端同步到本地的剪切板数据
+                 * @param iChannelMessage 接收的消息实体
                  */
                 @Override
-                public void onClipBoardMessageReceived(ClipData clipData) {
-                    AcLog.d(TAG, "[onClipBoardMessageReceived] clipData: " + clipData.getItemAt(0).getText());
-                    showToast("[onClipBoardMessageReceived] clipData: " + clipData.getItemAt(0).getText());
+                public void onReceiveMessage(IMessageChannel.IChannelMessage iChannelMessage) {
+                    AcLog.d(TAG, "[onReceiveMessage] message: " + iChannelMessage);
+                    Toast.makeText(MessageChannelActivity.this, "[onReceiveMessage] message: " + iChannelMessage, Toast.LENGTH_SHORT).show();
+                }
+
+                /**
+                 * 发送消息结果回调
+                 *
+                 * @param success 是否发送成功
+                 * @param messageId 消息ID
+                 */
+                @Override
+                public void onSentResult(boolean success, String messageId) {
+                    AcLog.d(TAG, "[onSentResult] success: " + success + ", messageId: " + messageId);
+                    Toast.makeText(MessageChannelActivity.this, "[onSentResult] success: " + success + ", messageId: " + messageId, Toast.LENGTH_SHORT).show();
+                }
+
+                /**
+                 * 已弃用，可忽略
+                 */
+                @Override
+                public void ready() {
+                    AcLog.d(TAG, "[ready]");
+                }
+
+                /**
+                 * 错误信息回调
+                 *
+                 * @param errorCode 错误码
+                 * @param errorMessage 错误信息
+                 */
+                @Override
+                public void onError(int errorCode, String errorMessage) {
+                    AcLog.d(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
+                    Toast.makeText(MessageChannelActivity.this, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage, Toast.LENGTH_SHORT).show();
+                }
+
+                /**
+                 * 云端游戏在线回调，建议在发送消息前监听该回调检查通道是否已连接
+                 *
+                 * @param channelUid 云端游戏的用户ID
+                 */
+                @Override
+                public void onRemoteOnline(String channelUid) {
+                    AcLog.d(TAG, "[onRemoteOnline] channelUid: " + channelUid);
+                    Toast.makeText(MessageChannelActivity.this, "[onRemoteOnline] channelUid: " + channelUid, Toast.LENGTH_SHORT).show();
+                }
+
+                /**
+                 * 云端游戏离线回调
+                 *
+                 * @param channelUid 云端游戏的用户ID
+                 */
+                @Override
+                public void onRemoteOffline(String channelUid) {
+                    AcLog.d(TAG, "[onRemoteOffline] channelUid: " + channelUid);
+                    Toast.makeText(MessageChannelActivity.this, "[onRemoteOffline] channelUid: " + channelUid, Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -346,7 +454,7 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
      * 远端实例通过该回调向客户端发送视频流的方向(横屏或竖屏)，为保证视频流方向与Activity方向一致，
      * 需要在该回调中根据rotation参数，调用 {@link BasePlayActivity#setRotation(int)} 来调整Activity的方向，
      * 0/180需将Activity调整为竖屏，90/270则将Activity调整为横屏；
-     * 同时，需要在 {@link ClarityServiceActivity#onConfigurationChanged(Configuration)} 回调中，
+     * 同时，需要在 {@link MessageChannelActivity#onConfigurationChanged(Configuration)} 回调中，
      * 根据当前Activity的方向，调用 {@link VePhoneEngine#rotate(int)} 来调整视频流的方向。
      *
      * @param rotation 旋转方向

@@ -169,8 +169,8 @@ public class ClarityServiceActivity extends BasePlayActivity
     /**
      * 播放成功回调
      *
-     * @param roundId 当次游戏生命周期标识符
-     * @param clarityId 当前游戏画面的清晰度，首帧渲染到画面时触发该回调
+     * @param roundId 当次会话生命周期标识符
+     * @param clarityId 当前画面的清晰度，首帧渲染到画面时触发该回调
      */
     @Override
     public void onPlaySuccess(String roundId, int clarityId) {
