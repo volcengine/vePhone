@@ -30,7 +30,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
-import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
@@ -242,18 +241,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
         });
 
         switch (getIntent().getIntExtra(KEY_FEATURE_ID, -1)) {
-            case FEATURE_AUDIO: // 音频
-                btnAudio.setVisibility(View.VISIBLE);
-                btnAudio.setOnClickListener(view -> {
-                    if (vePhoneEngine.getAudioService() != null) {
-                        mDialogWrapper = DialogUtils.wrapper(
-                                new AudioServiceView(this, vePhoneEngine.getAudioService()));
-                        mDialogWrapper.show();
-                    } else {
-                        AcLog.d(TAG, "AudioService is null!");
-                    }
-                });
-                break;
             case FEATURE_FILE_EXCHANGE: // 大文件通道
                 if (vePhoneEngine.getFileExchange() != null) {
                     new FileExchangeView(this, vePhoneEngine.getFileExchange(), btnFileExchange);

@@ -3,6 +3,7 @@ package com.example.sdkdemo;
 import android.os.Bundle;
 
 import com.example.sdkdemo.base.BaseListActivity;
+import com.example.sdkdemo.feature.AudioServiceActivity;
 import com.example.sdkdemo.feature.CameraManagerActivity;
 import com.example.sdkdemo.feature.ClarityServiceActivity;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerActivity;
@@ -25,7 +26,7 @@ public class MainActivity extends BaseListActivity {
 
     @Override
     protected void setupAdapter(ItemsHolder holder) {
-        holder.addItem(R.string.audio, R.string.audio_desc, FeatureActivity.class, Feature.FEATURE_AUDIO);
+        holder.addItem(R.string.audio, R.string.audio_desc, AudioServiceActivity.class, -1);
         holder.addItem(R.string.camera, R.string.camera_desc, CameraManagerActivity.class, -1);
         holder.addItem(R.string.clarity, R.string.clarity_desc, ClarityServiceActivity.class, -1);
         holder.addItem(R.string.clipboard, R.string.clipboard_desc, ClipBoardServiceManagerActivity.class, -1);
