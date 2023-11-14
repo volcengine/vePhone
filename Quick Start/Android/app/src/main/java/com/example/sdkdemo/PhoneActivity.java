@@ -31,7 +31,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.example.sdkdemo.feature.AudioServiceView;
-import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
@@ -254,13 +253,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                         AcLog.d(TAG, "AudioService is null!");
                     }
                 });
-                break;
-            case FEATURE_CAMERA: // 相机
-                if (vePhoneEngine.getCameraManager() != null) {
-                    new CameraManagerView(this, vePhoneEngine.getCameraManager(), btnCamera);
-                } else {
-                    AcLog.d(TAG, "CameraManager is null!");
-                }
                 break;
             case FEATURE_FILE_EXCHANGE: // 大文件通道
                 if (vePhoneEngine.getFileExchange() != null) {
