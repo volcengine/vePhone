@@ -3,9 +3,10 @@ package com.example.sdkdemo.feature;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -20,6 +21,7 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
+import com.volcengine.cloudphone.apiservice.LocationService;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -31,25 +33,28 @@ import org.json.JSONObject;
 import java.util.Map;
 
 /**
- * 该类用于展示主功能以外的其他功能接口
+ * 该类用于展示与定位服务{@link LocationService}相关的功能接口
  */
-public class OthersActivity extends BasePlayActivity
+public class LocationServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = "OthersActivity";
+    private final String TAG = "LocationServiceActivity";
 
-    private ViewGroup mContainer;
+    private FrameLayout mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private SwitchCompat mSwShowOrHide;
+    LocationService mLocationService;
+    private SwitchCompat mSwShowOrHide, mSwEnableLocationService;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnPause, mBtnResume;
+    private RadioGroup mRgLocationMode;
+    private Button mBtnGet;
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_others);
+        setContentView(R.layout.activity_location);
         initView();
         initPhonePlayConfig();
     }
@@ -57,26 +62,52 @@ public class OthersActivity extends BasePlayActivity
     private void initView() {
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
+        mSwEnableLocationService = findViewById(R.id.sw_enable_location_service);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mBtnPause = findViewById(R.id.btn_pause);
-        mBtnResume = findViewById(R.id.btn_resume);
+        mRgLocationMode = findViewById(R.id.rg_mode);
+        mBtnGet = findViewById(R.id.btn_get);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        mBtnPause.setOnClickListener(view -> {
-            /**
-             * pause() -- 暂停从云端拉流
-             */
-            VePhoneEngine.getInstance().pause();
+        /**
+         * enableLocationService(boolean enable) -- 定位服务开关
+         */
+        mSwEnableLocationService.setOnCheckedChangeListener((compoundButton, enable) -> {
+            if (mLocationService != null) {
+                mLocationService.enableLocationService(enable);
+            }
         });
-        mBtnResume.setOnClickListener(view -> {
-            /**
-             * resume() -- 恢复从云端拉流
-             */
-            VePhoneEngine.getInstance().resume();
+
+        /**
+         * setLocationServiceMode(int mode) -- 设置定位服务模式
+         *
+         * @param mode 定位服务模式
+         *             MODE_AUTO(0) -- 自动模式，当收到远端实例指令时自动获取定位上报并触发回调
+         *                              {@link LocationService.LocationEventListener#onSentLocalLocation(LocationService.LocationInfo)}
+         *             MODE_MANUAL(1) -- 手动模式，当收到远端实例指令时触发回调
+         *                              {@link LocationService.LocationEventListener#onReceivedRemoteLocationRequest(LocationService.RequestOptions)}
+         *                              以及{@link LocationService.LocationEventListener#onRemoteLocationRequestEnded()}
+         */
+        mRgLocationMode.setOnCheckedChangeListener((radioGroup, checkedId) -> {
+            if (mLocationService != null) {
+                mLocationService.setLocationServiceMode(
+                        checkedId == R.id.rb_auto ? LocationService.MODE_AUTO : LocationService.MODE_MANUAL);
+            }
         });
+
+        /**
+         * isLocationServiceEnabled() -- 是否开启定位服务
+         * getLocationServiceMode() -- 获取定位服务模式
+         */
+        mBtnGet.setOnClickListener(view -> {
+            if (mLocationService != null) {
+                String mode = mLocationService.getLocationServiceMode() == LocationService.MODE_AUTO ? "auto" : "manual";
+                showToast("enable: " + mLocationService.isLocationServiceEnabled() + ", mode: " + mode);
+            }
+        });
+
     }
 
     private void initPhonePlayConfig() {
@@ -167,7 +198,7 @@ public class OthersActivity extends BasePlayActivity
      */
     @Override
     public void onPlaySuccess(String roundId, int clarityId) {
-        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId + " clarityId " + clarityId);
+        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId);
     }
 
     /**
@@ -225,6 +256,53 @@ public class OthersActivity extends BasePlayActivity
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);
+        mLocationService = VePhoneEngine.getInstance().getLocationService();
+        if (mLocationService != null) {
+            /**
+             * setLocationEventListener(LocationEventListener listener) -- 设置定位事件监听器
+             */
+            mLocationService.setLocationEventListener(new LocationService.LocationEventListener() {
+                /**
+                 * 收到远端实例位置请求的回调
+                 *
+                 * @param requestOptions 位置请求选项
+                 */
+                @Override
+                public void onReceivedRemoteLocationRequest(LocationService.RequestOptions requestOptions) {
+                    AcLog.d(TAG, "[onReceivedRemoteLocationRequest] requestOptions: " + requestOptions);
+                }
+
+                /**
+                 * 远端实例定位请求结束
+                 */
+                @Override
+                public void onRemoteLocationRequestEnded() {
+                    AcLog.d(TAG, "[onRemoteLocationRequestEnded]");
+                }
+
+                /**
+                 * 在自动定位模式下，向远端实例发送本地设备位置信息后的回调
+                 *
+                 * @param locationInfo 发送到云端实例的本地设备位置信息
+                 */
+                @Override
+                public void onSentLocalLocation(LocationService.LocationInfo locationInfo) {
+                    AcLog.d(TAG, "[onSentLocalLocation] locationInfo: " + locationInfo);
+                }
+
+                /**
+                 * 远端实例位置更新后的回调
+                 * 当手动调用{@link LocationService#setRemoteLocationMock(LocationService.LocationInfo)}时触发该回调；
+                 * 当设置为自动获取或者没有调用{@link LocationService#setRemoteLocationMock(LocationService.LocationInfo)}的时候不会触发。
+                 *
+                 * @param locationInfo 远端实例更新的位置信息
+                 */
+                @Override
+                public void onRemoteLocationUpdated(LocationService.LocationInfo locationInfo) {
+                    AcLog.d(TAG, "[onRemoteLocationUpdated] locationInfo: " + locationInfo);
+                }
+            });
+        }
     }
 
     /**
@@ -324,7 +402,7 @@ public class OthersActivity extends BasePlayActivity
      * 远端实例通过该回调向客户端发送视频流的方向(横屏或竖屏)，为保证视频流方向与Activity方向一致，
      * 需要在该回调中根据rotation参数，调用 {@link BasePlayActivity#setRotation(int)} 来调整Activity的方向，
      * 0/180需将Activity调整为竖屏，90/270则将Activity调整为横屏；
-     * 同时，需要在 {@link MessageChannelActivity#onConfigurationChanged(Configuration)} 回调中，
+     * 同时，需要在 {@link ClarityServiceActivity#onConfigurationChanged(Configuration)} 回调中，
      * 根据当前Activity的方向，调用 {@link VePhoneEngine#rotate(int)} 来调整视频流的方向。
      *
      * @param rotation 旋转方向

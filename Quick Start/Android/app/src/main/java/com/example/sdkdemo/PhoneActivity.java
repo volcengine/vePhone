@@ -34,7 +34,6 @@ import com.example.sdkdemo.feature.AudioServiceView;
 import com.example.sdkdemo.feature.CameraManagerView;
 import com.example.sdkdemo.feature.FileExchangeView;
 import com.example.sdkdemo.feature.LocalInputManagerView;
-import com.example.sdkdemo.feature.LocationServiceView;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.example.sdkdemo.util.DialogUtils;
 import com.volcengine.androidcloud.common.log.AcLog;
@@ -277,13 +276,6 @@ public class PhoneActivity extends AppCompatActivity implements IPlayerListener,
                     new LocalInputManagerView(this, vePhoneEngine.getLocalInputManager(), btnLocalInput);
                 } else {
                     AcLog.d(TAG, "LocalInputManager is null!");
-                }
-                break;
-            case FEATURE_LOCATION: // 定位服务
-                if (vePhoneEngine.getLocationService() != null) {
-                    new LocationServiceView(this, vePhoneEngine.getLocationService(), btnLocation);
-                } else {
-                    AcLog.d(TAG, "LocationService is null!");
                 }
                 break;
             default:
