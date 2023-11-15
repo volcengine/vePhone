@@ -1,12 +1,10 @@
 package com.example.sdkdemo.feature;
 
-import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -46,9 +44,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
     private LocalInputManager mLocalInputManager;
-    private SwitchCompat mSwShowOrHide, mSwShowLocalData, mSwCloseLocalManager, mSwCloseLocalKeyboard;
+    private SwitchCompat mSwShowOrHide, mSwShowLocalData, mSwCloseLocalManager;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnSendInputData, mBtnGetKeyboardStatus;
+    private Button mBtnCoverCurrentEditTextMessage, mBtnSendInputText, mBtnGetTextInputEnable;
     EditText mEtTextInput;
 
     @Override
@@ -65,22 +63,31 @@ public class LocalInputManagerActivity extends BasePlayActivity
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
         mEtTextInput = findViewById(R.id.et_text_input);
-        mBtnSendInputData = findViewById(R.id.btn_send_input_data);
-        mBtnGetKeyboardStatus = findViewById(R.id.btn_get_keyboard_status);
+        mBtnCoverCurrentEditTextMessage = findViewById(R.id.btn_cover_current_edit_text_message);
+        mBtnSendInputText = findViewById(R.id.btn_send_input_text);
+        mBtnGetTextInputEnable = findViewById(R.id.btn_get_keyboard_status);
         mSwShowLocalData = findViewById(R.id.sw_show_local_data);
         mSwCloseLocalManager = findViewById(R.id.sw_close_input_manager);
-        mSwCloseLocalKeyboard = findViewById(R.id.sw_close_input_keyboard);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
         /**
-         * coverCurrentEditTextMessage(String text) -- 设置当前输入框的内容
+         * coverCurrentEditTextMessage(String text) -- 覆盖当前输入框的内容
          */
-        mBtnSendInputData.setOnClickListener(v -> {
+        mBtnCoverCurrentEditTextMessage.setOnClickListener(v -> {
             if (mLocalInputManager != null) {
                 mLocalInputManager.coverCurrentEditTextMessage(mEtTextInput.getText().toString());
+            }
+        });
+
+        /**
+         * sendInputText(String text) -- 向当前输入框追加内容
+         */
+        mBtnSendInputText.setOnClickListener(v -> {
+            if (mLocalInputManager != null) {
+                mLocalInputManager.sendInputText(mEtTextInput.getText().toString());
             }
         });
 
@@ -108,21 +115,15 @@ public class LocalInputManagerActivity extends BasePlayActivity
         });
 
         /**
-         * getKeyboardEnable() -- 获取远端实例输入法开关状态
-         * setKeyBoardEnable(boolean enable) -- 设置远端实例输入法开关状态
+         * 云端实例输入框是否支持发送文本
+         * isTextInputEnable()
+         *
+         * @return 云端输入框可发送状态
+         *         <li>true：可发送，此状态下允许调用{@link LocalInputManager#sendInputText(String)}接口向pod输入框发送文字</li>
+         *         <li>false：不可发送</li>
          */
-        mSwCloseLocalKeyboard.setChecked(true);
-        mSwCloseLocalKeyboard.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!isChecked) {
-                InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
-            }
-            if (mLocalInputManager != null) {
-                mLocalInputManager.setKeyBoardEnable(isChecked);
-            }
-        });
-        mBtnGetKeyboardStatus.setOnClickListener(v -> {
-            Toast.makeText(this, "" + mLocalInputManager.getKeyboardEnable(), Toast.LENGTH_SHORT).show();
+        mBtnGetTextInputEnable.setOnClickListener(v -> {
+            showToast("" + mLocalInputManager.isTextInputEnable());
         });
     }
 
@@ -283,7 +284,7 @@ public class LocalInputManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onPrepare(String hintText, int inputType) {
-                    AcLog.d(TAG, "[onPrepare] hintText: " + hintText + ", inputType: " + inputType);
+                    AcLog.i(TAG, "[onPrepare] hintText: " + hintText + ", inputType: " + inputType);
                 }
 
                 /**
@@ -291,7 +292,7 @@ public class LocalInputManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onCommandShow() {
-                    AcLog.d(TAG, "[onCommandShow]");
+                    AcLog.i(TAG, "[onCommandShow]");
                 }
 
                 /**
@@ -299,7 +300,7 @@ public class LocalInputManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onCommandHide() {
-                    AcLog.d(TAG, "[onCommandHide]");
+                    AcLog.i(TAG, "[onCommandHide]");
                 }
 
                 /**
@@ -309,28 +310,26 @@ public class LocalInputManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onTextChange(String text) {
-                    AcLog.d(TAG, "[onTextChange] text: " + text);
+                    AcLog.i(TAG, "[onTextChange] text: " + text);
                 }
 
                 /**
-                 * 云端输入法状态更新的回调
-                 *
-                 * @param enable  true -- 云端输入法已开启
-                 *               false -- 云端输入法已关闭
+                 * 不适用于云手机场景，可忽略
                  */
                 @Override
                 public void onRemoteKeyBoardEnabled(boolean enable) {
-                    AcLog.d(TAG, "[keyBoardEnable] enable: " + enable);
+
                 }
 
                 /**
-                 * 不适用于云游戏场景，可忽略
+                 * 云端实例输入框是否支持发送文本状态变化回调
                  *
-                 * @param enable
+                 * @param enable true -- 支持
+                 *               false -- 不支持
                  */
                 @Override
                 public void onTextInputEnableStateChanged(boolean enable) {
-                    AcLog.d(TAG, "[onTextInputEnableStateChanged] enable: " + enable);
+                    AcLog.i(TAG, "[onTextInputEnableStateChanged] enable: " + enable);
                 }
             });
         }
