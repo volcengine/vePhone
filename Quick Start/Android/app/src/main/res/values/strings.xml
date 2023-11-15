@@ -110,6 +110,7 @@
 
     <!--实例控制相关-->
     <string name="pod_control">实例控制</string>
+    <string name="pod_control_desc">在该演示中你可以体验与实例控制相关的功能接口</string>
     <string name="hint_idle_time">保活时长/秒</string>
     <string name="set_idle_time">设置保活时长</string>
     <string name="hint_auto_recycle_time">无操作回收时长/秒</string>
@@ -118,7 +119,9 @@
     <string name="set_keep_alive_time">设置实例保活时间3min</string>
     <string name="switch_background">切后台</string>
     <string name="switch_foreground">切前台</string>
-    <string name="pod_control_desc">在该演示中你可以体验与实例控制相关的功能接口</string>
+    <string name="screen_shot">截图</string>
+    <string name="screen_record">录屏</string>
+    <string name="get_focused_window_app">获取焦点应用</string>
 
     <!--  旋转相关  -->
     <string name="roll_orientation">旋转</string>

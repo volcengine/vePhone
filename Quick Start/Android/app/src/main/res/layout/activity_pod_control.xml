@@ -23,8 +23,9 @@
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/sw_show_or_hide">
 
         <androidx.appcompat.widget.LinearLayoutCompat
@@ -32,7 +33,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintTop_toBottomOf="@+id/sw_show_or_hide"
             app:layout_constraintStart_toStartOf="parent">
 
             <Button
@@ -64,6 +64,35 @@
                 android:id="@+id/btn_switch_foreground"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
+
+            <Button
+                android:text="@string/screen_shot"
+                android:id="@+id/btn_screen_shot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:text="@string/screen_record"
+                android:id="@+id/btn_screen_record"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:text="@string/get_focused_window_app"
+                android:id="@+id/btn_get_focused_window_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/sw_show_or_hide_nav_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="导航栏"
+                android:layout_marginHorizontal="10dp"
+                android:textColor="@color/teal_700"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"/>
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
