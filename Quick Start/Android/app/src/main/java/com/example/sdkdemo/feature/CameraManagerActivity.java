@@ -1,5 +1,7 @@
 package com.example.sdkdemo.feature;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -16,6 +18,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.appcompat.widget.SwitchCompat;
 
+import com.blankj.utilcode.util.PermissionUtils;
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
@@ -343,54 +346,7 @@ public class CameraManagerActivity extends BasePlayActivity
                 @Override
                 public void onVideoStreamStartRequested(CameraId cameraId) {
                     AcLog.i(TAG, "[onVideoStreamStartRequested] cameraId: " + cameraId);
-                    /**
-                     * (内部采集使用)
-                     * startVideoStream -- 开始指定摄像头采集兵推流，建议在onVideoStreamStartRequested中调用
-                     *
-                     * @return 0 -- 调用成功
-                     *        -1 -- 调用失败
-                     */
-                    mCameraManager.startVideoStream(cameraId);
-
-                    /**
-                     * (外部采集使用)
-                     * 设置本地视频源类型
-                     * int setVideoSourceType(int index, int type)
-                     *
-                     * @param index 视频流索引
-                     *              0 -- 主流
-                     *              1 -- 屏幕流
-                     * @param type 视频源类型
-                     *             0 -- 外部采集视频源(自定义采集)
-                     *             1 -- 内部采集视频源(本地相机采集)
-                     *
-                     * @return 0 -- 调用成功
-                     *        -1 -- 调用失败
-                     *
-                     *
-                     * 向云端实例推送外部采集视频源(需要先调用 setVideoSourceType，将采集模式设置为外部采集视频源，然后调用 publishLocalVideo 发布本地视频)
-                     * int pushExternalVideoFrame(int index, VeVideoFrame frame)
-                     *
-                     * @param index 视频流索引
-                     * @param frame 外部采集的视频帧
-                     *
-                     * @return 0 -- 调用成功
-                     *        -1 -- 调用失败
-                     *
-                     * 发布本地视频，视频外部采集需要调用此接口
-                     * int publishLocalVideo()
-                     *
-                     * @return 0 -- 调用成功
-                     *        -1 -- 调用失败
-                     */
-//                    if (mCameraVideoProvider != null) {
-//                        mCameraManager.setVideoSourceType(StreamIndex.MAIN, VideoSourceType.EXTERNAL);
-//                        mCameraVideoProvider.setFrameConsumer( veVideoFrame -> {
-//                            mCameraManager.pushExternalVideoFrame(StreamIndex.MAIN, veVideoFrame);
-//                        });
-//                        mCameraVideoProvider.start(cameraId); // 开始视频采集
-//                        mCameraManager.publishLocalVideo();
-//                    }
+                    requestPermissionAndStartSendVideo(cameraId);
                 }
 
                 /**
@@ -560,4 +516,68 @@ public class CameraManagerActivity extends BasePlayActivity
     public void onNetworkQuality(int quality) {
         AcLog.d(TAG, "[onNetworkQuality] quality: " + quality);
     }
+
+    private void requestPermissionAndStartSendVideo(CameraId cameraId) {
+        PermissionUtils.permission(Manifest.permission.CAMERA)
+                .callback(new PermissionUtils.SimpleCallback() {
+                    @SuppressLint("MissingPermission")
+                    @Override
+                    public void onGranted() {
+                        /**
+                         * (内部采集使用)
+                         * startVideoStream -- 开始指定摄像头采集兵推流，建议在onVideoStreamStartRequested中调用
+                         *
+                         * @return 0 -- 调用成功
+                         *        -1 -- 调用失败
+                         */
+                        mCameraManager.startVideoStream(cameraId);
+
+                        /**
+                         * (外部采集使用)
+                         * 设置本地视频源类型
+                         * int setVideoSourceType(int index, int type)
+                         *
+                         * @param index 视频流索引
+                         *              0 -- 主流
+                         *              1 -- 屏幕流
+                         * @param type 视频源类型
+                         *             0 -- 外部采集视频源(自定义采集)
+                         *             1 -- 内部采集视频源(本地相机采集)
+                         *
+                         * @return 0 -- 调用成功
+                         *        -1 -- 调用失败
+                         *
+                         *
+                         * 向云端实例推送外部采集视频源(需要先调用 setVideoSourceType，将采集模式设置为外部采集视频源，然后调用 publishLocalVideo 发布本地视频)
+                         * int pushExternalVideoFrame(int index, VeVideoFrame frame)
+                         *
+                         * @param index 视频流索引
+                         * @param frame 外部采集的视频帧
+                         *
+                         * @return 0 -- 调用成功
+                         *        -1 -- 调用失败
+                         *
+                         * 发布本地视频，视频外部采集需要调用此接口
+                         * int publishLocalVideo()
+                         *
+                         * @return 0 -- 调用成功
+                         *        -1 -- 调用失败
+                         */
+//                        if (mCameraVideoProvider != null) {
+//                            mCameraManager.setVideoSourceType(StreamIndex.MAIN, VideoSourceType.EXTERNAL);
+//                            mCameraVideoProvider.setFrameConsumer( veVideoFrame -> {
+//                                mCameraManager.pushExternalVideoFrame(StreamIndex.MAIN, veVideoFrame);
+//                            });
+//                            mCameraVideoProvider.start(cameraId); // 开始视频采集
+//                            mCameraManager.publishLocalVideo();
+//                        }
+                    }
+
+                    @Override
+                    public void onDenied() {
+                        showToast("无相机权限");
+                    }
+                }).request();
+    }
+
 }

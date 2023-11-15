@@ -1,6 +1,6 @@
 package com.example.sdkdemo.common;
 
-import android.annotation.SuppressLint;
+import android.Manifest;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
@@ -12,6 +12,7 @@ import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
 
+import androidx.annotation.RequiresPermission;
 import androidx.core.util.Consumer;
 
 import com.volcengine.cloudcore.common.mode.CameraId;
@@ -43,7 +44,7 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
         mI420Dumper = new VideoDumper("i420");
     }
 
-    @SuppressLint("MissingPermission")
+    @RequiresPermission(Manifest.permission.CAMERA)
     public void start(CameraId cameraId){
         if (mPushStreamThread != null) {
             stopPushThread();
