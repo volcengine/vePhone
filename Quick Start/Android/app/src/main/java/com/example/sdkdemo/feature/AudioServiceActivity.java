@@ -19,6 +19,7 @@ import com.blankj.utilcode.util.PermissionUtils;
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
+import com.example.sdkdemo.common.AudioRecordThread;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
@@ -49,10 +50,11 @@ public class AudioServiceActivity extends BasePlayActivity
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
     private AudioService mAudioService;
+    private AudioRecordThread mAudioRecordThread;
     private SwitchCompat mSwShowOrHide, mSwSendAudio;
     private LinearLayoutCompat mLlButtons;
     private Button mBtnMute, mBtnVolumeUp, mBtnVolumeDown, mBtnGetSettings,
-            mBtnStartSendAudio, mBtnStopSendAudio, mBtnChangeAudioPlaybackDevice;
+            mBtnChangeAudioPlaybackDevice;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -71,8 +73,6 @@ public class AudioServiceActivity extends BasePlayActivity
         mBtnVolumeUp = findViewById(R.id.btn_volume_up);
         mBtnVolumeDown = findViewById(R.id.btn_volume_down);
         mSwSendAudio = findViewById(R.id.sw_send_audio);
-        mBtnStartSendAudio = findViewById(R.id.btn_start_send_audio);
-        mBtnStopSendAudio = findViewById(R.id.btn_stop_send_audio);
         mBtnGetSettings = findViewById(R.id.btn_get_settings);
         mBtnChangeAudioPlaybackDevice = findViewById(R.id.btn_change_audio_playback_device);
 
@@ -106,21 +106,6 @@ public class AudioServiceActivity extends BasePlayActivity
                  * setEnableSendAudioStream(boolean enable) -- 设置是否向云端实例发送音频流
                  */
                 mAudioService.setEnableSendAudioStream(enable);
-            }
-        });
-
-        mBtnStartSendAudio.setOnClickListener(view -> {
-            if (mAudioService != null) {
-                requestPermissionAndStartSendAudio();
-            }
-        });
-
-        mBtnStopSendAudio.setOnClickListener(view -> {
-            if (mAudioService != null) {
-                /**
-                 * stopSendAudioStream() -- 关闭音频数据发送，并且不进行音频采集
-                 */
-                mAudioService.stopSendAudioStream();
             }
         });
 
@@ -222,6 +207,10 @@ public class AudioServiceActivity extends BasePlayActivity
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (mAudioRecordThread != null) {
+            mAudioRecordThread.setRecordStatus(false);
+            mAudioRecordThread = null;
+        }
     }
 
     @Override
@@ -316,7 +305,7 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteAudioPlaybackVolumeChanged(int volume) {
-                    AcLog.d(TAG, "[onRemoteAudioPlaybackVolumeChanged] volume: " + volume);
+                    AcLog.i(TAG, "[onRemoteAudioPlaybackVolumeChanged] volume: " + volume);
                 }
 
                 /**
@@ -324,7 +313,7 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteAudioStartRequest() {
-                    AcLog.d(TAG, "[onRemoteAudioStartRequest]");
+                    AcLog.i(TAG, "[onRemoteAudioStartRequest]");
                     requestPermissionAndStartSendAudio();
                 }
 
@@ -333,8 +322,21 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteAudioStopRequest() {
-                    AcLog.d(TAG, "[onRemoteAudioStopRequest]");
+                    AcLog.i(TAG, "[onRemoteAudioStopRequest]");
+                    /**
+                     * (内部采集使用)
+                     * stopSendAudioStream() -- 关闭音频数据发送，并且不进行音频采集
+                     */
                     mAudioService.stopSendAudioStream();
+
+                    /**
+                     * (外部采集使用)
+                     * 停止音频录制
+                     */
+//                    if (mAudioRecordThread != null) {
+//                        mAudioRecordThread.setRecordStatus(false);
+//                        mAudioRecordThread = null;
+//                    }
                 }
 
                 /**
@@ -350,7 +352,7 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onAudioPlaybackDeviceChanged(int device) {
-                    AcLog.d(TAG, "[onAudioPlaybackDeviceChanged] device: " + device);
+                    AcLog.i(TAG, "[onAudioPlaybackDeviceChanged] device: " + device);
                     showToast("[onAudioPlaybackDeviceChanged] device: " + device);
                 }
 
@@ -362,7 +364,7 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onLocalAudioStateChanged(LocalAudioStreamState localAudioStreamState, LocalAudioStreamError localAudioStreamError) {
-                    AcLog.d(TAG, "[onLocalAudioStateChanged] localAudioStreamState: " + localAudioStreamState +
+                    AcLog.i(TAG, "[onLocalAudioStateChanged] localAudioStreamState: " + localAudioStreamState +
                             ", localAudioStreamError: " + localAudioStreamError);
                 }
             });
@@ -515,9 +517,19 @@ public class AudioServiceActivity extends BasePlayActivity
                     @Override
                     public void onGranted() {
                         /**
+                         * (内部采集使用)
                          * startSendAudioStream() -- 获取麦克风权限后，采集并发送音频数据
                          */
                         mAudioService.startSendAudioStream();
+
+                        /**
+                         * (外部采集使用)
+                         * 开始音频录制并发布外部采集的音频
+                         */
+//                        if (mAudioRecordThread == null) {
+//                            mAudioRecordThread = new AudioRecordThread(mAudioService, true);
+//                            mAudioRecordThread.start();
+//                        }
                     }
 
                     @Override
