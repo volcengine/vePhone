@@ -19,6 +19,7 @@ import androidx.appcompat.widget.SwitchCompat;
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
+import com.example.sdkdemo.common.CameraVideoProvider;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
@@ -28,11 +29,14 @@ import com.volcengine.cloudcore.common.mode.LocalVideoStreamDescription;
 import com.volcengine.cloudcore.common.mode.LocalVideoStreamError;
 import com.volcengine.cloudcore.common.mode.LocalVideoStreamState;
 import com.volcengine.cloudcore.common.mode.MirrorMode;
+import com.volcengine.cloudcore.common.mode.StreamIndex;
+import com.volcengine.cloudcore.common.mode.VideoSourceType;
 import com.volcengine.cloudphone.apiservice.CameraManager;
 import com.volcengine.cloudphone.apiservice.outinterface.CameraManagerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.cloudphone.apiservice.outinterface.RemoteCameraRequestListener;
+import com.volcengine.cloudphone.base.VeVideoFrame;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
@@ -58,6 +62,7 @@ public class CameraManagerActivity extends BasePlayActivity
     private SwitchCompat mSwShowOrHide, mSwEnableMirror;
     private LinearLayoutCompat mLlButtons;
     private Button mBtnAddLocalCanvas, mBtnPushMultipleStream, mBtnSwitchFrontCamera, mBtnSwitchRearCamera;
+    private CameraVideoProvider mCameraVideoProvider;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -66,6 +71,7 @@ public class CameraManagerActivity extends BasePlayActivity
         setContentView(R.layout.activity_camera);
         initView();
         initPhonePlayConfig();
+        mCameraVideoProvider = new CameraVideoProvider(getApplicationContext());
     }
 
     private void initView() {
@@ -211,6 +217,10 @@ public class CameraManagerActivity extends BasePlayActivity
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (mCameraVideoProvider != null) {
+            mCameraVideoProvider.stop();
+            mCameraVideoProvider = null;
+        }
     }
 
     @Override
@@ -306,7 +316,7 @@ public class CameraManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onLocalVideoStateChanged(LocalVideoStreamState localVideoStreamState, LocalVideoStreamError localVideoStreamError) {
-                    AcLog.d(TAG, "[onLocalVideoStateChanged] localVideoStreamState: " +
+                    AcLog.i(TAG, "[onLocalVideoStateChanged] localVideoStreamState: " +
                             localVideoStreamState + ", localVideoStreamError: " + localVideoStreamError);
                 }
 
@@ -315,7 +325,7 @@ public class CameraManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onFirstCapture() {
-                    AcLog.d(TAG, "[onFirstCapture]");
+                    AcLog.i(TAG, "[onFirstCapture]");
                 }
             });
 
@@ -332,14 +342,55 @@ public class CameraManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onVideoStreamStartRequested(CameraId cameraId) {
-                    AcLog.d(TAG, "[onVideoStreamStartRequested] cameraId: " + cameraId);
+                    AcLog.i(TAG, "[onVideoStreamStartRequested] cameraId: " + cameraId);
                     /**
+                     * (内部采集使用)
                      * startVideoStream -- 开始指定摄像头采集兵推流，建议在onVideoStreamStartRequested中调用
                      *
                      * @return 0 -- 调用成功
                      *        -1 -- 调用失败
                      */
                     mCameraManager.startVideoStream(cameraId);
+
+                    /**
+                     * (外部采集使用)
+                     * 设置本地视频源类型
+                     * int setVideoSourceType(int index, int type)
+                     *
+                     * @param index 视频流索引
+                     *              0 -- 主流
+                     *              1 -- 屏幕流
+                     * @param type 视频源类型
+                     *             0 -- 外部采集视频源(自定义采集)
+                     *             1 -- 内部采集视频源(本地相机采集)
+                     *
+                     * @return 0 -- 调用成功
+                     *        -1 -- 调用失败
+                     *
+                     *
+                     * 向云端实例推送外部采集视频源(需要先调用 setVideoSourceType，将采集模式设置为外部采集视频源，然后调用 publishLocalVideo 发布本地视频)
+                     * int pushExternalVideoFrame(int index, VeVideoFrame frame)
+                     *
+                     * @param index 视频流索引
+                     * @param frame 外部采集的视频帧
+                     *
+                     * @return 0 -- 调用成功
+                     *        -1 -- 调用失败
+                     *
+                     * 发布本地视频，视频外部采集需要调用此接口
+                     * int publishLocalVideo()
+                     *
+                     * @return 0 -- 调用成功
+                     *        -1 -- 调用失败
+                     */
+//                    if (mCameraVideoProvider != null) {
+//                        mCameraManager.setVideoSourceType(StreamIndex.MAIN, VideoSourceType.EXTERNAL);
+//                        mCameraVideoProvider.setFrameConsumer( veVideoFrame -> {
+//                            mCameraManager.pushExternalVideoFrame(StreamIndex.MAIN, veVideoFrame);
+//                        });
+//                        mCameraVideoProvider.start(cameraId); // 开始视频采集
+//                        mCameraManager.publishLocalVideo();
+//                    }
                 }
 
                 /**
@@ -347,11 +398,25 @@ public class CameraManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onVideoStreamStopRequested() {
-                    AcLog.d(TAG, "[onVideoStreamStopRequested]");
+                    AcLog.i(TAG, "[onVideoStreamStopRequested]");
                     /**
+                     * (内部采集使用)
                      * stopVideoStream -- 停止推流，建议在onVideoStreamStopRequested中调用
                      */
                     mCameraManager.stopVideoStream();
+
+                    /**
+                     * (外部采集使用)
+                     * 取消发布本地视频，视频外部采集需要调用此接口
+                     * int unpublishLocalVideo()
+                     *
+                     * @return 0 -- 调用成功
+                     *        -1 -- 调用失败
+                     */
+//                    if (mCameraVideoProvider != null) {
+//                        mCameraVideoProvider.stop(); // 停止视频采集
+//                        mCameraManager.unpublishLocalVideo();
+//                    }
                 }
             });
         }
