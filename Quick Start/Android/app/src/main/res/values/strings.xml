@@ -149,13 +149,14 @@
 
     <!--  其他  -->
     <string name="unclassified">其他</string>
+    <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
     <string name="restart">重启云游戏</string>
     <string name="stop">关闭云游戏</string>
     <string name="pause">暂停拉流</string>
     <string name="resume">恢复拉流</string>
     <string name="back">返回</string>
     <string name="test_exception">异常测试</string>
-    <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
+    <string name="send_key_event">发送键盘事件</string>
 
     <!--  本地输入相关  -->
     <string name="local_input">本地输入</string>

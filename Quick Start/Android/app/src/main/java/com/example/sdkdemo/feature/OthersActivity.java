@@ -2,6 +2,7 @@ package com.example.sdkdemo.feature;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -43,7 +44,7 @@ public class OthersActivity extends BasePlayActivity
     private PhonePlayConfig.Builder mBuilder;
     private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnPause, mBtnResume;
+    private Button mBtnPause, mBtnResume, mBtnSendKeyEvent;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -60,6 +61,7 @@ public class OthersActivity extends BasePlayActivity
         mLlButtons = findViewById(R.id.ll_buttons);
         mBtnPause = findViewById(R.id.btn_pause);
         mBtnResume = findViewById(R.id.btn_resume);
+        mBtnSendKeyEvent = findViewById(R.id.btn_send_key_event);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
@@ -76,6 +78,28 @@ public class OthersActivity extends BasePlayActivity
              * resume() -- 恢复从云端拉流
              */
             VePhoneEngine.getInstance().resume();
+        });
+
+        /**
+         * 向云端实例发送键盘事件
+         * int sendKeyEvent(int keyCode)
+         * int sendKeyEvent(int action, int keyCode)
+         *
+         * @param action  事件类型，eg. {@link KeyEvent#ACTION_DOWN} etc.
+         * @param keyCode 当前仅支持以下键盘事件：
+         *                <li>{@link KeyEvent#KEYCODE_HOME}</li>
+         *                <li>{@link KeyEvent#KEYCODE_BACK}</li>
+         *                <li>{@link KeyEvent#KEYCODE_MENU}</li>
+         *                <li>{@link KeyEvent#KEYCODE_APP_SWITCH}</li>
+         *
+         * @return 0 -- 调用成功
+         *        -1 -- 调用失败或者不支持该keyCode
+         */
+        mBtnSendKeyEvent.setOnClickListener(v -> {
+            VePhoneEngine.getInstance().sendKeyEvent(KeyEvent.KEYCODE_HOME);
+
+//            VePhoneEngine.getInstance().sendKeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK);
+//            VePhoneEngine.getInstance().sendKeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK);
         });
     }
 
