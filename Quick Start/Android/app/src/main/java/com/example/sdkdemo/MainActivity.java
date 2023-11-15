@@ -16,6 +16,7 @@ import com.example.sdkdemo.feature.OthersActivity;
 import com.example.sdkdemo.feature.PodControlServiceActivity;
 import com.example.sdkdemo.feature.RotationModeActivity;
 import com.example.sdkdemo.feature.SensorActivity;
+import com.example.sdkdemo.feature.TouchEventServiceActivity;
 
 public class MainActivity extends BaseListActivity {
 
@@ -36,6 +37,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.message_channel, R.string.message_channel_desc, MessageChannelActivity.class);
         holder.addItem(R.string.pod_control, R.string.pod_control_desc, PodControlServiceActivity.class);
         holder.addItem(R.string.rotation_mode, R.string.rotation_mode_desc, RotationModeActivity.class);
+        holder.addItem(R.string.touch_event, R.string.touch_event_desc, TouchEventServiceActivity.class);
         holder.addItem(R.string.multi_media_stream, R.string.multi_media_stream_desc, MultiMediaStreamActivity.class);
         holder.addItem(R.string.sensor, R.string.sensor_desc, SensorActivity.class);
         holder.addItem(R.string.unclassified, R.string.unclassified_desc, OthersActivity.class);

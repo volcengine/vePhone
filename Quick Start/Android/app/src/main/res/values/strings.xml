@@ -122,6 +122,11 @@
     <string name="rotation_mode">旋转模式</string>
     <string name="rotation_mode_desc">在该演示中你可以体验与旋转模式相关的功能接口</string>
 
+    <!--  触控事件相关  -->
+    <string name="touch_event">触控事件</string>
+    <string name="send_motion_event">发送触控事件</string>
+    <string name="touch_event_desc">在该演示中你可以体验与触控事件相关的功能接口</string>
+
     <!--  多屏取流相关  -->
     <string name="multi_media_stream">多屏取流</string>
     <string name="multi_media_stream_desc">在该演示中你可以体验与多屏取流相关的功能接口</string>

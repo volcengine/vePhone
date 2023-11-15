@@ -2,10 +2,11 @@ package com.example.sdkdemo.feature;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -20,7 +21,7 @@ import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
-import com.volcengine.cloudphone.apiservice.PodControlService;
+import com.volcengine.cloudphone.apiservice.TouchEventService;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -32,27 +33,26 @@ import org.json.JSONObject;
 import java.util.Map;
 
 /**
- * 该类用于展示与实例控制{@link PodControlService}相关的功能接口的使用方法
+ * 该类用于展示与实例控制{@link TouchEventService}相关的功能接口的使用方法
  */
-public class PodControlServiceActivity extends BasePlayActivity
+public class TouchEventServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = "PodControlServiceActivity";
+    private final String TAG = "TouchEventServiceActivity";
 
-    private FrameLayout mContainer;
+    private ViewGroup mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private PodControlService mPodControlService;
+    private TouchEventService mTouchEventService;
     private SwitchCompat mSwShowOrHide;
-    private Button mBtnSwitchBackground, mBtnSwitchForeground, mBtnSetIdleTime,
-            mBtnGetAutoRecycleTime, mBtnSetAutoRecycleTime;
     private LinearLayoutCompat mLlButtons;
+    private Button mBtnSendMotionEvent;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_pod_control);
+        setContentView(R.layout.activity_touch_event);
         initView();
         initPhonePlayConfig();
     }
@@ -61,84 +61,41 @@ public class PodControlServiceActivity extends BasePlayActivity
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mBtnSwitchBackground = findViewById(R.id.btn_switch_background);
-        mBtnSwitchForeground = findViewById(R.id.btn_switch_foreground);
-        mBtnSetIdleTime = findViewById(R.id.btn_set_idle_time);
-        mBtnGetAutoRecycleTime = findViewById(R.id.btn_get_auto_recycle_time);
-        mBtnSetAutoRecycleTime = findViewById(R.id.btn_set_auto_recycle_time);
+        mBtnSendMotionEvent = findViewById(R.id.btn_send_motion_event);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
         /**
-         * switchBackground(boolean on) -- 设置客户端应用切换前后台的状态
+         * 向云端实例发送触摸事件
+         * int sendMotionEvent(int action,
+         *                         @FloatRange(from = 0.0, to = 1.0) float offsetX,
+         *                         @FloatRange(from = 0.0, to = 1.0) float offsetY)
          *
-         * @param on true -- 切后台
-         *           false -- 切前台
-         */
-        mBtnSwitchBackground.setOnClickListener(view -> {
-            if (mPodControlService != null) {
-                mPodControlService.switchBackground(true);
-            }
-        });
-        mBtnSwitchForeground.setOnClickListener(view -> {
-            if (mPodControlService != null) {
-                mPodControlService.switchBackground(false);
-            }
-        });
-
-        /**
-         * setIdleTime(long time) -- 设置客户端切后台之后，云端实例的保活时间
+         * @param action 比如:
+         *                  {@link MotionEvent#ACTION_DOWN}
+         *                  {@link MotionEvent#ACTION_UP}
+         *                  {@link MotionEvent#ACTION_CANCEL}
+         *                  {@link MotionEvent#ACTION_POINTER_DOWN}
+         *                  {@link MotionEvent#ACTION_POINTER_UP}
+         *                  {@link MotionEvent#ACTION_MOVE}
+         * @param offsetX 距离云端实例屏幕左侧的偏移量，取值范围[0.0, 1.0]
+         * @param offsetY 距离云端实例屏幕顶部的偏移量，取值范围[0.0, 1.0]
          *
-         * @param time 保活时长，单位秒
+         * @return  0 -- 方法调用成功
+         *          1 -- 方法调用失败
          */
-        mBtnSetIdleTime.setOnClickListener(v -> {
-            if (mPodControlService != null) {
-                int idleTime = 10;
-                mPodControlService.setIdleTime(idleTime);
+        mBtnSendMotionEvent.setOnClickListener(v -> {
+            if (mTouchEventService != null) {
+                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_DOWN, 0.5f, 0.9f);
+                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_MOVE, 0.5f, 0.3f);
+                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_UP, 0.5f, 0.3f);
+            }
+            else {
+                showToast("mTouchEventService == null");
             }
         });
-
-        /**
-         * setAutoRecycleTime(int time, SetAutoRecycleTimeCallback callback) -- 设置无操作回收服务时长
-         *
-         * @param time 无操作回收服务时长，单位秒
-         * @param callback 设置无操作回收服务时长的回调
-         * @return 0 -- 正常返回
-         *        -1 -- 内部错误
-         *        -2 -- time参数小于0
-         */
-        mBtnSetAutoRecycleTime.setOnClickListener(v -> {
-            if (mPodControlService != null) {
-                int autoRecycleTime = 20;
-                mPodControlService.setAutoRecycleTime(autoRecycleTime, new PodControlService.SetAutoRecycleTimeCallback() {
-                    @Override
-                    public void onResult(int result, long time) {
-                        showToast("[setAutoRecycleTimeResult] result: " + result + ", time: " + time);
-                    }
-                });
-            }
-        });
-
-        /**
-         * getAutoRecycleTime(GetAutoRecycleTimeCallback callback) -- 查询无操作回收服务时长
-         *
-         * @param callback 查询无操作回收服务时长的回调
-         * @return 0 -- 正常返回
-         *        -1 -- 内部错误
-         */
-        mBtnGetAutoRecycleTime.setOnClickListener(v -> {
-            if (mPodControlService != null) {
-                mPodControlService.getAutoRecycleTime(new PodControlService.GetAutoRecycleTimeCallback() {
-                    @Override
-                    public void onResult(int result, long time) {
-                        showToast("[getAutoRecycleTimeResult] result: " + result + ", time: " + time);
-                    }
-                });
-            }
-        });
-
     }
 
     private void initPhonePlayConfig() {
@@ -287,26 +244,7 @@ public class PodControlServiceActivity extends BasePlayActivity
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);
-        mPodControlService = VePhoneEngine.getInstance().getPodControlService();
-        if (mPodControlService != null) {
-            /**
-             * setBackgroundSwitchListener(BackgroundSwitchListener listener) -- 设置云端应用切换前后台监听器
-             */
-            mPodControlService.setBackgroundSwitchListener(new PodControlService.BackgroundSwitchListener() {
-                /**
-                 * 云端应用切换前后台的回调
-                 *
-                 * @param on true -- 切换到后台
-                 *          false -- 切换到前台
-                 */
-                @Override
-                public void onBackgroundSwitched(boolean on) {
-                    AcLog.d(TAG, "[onBackgroundSwitched] isBackground: " + on);
-                    showToast("[onBackgroundSwitched] isBackground: " + on);
-                }
-            });
-        }
-
+        mTouchEventService = VePhoneEngine.getInstance().getTouchEventService();
     }
 
     /**
