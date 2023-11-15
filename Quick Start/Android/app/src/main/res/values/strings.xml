@@ -67,8 +67,11 @@
     <string name="input_filepath">请输入文件路径</string>
     <string name="file_exchange_desc">在该演示中你可以体验与大文件通道相关的功能接口</string>
 
-    <!-- Ground相关 -->
-    <string name="ground">ground</string>
+    <!-- 云端应用切换前后台相关 -->
+    <string name="remote_app_ground_switch">云端应用切换前后台</string>
+    <string name="remote_app_ground_switch_desc">在该演示中你可以体验与云端应用切换前后台相关的功能接口</string>
+    <string name="set_remote_app_foreground">云端应用切前台</string>
+    <string name="get_remote_background_app_list">获取云端后台应用列表</string>
 
     <!--定位服务相关-->
     <string name="location">定位服务</string>

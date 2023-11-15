@@ -3,6 +3,7 @@ package com.example.sdkdemo;
 import android.os.Bundle;
 
 import com.example.sdkdemo.base.BaseListActivity;
+import com.example.sdkdemo.feature.AppGroundSwitchManagerActivity;
 import com.example.sdkdemo.feature.AudioServiceActivity;
 import com.example.sdkdemo.feature.CameraManagerActivity;
 import com.example.sdkdemo.feature.ClarityServiceActivity;
@@ -36,6 +37,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.location, R.string.location_desc, LocationServiceActivity.class);
         holder.addItem(R.string.message_channel, R.string.message_channel_desc, MessageChannelActivity.class);
         holder.addItem(R.string.pod_control, R.string.pod_control_desc, PodControlServiceActivity.class);
+        holder.addItem(R.string.remote_app_ground_switch, R.string.remote_app_ground_switch_desc, AppGroundSwitchManagerActivity.class);
         holder.addItem(R.string.rotation_mode, R.string.rotation_mode_desc, RotationModeActivity.class);
         holder.addItem(R.string.touch_event, R.string.touch_event_desc, TouchEventServiceActivity.class);
         holder.addItem(R.string.multi_media_stream, R.string.multi_media_stream_desc, MultiMediaStreamActivity.class);
