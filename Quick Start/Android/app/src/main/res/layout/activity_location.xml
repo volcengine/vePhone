@@ -68,6 +68,12 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/btn_set_mock_location"
+            android:text="设置mock位置信息"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:id="@+id/btn_get"
             android:text="查询"/>
 

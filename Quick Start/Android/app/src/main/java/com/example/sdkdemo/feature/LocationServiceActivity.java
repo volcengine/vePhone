@@ -47,7 +47,7 @@ public class LocationServiceActivity extends BasePlayActivity
     private SwitchCompat mSwShowOrHide, mSwEnableLocationService;
     private LinearLayoutCompat mLlButtons;
     private RadioGroup mRgLocationMode;
-    private Button mBtnGet;
+    private Button mBtnSetRemoteMockLocation, mBtnGet;
 
 
     @Override
@@ -65,6 +65,7 @@ public class LocationServiceActivity extends BasePlayActivity
         mSwEnableLocationService = findViewById(R.id.sw_enable_location_service);
         mLlButtons = findViewById(R.id.ll_buttons);
         mRgLocationMode = findViewById(R.id.rg_mode);
+        mBtnSetRemoteMockLocation = findViewById(R.id.btn_set_mock_location);
         mBtnGet = findViewById(R.id.btn_get);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -94,6 +95,20 @@ public class LocationServiceActivity extends BasePlayActivity
             if (mLocationService != null) {
                 mLocationService.setLocationServiceMode(
                         checkedId == R.id.rb_auto ? LocationService.MODE_AUTO : LocationService.MODE_MANUAL);
+            }
+        });
+
+        /**
+         * setRemoteLocationMock(LocationInfo location)
+         * 更新云端实例位置信息
+         *
+         * @param location 位置信息
+         * @return 0 -- 方法调用成功
+         *        -1 -- 方法调用失败
+         */
+        mBtnSetRemoteMockLocation.setOnClickListener(v -> {
+            if (mLocationService != null) {
+                mLocationService.setRemoteLocationMock(new LocationService.LocationInfo(138.2, 120.3));
             }
         });
 
@@ -149,6 +164,7 @@ public class LocationServiceActivity extends BasePlayActivity
                 .token(token)
                 .container(mContainer)
                 .enableLocalKeyboard(true)
+                .enableLocationService(true)
                 .roundId(roundId)
                 .podId(podId)
                 .productId(productId)
@@ -269,7 +285,7 @@ public class LocationServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onReceivedRemoteLocationRequest(LocationService.RequestOptions requestOptions) {
-                    AcLog.d(TAG, "[onReceivedRemoteLocationRequest] requestOptions: " + requestOptions);
+                    AcLog.i(TAG, "[onReceivedRemoteLocationRequest] requestOptions: " + requestOptions);
                 }
 
                 /**
@@ -277,7 +293,7 @@ public class LocationServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteLocationRequestEnded() {
-                    AcLog.d(TAG, "[onRemoteLocationRequestEnded]");
+                    AcLog.i(TAG, "[onRemoteLocationRequestEnded]");
                 }
 
                 /**
@@ -287,7 +303,7 @@ public class LocationServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onSentLocalLocation(LocationService.LocationInfo locationInfo) {
-                    AcLog.d(TAG, "[onSentLocalLocation] locationInfo: " + locationInfo);
+                    AcLog.i(TAG, "[onSentLocalLocation] locationInfo: " + locationInfo);
                 }
 
                 /**
@@ -299,7 +315,7 @@ public class LocationServiceActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteLocationUpdated(LocationService.LocationInfo locationInfo) {
-                    AcLog.d(TAG, "[onRemoteLocationUpdated] locationInfo: " + locationInfo);
+                    AcLog.i(TAG, "[onRemoteLocationUpdated] locationInfo: " + locationInfo);
                 }
             });
         }
