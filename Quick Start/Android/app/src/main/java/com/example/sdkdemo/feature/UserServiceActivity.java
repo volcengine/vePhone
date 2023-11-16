@@ -2,11 +2,12 @@ package com.example.sdkdemo.feature;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -19,10 +20,9 @@ import com.example.sdkdemo.util.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
-import com.volcengine.androidcloud.common.model.SimpleTouchEvent;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
-import com.volcengine.cloudphone.apiservice.TouchEventService;
+import com.volcengine.cloudphone.apiservice.UserService;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -34,27 +34,30 @@ import org.json.JSONObject;
 import java.util.List;
 import java.util.Map;
 
+
 /**
- * 该类用于展示与实例控制{@link TouchEventService}相关的功能接口的使用方法
+ * 该类用于展示与{@link UserService}相关的功能接口的使用方法
  */
-public class TouchEventServiceActivity extends BasePlayActivity
+public class UserServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
-    private final String TAG = "TouchEventServiceActivity";
+    private final String TAG = "UserServiceActivity";
 
     private ViewGroup mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
-    private TouchEventService mTouchEventService;
+    private UserService mUserService;
     private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnSendMotionEvent;
+    private Button mBtnEnableControl, mBtnHasControl, mBtnGetAllControls;
+    private EditText mEtUserId;
+    private CheckBox mCbEnableControl;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScreenUtil.adaptHolePhone(this);
-        setContentView(R.layout.activity_touch_event);
+        setContentView(R.layout.activity_user_service);
         initView();
         initPhonePlayConfig();
     }
@@ -63,39 +66,67 @@ public class TouchEventServiceActivity extends BasePlayActivity
         mContainer = findViewById(R.id.container);
         mSwShowOrHide = findViewById(R.id.sw_show_or_hide);
         mLlButtons = findViewById(R.id.ll_buttons);
-        mBtnSendMotionEvent = findViewById(R.id.btn_send_motion_event);
+        mEtUserId = findViewById(R.id.et_user_id);
+        mCbEnableControl = findViewById(R.id.cb_enable_control);
+        mBtnEnableControl = findViewById(R.id.btn_enable_control);
+        mBtnHasControl = findViewById(R.id.btn_has_control);
+        mBtnGetAllControls = findViewById(R.id.btn_get_all_controls);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        /**
-         * 向云端实例发送触摸事件
-         * int sendMotionEvent(int action,
-         *                         @FloatRange(from = 0.0, to = 1.0) float offsetX,
-         *                         @FloatRange(from = 0.0, to = 1.0) float offsetY)
-         *
-         * @param action 比如:
-         *                  {@link MotionEvent#ACTION_DOWN}
-         *                  {@link MotionEvent#ACTION_UP}
-         *                  {@link MotionEvent#ACTION_CANCEL}
-         *                  {@link MotionEvent#ACTION_POINTER_DOWN}
-         *                  {@link MotionEvent#ACTION_POINTER_UP}
-         *                  {@link MotionEvent#ACTION_MOVE}
-         * @param offsetX 距离云端实例屏幕左侧的偏移量，取值范围[0.0, 1.0]
-         * @param offsetY 距离云端实例屏幕顶部的偏移量，取值范围[0.0, 1.0]
-         *
-         * @return  0 -- 方法调用成功
-         *          1 -- 方法调用失败
-         */
-        mBtnSendMotionEvent.setOnClickListener(v -> {
-            if (mTouchEventService != null) {
-                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_DOWN, 0.5f, 0.9f);
-                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_MOVE, 0.5f, 0.3f);
-                mTouchEventService.sendMotionEvent(MotionEvent.ACTION_UP, 0.5f, 0.3f);
+        mBtnEnableControl.setOnClickListener(view -> {
+            /**
+             * int enableControl(String userId, boolean enable)
+             * 设置指定用户是否具有云手机操控权。
+             * 默认每个用户进房时都具备操控权，可以通过本接口动态关闭控制权。
+             * 操作结果通过 {@link UserService.ControlListener#onEnableControlResult(int, UserService.ControlState, String)} 返回。
+             *
+             * @param userId 用户ID
+             * @param enable true -- 开启云手机操控权
+             *               false -- 关闭云手机操控权
+             *
+             * @return 0 -- 方法调用成功
+             *        -1 -- 方法调用失败
+             */
+            if (mUserService != null) {
+                if (mEtUserId.getText() != null && !mEtUserId.getText().toString().isEmpty()) {
+                    mUserService.enableControl(mEtUserId.getText().toString(), mCbEnableControl.isChecked());
+                }
             }
-            else {
-                showToast("mTouchEventService == null");
+        });
+
+        mBtnHasControl.setOnClickListener(view -> {
+            /**
+             * int hasControl(String userId)
+             * 异步查询指定用户是否具有云手机操控权。
+             * 结果通过 {@link UserService.ControlListener#onHasControlResult(int, UserService.ControlState, String)} 返回。
+             *
+             * @param userId 用户ID
+             *
+             * @return 0 -- 方法调用成功
+             *        -1 -- 方法调用失败
+             */
+            if (mUserService != null) {
+                if (mEtUserId.getText() != null && !mEtUserId.getText().toString().isEmpty()) {
+                    mUserService.hasControl(mEtUserId.getText().toString());
+                }
+            }
+        });
+
+
+        mBtnGetAllControls.setOnClickListener(v -> {
+            /**
+             * int getAllControls()
+             * 异步查询所有用户的操控权信息。
+             * 结果通过 {@link UserService.ControlListener#onAllControlsResult(int, List, String)} 返回。
+             *
+             * @return 0 -- 方法调用成功
+             *        -1 -- 方法调用失败
+             */
+            if (mUserService != null) {
+                mUserService.getAllControls();
             }
         });
     }
@@ -131,6 +162,7 @@ public class TouchEventServiceActivity extends BasePlayActivity
 
         String roundId = "roundId_123";
         String userId = "userId_" + System.currentTimeMillis();
+        mEtUserId.setText(userId);
 
         mBuilder = new PhonePlayConfig.Builder();
         mBuilder.userId(userId)
@@ -246,25 +278,82 @@ public class TouchEventServiceActivity extends BasePlayActivity
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
         AcLog.d(TAG, "[onServiceInit] extras: " + extras);
-        mTouchEventService = VePhoneEngine.getInstance().getTouchEventService();
-        if (mTouchEventService != null) {
+        mUserService = VePhoneEngine.getInstance().getUserService();
+        if (mUserService != null) {
             /**
-             * void setInterceptSendTouchEvent(boolean intercept)
-             * 设置是否拦截SDK向云端实例发送触控事件
+             * void setControlListener(UserService.ControlListener listener)
+             * 设置用户操控权监听器
              *
-             * @param intercept true -- 拦截
-             *                  false -- 不拦截
+             * @param listener 用户操控权监听器
              */
-            mTouchEventService.setInterceptSendTouchEvent(true);
-            mTouchEventService.setSimpleTouchEventListener(new TouchEventService.SimpleTouchEventListener() {
+            mUserService.setControlListener(new UserService.ControlListener() {
                 /**
-                 * 触控事件列表回调，用户可在该回调中处理触控事件
+                 * 当前或其他用户通过{@link UserService#enableControl(String, boolean)}调整操控权时收到该回调
                  *
-                 * @param list 回传的触控事件列表
+                 * @param controlState 用户操控权状态
                  */
                 @Override
-                public void onSimpleTouchEvent(List<SimpleTouchEvent> list) {
-                    AcLog.i(TAG, "SimpleTouchEventList: " + list);
+                public void onControlStateChanged(@NonNull UserService.ControlState controlState) {
+                    AcLog.i(TAG, "[onControlStateChanged] controlState: " + controlState);
+                }
+
+                /**
+                 * 配置制定用户操控权结果回调
+                 *
+                 * @param code 0 -- 成功并返回操控权状态
+                 *             else -- 失败错误码
+                 * @param controlState 用户操控权状态
+                 * @param message 提示信息
+                 */
+                @Override
+                public void onEnableControlResult(int code, @Nullable UserService.ControlState controlState, @NonNull String message) {
+                    AcLog.i(TAG, "[onEnableControlResult] code: " + code + ", controlState: " + controlState + ", message: " + message);
+                }
+
+                /**
+                 * 查询指定用户是否具有控制权结果回调
+                 *
+                 * @param code 0 -- 成功并返回操控权状态
+                 *             else -- 失败错误码
+                 * @param controlState 用户操控权状态
+                 * @param message 提示信息
+                 */
+                @Override
+                public void onHasControlResult(int code, @Nullable UserService.ControlState controlState, @NonNull String message) {
+                    AcLog.i(TAG, "[onEnableControlResult] code: " + code + ", controlState: " + controlState + ", message: " + message);
+                }
+
+                /**
+                 * 获取全部具有操控权的用户结果回调
+                 *
+                 * @param code 0 -- 成功并返回操控权状态
+                 *             else -- 失败错误码
+                 * @param statesList 用户操控权状态
+                 * @param message 提示信息
+                 */
+                @Override
+                public void onAllControlsResult(int code, @Nullable List<UserService.ControlState> statesList, @NonNull String message) {
+                    AcLog.i(TAG, "[onAllControlsResult] code: " + code + ", statesList: " + statesList + ", message: " + message);
+                }
+
+                /**
+                 * 远端用户上线回调
+                 *
+                 * @param userId 用户ID
+                 */
+                @Override
+                public void onUserJoin(String userId) {
+                    AcLog.i(TAG, "[onUserJoin] userId: " + userId);
+                }
+
+                /**
+                 * 远端用户下线回调
+                 *
+                 * @param userId 用户ID
+                 */
+                @Override
+                public void onUserLeave(String userId) {
+                    AcLog.i(TAG, "[onUserLeave] userId: " + userId);
                 }
             });
         }

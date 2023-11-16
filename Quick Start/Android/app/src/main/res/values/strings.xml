@@ -143,6 +143,14 @@
     <string name="multi_media_stream">多屏取流</string>
     <string name="multi_media_stream_desc">在该演示中你可以体验与多屏取流相关的功能接口</string>
 
+    <!--  多用户服务相关  -->
+    <string name="user_service">多用户服务</string>
+    <string name="user_service_desc">在该演示中你可以体验与多用户服务相关的功能接口</string>
+    <string name="enable_control">设置指定用户的操控权</string>
+    <string name="has_control">查询指定用户的操控权</string>
+    <string name="get_all_controls">查询所有用户的操控权</string>
+
+
     <!--  渲染模式相关  -->
     <string name="video_render_mode">渲染模式</string>
     <string name="video_render_mode_desc">在该演示中你可以体验与渲染模式相关的功能接口</string>

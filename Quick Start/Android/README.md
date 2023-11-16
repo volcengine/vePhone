@@ -44,7 +44,7 @@ allprojects {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     // 云手机 SDK
-    implementation 'com.volcengine.vephone:vephone:1.29.0'
+    implementation 'com.volcengine.vephone:vephone:1.30.0'
         
     // 游戏手柄
     implementation 'com.volcengine.vegame:VeGameConsole:1.0.2'
@@ -205,6 +205,7 @@ main
 │               │   ├── RotationModeActivity.java // 旋转模式
 │               │   ├── SensorActivity.java // 传感器
 │               │   ├── TouchEventServiceActivity.java // 触控事件
+│               │   ├── UserServiceActivity.java // 多用户服务
 │               │   └── VideoRenderModeManagerActivity.java // 视频渲染模式
 │               └── util
 │                   ├── AssetsUtil.java // 用于读取并解析sts.json文件中的podId/productId/ak/sk/token
