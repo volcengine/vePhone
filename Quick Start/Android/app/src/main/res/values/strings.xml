@@ -67,6 +67,12 @@
     <string name="input_filepath">请输入文件路径</string>
     <string name="file_exchange_desc">在该演示中你可以体验与大文件通道相关的功能接口</string>
 
+    <!--游戏手柄相关-->
+    <string name="game_pad">游戏手柄</string>
+    <string name="show_game_pad">显示手柄</string>
+    <string name="hide_game_pad">隐藏手柄</string>
+    <string name="game_pad_desc">在该演示中你可以体验与游戏手柄相关的功能接口</string>
+
     <!-- 云端应用切换前后台相关 -->
     <string name="remote_app_ground_switch">云端应用切换前后台</string>
     <string name="remote_app_ground_switch_desc">在该演示中你可以体验与云端应用切换前后台相关的功能接口</string>

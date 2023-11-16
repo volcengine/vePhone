@@ -9,6 +9,7 @@ import com.example.sdkdemo.feature.CameraManagerActivity;
 import com.example.sdkdemo.feature.ClarityServiceActivity;
 import com.example.sdkdemo.feature.ClipBoardServiceManagerActivity;
 import com.example.sdkdemo.feature.FileExchangeActivity;
+import com.example.sdkdemo.feature.GamePadServiceActivity;
 import com.example.sdkdemo.feature.LocalInputManagerActivity;
 import com.example.sdkdemo.feature.LocationServiceActivity;
 import com.example.sdkdemo.feature.MessageChannelActivity;
@@ -34,6 +35,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.clarity, R.string.clarity_desc, ClarityServiceActivity.class);
         holder.addItem(R.string.clipboard, R.string.clipboard_desc, ClipBoardServiceManagerActivity.class);
         holder.addItem(R.string.file_exchange, R.string.file_exchange_desc, FileExchangeActivity.class);
+        holder.addItem(R.string.game_pad, R.string.game_pad_desc, GamePadServiceActivity.class);
         holder.addItem(R.string.local_input, R.string.local_input_desc, LocalInputManagerActivity.class);
         holder.addItem(R.string.location, R.string.location_desc, LocationServiceActivity.class);
         holder.addItem(R.string.message_channel, R.string.message_channel_desc, MessageChannelActivity.class);
