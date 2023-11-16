@@ -50,6 +50,20 @@
             android:layout_height="wrap_content"
             android:text="@string/send_key_event" />
 
+        <Button
+            android:id="@+id/btn_launch_app"
+            android:textSize="12sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/launch_app" />
+
+        <Button
+            android:id="@+id/btn_close_app"
+            android:textSize="12sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/close_app" />
+
     </androidx.appcompat.widget.LinearLayoutCompat>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

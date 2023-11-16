@@ -44,7 +44,8 @@ public class OthersActivity extends BasePlayActivity
     private PhonePlayConfig.Builder mBuilder;
     private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
-    private Button mBtnPause, mBtnResume, mBtnSendKeyEvent;
+    private Button mBtnPause, mBtnResume, mBtnSendKeyEvent,
+            mBtnLaunchApp, mBtnCloseApp;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -62,6 +63,8 @@ public class OthersActivity extends BasePlayActivity
         mBtnPause = findViewById(R.id.btn_pause);
         mBtnResume = findViewById(R.id.btn_resume);
         mBtnSendKeyEvent = findViewById(R.id.btn_send_key_event);
+        mBtnLaunchApp = findViewById(R.id.btn_launch_app);
+        mBtnCloseApp = findViewById(R.id.btn_close_app);
 
         mSwShowOrHide.setOnCheckedChangeListener((buttonView, isChecked) -> {
             mLlButtons.setVisibility(isChecked ? View.VISIBLE : View.GONE);
@@ -100,6 +103,23 @@ public class OthersActivity extends BasePlayActivity
 
 //            VePhoneEngine.getInstance().sendKeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK);
 //            VePhoneEngine.getInstance().sendKeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK);
+        });
+
+        /**
+         * 云端实例加载应用
+         * void launchApp(String packageName)
+         *
+         * 云端实例关闭应用
+         * void closeApp(String packageName)
+         *
+         * @param packageName 云端应用包名
+         *
+         */
+        mBtnLaunchApp.setOnClickListener(v -> {
+            VePhoneEngine.getInstance().launchApp("com.android.settings"); // [设置]应用包名
+        });
+        mBtnCloseApp.setOnClickListener(v -> {
+            VePhoneEngine.getInstance().closeApp("com.android.settings");
         });
     }
 

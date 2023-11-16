@@ -175,6 +175,8 @@
     <string name="back">返回</string>
     <string name="test_exception">异常测试</string>
     <string name="send_key_event">发送键盘事件</string>
+    <string name="launch_app">加载应用</string>
+    <string name="close_app">关闭应用</string>
 
     <!--  本地输入相关  -->
     <string name="local_input">本地输入</string>
