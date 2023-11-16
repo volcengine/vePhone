@@ -1,8 +1,5 @@
 package com.example.sdkdemo.feature;
 
-import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
-import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
-
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.ViewGroup;
@@ -13,7 +10,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.sdkdemo.R;
-import com.example.sdkdemo.ScreenUtil;
+import com.example.sdkdemo.util.ScreenUtil;
+import com.example.sdkdemo.base.BasePlayActivity;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
@@ -33,7 +31,7 @@ import java.util.Map;
 /**
  * 该类用于展示与rotation_mode相关的功能接口的使用方法
  */
-public class RotationModeActivity extends AppCompatActivity
+public class RotationModeActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
     private final String TAG = "RotationModeActivity";
@@ -258,19 +256,6 @@ public class RotationModeActivity extends AppCompatActivity
     @Override
     public void onNetworkQuality(int i) {
         AcLog.d(TAG, "[onNetworkQuality] quality: " + i);
-    }
-
-    private void setRotation(int rotation) {
-        switch (rotation) {
-            case 0:
-            case 180:
-                setRequestedOrientation(SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-                break;
-            case 90:
-            case 270:
-                setRequestedOrientation(SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-                break;
-        }
     }
 
 }

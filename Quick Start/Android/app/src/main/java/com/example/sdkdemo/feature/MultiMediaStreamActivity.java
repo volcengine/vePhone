@@ -1,11 +1,8 @@
 package com.example.sdkdemo.feature;
 
-import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
-import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -13,18 +10,17 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.Toast;
 
 import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.blankj.utilcode.util.ToastUtils;
 import com.example.sdkdemo.R;
-import com.example.sdkdemo.ScreenUtil;
+import com.example.sdkdemo.util.ScreenUtil;
+import com.example.sdkdemo.base.BasePlayActivity;
 import com.example.sdkdemo.util.AssetsUtil;
 import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
@@ -42,15 +38,15 @@ import com.volcengine.phone.VePhoneEngine;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 
 
 /**
  * 该类用于展示与{@link MultiMediaStreamService}相关的功能接口的使用方法
+ * 该功能需要使用特殊镜像，如需接入请联系火山咨询详情。
  */
-public class MultiMediaStreamActivity extends AppCompatActivity
+public class MultiMediaStreamActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
 
     private final String TAG = "MultiMediaStreamActivity";
@@ -587,7 +583,6 @@ public class MultiMediaStreamActivity extends AppCompatActivity
                 .productId(productId)
                 .enableLocalKeyboard(false)
                 .displayList(displayMap)
-                .debugConfig("{\"boe\":\"true\"}")
                 .streamListener(this);
 
         mPhonePlayConfig = mBuilder.build();
@@ -971,19 +966,6 @@ public class MultiMediaStreamActivity extends AppCompatActivity
     @Override
     public void onNetworkQuality(int i) {
         AcLog.d(TAG, "[onNetworkQuality] quality: " + i);
-    }
-
-    private void setRotation(int rotation) {
-        switch (rotation) {
-            case 0:
-            case 180:
-                setRequestedOrientation(SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-                break;
-            case 90:
-            case 270:
-                setRequestedOrientation(SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-                break;
-        }
     }
 
 }

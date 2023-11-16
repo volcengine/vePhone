@@ -17,7 +17,7 @@ import androidx.appcompat.widget.SwitchCompat;
 
 import com.blankj.utilcode.util.PermissionUtils;
 import com.example.sdkdemo.R;
-import com.example.sdkdemo.ScreenUtil;
+import com.example.sdkdemo.util.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
 import com.example.sdkdemo.common.AudioRecordThread;
 import com.example.sdkdemo.util.AssetsUtil;

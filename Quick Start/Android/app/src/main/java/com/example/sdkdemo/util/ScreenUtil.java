@@ -1,4 +1,4 @@
-package com.example.sdkdemo;
+package com.example.sdkdemo.util;
 
 import android.app.Activity;
 import android.os.Build;
