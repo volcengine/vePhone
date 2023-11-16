@@ -40,6 +40,9 @@ import java.util.Map;
 
 /**
  * 该类用于展示与音频{@link AudioService}相关的功能接口
+ * 使用该服务可以实现云端实例对本地音频的采集，采集方式包括内部采集与外部采集。
+ * 内部采集使用本地麦克风等设备进行音频采集，不进行加工处理直接发送给云端实例；
+ * 外部采集可以对本地采集的音频进行一定的加工处理，再发送给云端实例。
  */
 public class AudioServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -107,6 +110,9 @@ public class AudioServiceActivity extends BasePlayActivity
                  */
                 mAudioService.setEnableSendAudioStream(enable);
             }
+            else {
+                AcLog.e(TAG, "mAudioService == null");
+            }
         });
 
         mBtnGetSettings.setOnClickListener(view -> {
@@ -121,8 +127,11 @@ public class AudioServiceActivity extends BasePlayActivity
                 showToast("本地设备播放音量: " + mAudioService.getLocalAudioPlaybackVolume() + "\n" +
                         "远端实例播放音量: " + mAudioService.getRemoteAudioPlaybackVolume() + "\n" +
                         "本地设备采集音量: " + mAudioService.getLocalAudioCaptureVolume() + "\n" +
-                        "是否发送音频流: " + mAudioService.isSendingAudioStream() + "\n" +
-                        "是否正在发送音频流: " + mAudioService.isEnableSendAudioStream());
+                        "是否发送音频流: " + mAudioService.isEnableSendAudioStream() + "\n" +
+                        "是否正在发送音频流: " + mAudioService.isSendingAudioStream());
+            }
+            else {
+                AcLog.e(TAG, "mAudioService == null");
             }
         });
 
@@ -138,6 +147,9 @@ public class AudioServiceActivity extends BasePlayActivity
                 mAudioService.setAudioPlaybackDevice(
                         mAudioService.getAudioPlaybackDevice() == AudioPlaybackDevice.SPEAKERPHONE ?
                                 AudioPlaybackDevice.EARPIECE : AudioPlaybackDevice.SPEAKERPHONE);
+            }
+            else {
+                AcLog.e(TAG, "mAudioService == null");
             }
         });
     }
@@ -368,6 +380,9 @@ public class AudioServiceActivity extends BasePlayActivity
                             ", localAudioStreamError: " + localAudioStreamError);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mAudioService == null");
         }
     }
 

@@ -36,7 +36,9 @@ import java.util.Map;
 
 
 /**
- * 该类用于展示与{@link UserService}相关的功能接口的使用方法
+ * 该类用于展示与多用户服务{@link UserService}相关的功能接口的使用方法
+ * 当多个用户连接同一个云端实例时，每个用户默认拥有对实例的操控权限，
+ * 可以通过该服务来控制和查询每个用户对于实例的操控权限。
  */
 public class UserServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -95,6 +97,9 @@ public class UserServiceActivity extends BasePlayActivity
                     mUserService.enableControl(mEtUserId.getText().toString(), mCbEnableControl.isChecked());
                 }
             }
+            else {
+                AcLog.e(TAG, "mUserService == null");
+            }
         });
 
         mBtnHasControl.setOnClickListener(view -> {
@@ -113,6 +118,9 @@ public class UserServiceActivity extends BasePlayActivity
                     mUserService.hasControl(mEtUserId.getText().toString());
                 }
             }
+            else {
+                AcLog.e(TAG, "mUserService == null");
+            }
         });
 
 
@@ -127,6 +135,9 @@ public class UserServiceActivity extends BasePlayActivity
              */
             if (mUserService != null) {
                 mUserService.getAllControls();
+            }
+            else {
+                AcLog.e(TAG, "mUserService == null");
             }
         });
     }
@@ -356,6 +367,9 @@ public class UserServiceActivity extends BasePlayActivity
                     AcLog.i(TAG, "[onUserLeave] userId: " + userId);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mUserService == null");
         }
     }
 

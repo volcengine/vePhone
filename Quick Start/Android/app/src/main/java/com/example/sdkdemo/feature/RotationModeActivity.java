@@ -29,7 +29,9 @@ import java.util.Map;
 
 
 /**
- * 该类用于展示与rotation_mode相关的功能接口的使用方法
+ * 该类用于展示与RotationMode相关的功能接口的使用方法
+ * 使用RotationMode可以实现一种场景：
+ * 横屏应用竖屏显示，即：本地Activity的方向始终为竖屏，即使云端实例的应用是横屏显示。
  */
 public class RotationModeActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {

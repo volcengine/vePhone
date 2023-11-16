@@ -98,7 +98,7 @@ public class VideoRenderModeManagerActivity extends BasePlayActivity
                 mVideoRenderModeManager.updateVideoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_FIT);
             }
             else {
-                showToast("mVideoRenderModeManager == null");
+                AcLog.e(TAG, "mVideoRenderModeManager == null");
             }
         });
         mBtnFillMode.setOnClickListener(view -> {
@@ -107,7 +107,7 @@ public class VideoRenderModeManagerActivity extends BasePlayActivity
                 mVideoRenderModeManager.updateVideoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_FILL);
             }
             else {
-                showToast("mVideoRenderModeManager == null");
+                AcLog.e(TAG, "mVideoRenderModeManager == null");
             }
         });
         mBtnCoverMode.setOnClickListener(v -> {
@@ -115,7 +115,7 @@ public class VideoRenderModeManagerActivity extends BasePlayActivity
                 mVideoRenderModeManager.updateVideoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_COVER);
             }
             else {
-                showToast("mVideoRenderModeManager == null");
+                AcLog.e(TAG, "mVideoRenderModeManager == null");
             }
         });
 

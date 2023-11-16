@@ -34,6 +34,8 @@ import java.util.Map;
 
 /**
  * 该类用于展示与实例控制{@link PodControlService}相关的功能接口的使用方法
+ * 使用该服务可以对云端实例进行控制，其中包括设置无操作回收时长、截图、录屏、
+ * 获取屏幕当前焦点应用、控制底部导航栏的显示与隐藏等等。
  */
 public class PodControlServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -91,7 +93,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.switchBackground(true);
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
         mBtnSwitchForeground.setOnClickListener(view -> {
@@ -99,7 +101,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.switchBackground(false);
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -118,7 +120,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.setIdleTime(idleTime);
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -143,7 +145,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 });
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -165,7 +167,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 });
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -183,7 +185,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.screenShot(true);
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -202,7 +204,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.startRecording(10, true);
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -218,7 +220,7 @@ public class PodControlServiceActivity extends BasePlayActivity
                 mPodControlService.getFocusedWindowApp();
             }
             else {
-                showToast("mPodControlService == null");
+                AcLog.e(TAG, "mPodControlService == null");
             }
         });
 
@@ -506,7 +508,9 @@ public class PodControlServiceActivity extends BasePlayActivity
                 }
             });
         }
-
+        else {
+            AcLog.e(TAG, "mPodControlService == null");
+        }
     }
 
     /**

@@ -37,6 +37,7 @@ import java.util.Map;
 
 /**
  * 该类用于展示与大文件通道{@link FileExchange}相关的功能接口
+ * 使用该服务可以实现向云端实例发送本地文件、上传云端实例的文件到云存储的功能。
  */
 public class FileExchangeActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -86,6 +87,9 @@ public class FileExchangeActivity extends BasePlayActivity
             if (mFileExchange != null) {
                 requestPermissionAndStartPushFile();
             }
+            else {
+                AcLog.e(TAG, "mFileExchange == null");
+            }
         });
 
         mBtnStopPushFile.setOnClickListener(v -> {
@@ -97,6 +101,9 @@ public class FileExchangeActivity extends BasePlayActivity
                  * @param file 推送的本地文件
                  */
                 mFileExchange.stopPushFile(mPushFile);
+            }
+            else {
+                AcLog.e(TAG, "mFileExchange == null");
             }
         });
 
@@ -117,7 +124,7 @@ public class FileExchangeActivity extends BasePlayActivity
                      */
                     @Override
                     public void onStart(File file) {
-                        AcLog.d(TAG, "IPullFileListener.onStart() - " + file.getAbsolutePath());
+                        AcLog.i(TAG, "IPullFileListener.onStart() - " + file.getAbsolutePath());
                     }
 
                     /**
@@ -128,7 +135,7 @@ public class FileExchangeActivity extends BasePlayActivity
                      */
                     @Override
                     public void onProgress(File file, int progress) {
-                        AcLog.d(TAG, "IPullFileListener.onProgress() - " + file.getAbsolutePath() + ", progress: " + progress);
+                        AcLog.i(TAG, "IPullFileListener.onProgress() - " + file.getAbsolutePath() + ", progress: " + progress);
                     }
 
                     /**
@@ -139,7 +146,7 @@ public class FileExchangeActivity extends BasePlayActivity
                      */
                     @Override
                     public void onComplete(File file, String url) {
-                        AcLog.d(TAG, "IPullFileListener.onComplete() - " + file.getAbsolutePath() + ", url: " + url);
+                        AcLog.i(TAG, "IPullFileListener.onComplete() - " + file.getAbsolutePath() + ", url: " + url);
                     }
 
                     /**
@@ -149,7 +156,7 @@ public class FileExchangeActivity extends BasePlayActivity
                      */
                     @Override
                     public void onCancel(File file) {
-                        AcLog.d(TAG, "IPullFileListener.onCancel() - " + file.getAbsolutePath());
+                        AcLog.i(TAG, "IPullFileListener.onCancel() - " + file.getAbsolutePath());
                     }
 
                     /**
@@ -160,9 +167,12 @@ public class FileExchangeActivity extends BasePlayActivity
                      */
                     @Override
                     public void onError(File file, int errorCode) {
-                        AcLog.d(TAG, "IPullFileListener.onError() - " + file.getAbsolutePath() + ", errorCode: " + errorCode);
+                        AcLog.i(TAG, "IPullFileListener.onError() - " + file.getAbsolutePath() + ", errorCode: " + errorCode);
                     }
                 });
+            }
+            else {
+                AcLog.e(TAG, "mFileExchange == null");
             }
         });
 
@@ -175,6 +185,9 @@ public class FileExchangeActivity extends BasePlayActivity
                  * @param file 拉取的云端实例文件
                  */
                 mFileExchange.stopPullFile(mPullFile);
+            }
+            else {
+                AcLog.e(TAG, "mFileExchange == null");
             }
         });
     }

@@ -35,6 +35,7 @@ import java.util.Map;
 
 /**
  * 该类用于展示与清晰度{@link StreamProfileManager}相关的功能接口
+ * 可以通过该服务实现设置云端实例推流清晰度档位的功能。
  */
 public class ClarityServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -77,11 +78,17 @@ public class ClarityServiceActivity extends BasePlayActivity
             if (mClarityService != null) {
                 mClarityService.switchVideoStreamProfileId(clarityId);
             }
+            else {
+                AcLog.e(TAG, "mClarityService == null");
+            }
         });
 
         mBtnGet.setOnClickListener(view -> {
             if (mClarityService != null) {
                 Toast.makeText(this, mClarityService.getCurrentVideoStreamProfile().toString(), Toast.LENGTH_SHORT).show();
+            }
+            else {
+                AcLog.e(TAG, "mClarityService == null");
             }
         });
     }
@@ -237,15 +244,18 @@ public class ClarityServiceActivity extends BasePlayActivity
             mClarityService.setStreamProfileChangeListener(new StreamProfileChangeCallBack() {
                 @Override
                 public void onVideoStreamProfileChange(boolean success, int from, int to) {
-                    AcLog.d(TAG, "[onVideoStreamProfileChange] success: " + success + ", from: " + from + ", to: " + to);
+                    AcLog.i(TAG, "[onVideoStreamProfileChange] success: " + success + ", from: " + from + ", to: " + to);
                     Toast.makeText(ClarityServiceActivity.this, "success: " + success + ", from: " + from + ", to: " + to, Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
                 public void onError(int errorCode, String errorMessage) {
-                    AcLog.d(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
+                    AcLog.i(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mClarityService == null");
         }
     }
 

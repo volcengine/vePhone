@@ -34,6 +34,7 @@ import java.util.Map;
 
 /**
  * 该类用于展示与本地输入{@link LocalInputManager}相关的功能接口
+ * 使用该服务可以使用本地输入法完成对云端实例中输入框的文字输入。
  */
 public class LocalInputManagerActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -80,6 +81,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
             if (mLocalInputManager != null) {
                 mLocalInputManager.coverCurrentEditTextMessage(mEtTextInput.getText().toString());
             }
+            else {
+                AcLog.e(TAG, "mLocalInputManager == null");
+            }
         });
 
         /**
@@ -88,6 +92,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
         mBtnSendInputText.setOnClickListener(v -> {
             if (mLocalInputManager != null) {
                 mLocalInputManager.sendInputText(mEtTextInput.getText().toString());
+            }
+            else {
+                AcLog.e(TAG, "mLocalInputManager == null");
             }
         });
 
@@ -98,6 +105,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
         mSwShowLocalData.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (mLocalInputManager != null) {
                 mLocalInputManager.enableShowCurrentInputText(isChecked);
+            }
+            else {
+                AcLog.e(TAG, "mLocalInputManager == null");
             }
         });
 
@@ -112,6 +122,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
             if (mLocalInputManager != null) {
                 mLocalInputManager.closeAutoKeyBoard(isChecked);
             }
+            else {
+                AcLog.e(TAG, "mLocalInputManager == null");
+            }
         });
 
         /**
@@ -123,7 +136,12 @@ public class LocalInputManagerActivity extends BasePlayActivity
          *         <li>false：不可发送</li>
          */
         mBtnGetTextInputEnable.setOnClickListener(v -> {
-            showToast("" + mLocalInputManager.isTextInputEnable());
+            if (mLocalInputManager != null) {
+                showToast("" + mLocalInputManager.isTextInputEnable());
+            }
+            else {
+                AcLog.e(TAG, "mLocalInputManager == null");
+            }
         });
     }
 
@@ -332,6 +350,9 @@ public class LocalInputManagerActivity extends BasePlayActivity
                     AcLog.i(TAG, "[onTextInputEnableStateChanged] enable: " + enable);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mLocalInputManager == null");
         }
     }
 

@@ -33,6 +33,7 @@ import java.util.Map;
 
 /**
  * 该类用于展示与消息通道{@link IMessageChannel}相关的功能接口
+ * 使用该服务可以实现本地与云端实例的消息通信。
  */
 public class MessageChannelActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -82,7 +83,10 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 IMessageChannel.IChannelMessage ackMsg =
                         mMessageChannel.sendMessage("ackMsg", true);
-                AcLog.d(TAG, "ackMsg: " + ackMsg);
+                AcLog.i(TAG, "ackMsg: " + ackMsg);
+            }
+            else {
+                AcLog.e(TAG, "mMessageChannel == null");
             }
         });
         mBtnUidAckMsg.setOnClickListener(v -> {
@@ -97,7 +101,10 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 IMessageChannel.IChannelMessage uidAckMsg =
                         mMessageChannel.sendMessage("uidAckMsg", true, channelUid);
-                AcLog.d(TAG, "uidAckMsg: " + uidAckMsg);
+                AcLog.i(TAG, "uidAckMsg: " + uidAckMsg);
+            }
+            else {
+                AcLog.e(TAG, "mMessageChannel == null");
             }
         });
         mBtnTimeoutMsg.setOnClickListener(v -> {
@@ -113,7 +120,10 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 IMessageChannel.IChannelMessage timeoutMsg =
                         mMessageChannel.sendMessage("timeoutMsg", 3000);
-                AcLog.d(TAG, "timeoutMsg: " + timeoutMsg);
+                AcLog.i(TAG, "timeoutMsg: " + timeoutMsg);
+            }
+            else {
+                AcLog.e(TAG, "mMessageChannel == null");
             }
         });
         mBtnUidTimeoutMsg.setOnClickListener(v -> {
@@ -130,7 +140,10 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 IMessageChannel.IChannelMessage uidTimeoutMsg =
                         mMessageChannel.sendMessage("uidTimeoutMsg", 3000, channelUid);
-                AcLog.d(TAG, "uidTimeoutMsg: " + uidTimeoutMsg);
+                AcLog.i(TAG, "uidTimeoutMsg: " + uidTimeoutMsg);
+            }
+            else {
+                AcLog.e(TAG, "mMessageChannel == null");
             }
         });
     }
@@ -296,7 +309,7 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void onReceiveMessage(IMessageChannel.IChannelMessage iChannelMessage) {
-                    AcLog.d(TAG, "[onReceiveMessage] message: " + iChannelMessage);
+                    AcLog.i(TAG, "[onReceiveMessage] message: " + iChannelMessage);
                     Toast.makeText(MessageChannelActivity.this, "[onReceiveMessage] message: " + iChannelMessage, Toast.LENGTH_SHORT).show();
                 }
 
@@ -308,7 +321,7 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void onSentResult(boolean success, String messageId) {
-                    AcLog.d(TAG, "[onSentResult] success: " + success + ", messageId: " + messageId);
+                    AcLog.i(TAG, "[onSentResult] success: " + success + ", messageId: " + messageId);
                     Toast.makeText(MessageChannelActivity.this, "[onSentResult] success: " + success + ", messageId: " + messageId, Toast.LENGTH_SHORT).show();
                 }
 
@@ -317,7 +330,7 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void ready() {
-                    AcLog.d(TAG, "[ready]");
+                    AcLog.i(TAG, "[ready]");
                 }
 
                 /**
@@ -328,7 +341,7 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void onError(int errorCode, String errorMessage) {
-                    AcLog.d(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
+                    AcLog.i(TAG, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage);
                     Toast.makeText(MessageChannelActivity.this, "[onError] errorCode: " + errorCode + ", errorMessage: " + errorMessage, Toast.LENGTH_SHORT).show();
                 }
 
@@ -339,7 +352,7 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteOnline(String channelUid) {
-                    AcLog.d(TAG, "[onRemoteOnline] channelUid: " + channelUid);
+                    AcLog.i(TAG, "[onRemoteOnline] channelUid: " + channelUid);
                     Toast.makeText(MessageChannelActivity.this, "[onRemoteOnline] channelUid: " + channelUid, Toast.LENGTH_SHORT).show();
                 }
 
@@ -350,10 +363,13 @@ public class MessageChannelActivity extends BasePlayActivity
                  */
                 @Override
                 public void onRemoteOffline(String channelUid) {
-                    AcLog.d(TAG, "[onRemoteOffline] channelUid: " + channelUid);
+                    AcLog.i(TAG, "[onRemoteOffline] channelUid: " + channelUid);
                     Toast.makeText(MessageChannelActivity.this, "[onRemoteOffline] channelUid: " + channelUid, Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mMessageChannel == null");
         }
     }
 

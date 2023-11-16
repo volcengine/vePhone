@@ -34,6 +34,7 @@ import java.util.Map;
 
 /**
  * 该类用于展示与定位服务{@link LocationService}相关的功能接口
+ * 使用该服务可以实现向云端实例发送本地设备位置信息的功能。
  */
 public class LocationServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -79,6 +80,9 @@ public class LocationServiceActivity extends BasePlayActivity
             if (mLocationService != null) {
                 mLocationService.enableLocationService(enable);
             }
+            else {
+                AcLog.e(TAG, "mLocationService == null");
+            }
         });
 
         /**
@@ -96,6 +100,9 @@ public class LocationServiceActivity extends BasePlayActivity
                 mLocationService.setLocationServiceMode(
                         checkedId == R.id.rb_auto ? LocationService.MODE_AUTO : LocationService.MODE_MANUAL);
             }
+            else {
+                AcLog.e(TAG, "mLocationService == null");
+            }
         });
 
         /**
@@ -110,6 +117,9 @@ public class LocationServiceActivity extends BasePlayActivity
             if (mLocationService != null) {
                 mLocationService.setRemoteLocationMock(new LocationService.LocationInfo(138.2, 120.3));
             }
+            else {
+                AcLog.e(TAG, "mLocationService == null");
+            }
         });
 
         /**
@@ -120,6 +130,9 @@ public class LocationServiceActivity extends BasePlayActivity
             if (mLocationService != null) {
                 String mode = mLocationService.getLocationServiceMode() == LocationService.MODE_AUTO ? "auto" : "manual";
                 showToast("enable: " + mLocationService.isLocationServiceEnabled() + ", mode: " + mode);
+            }
+            else {
+                AcLog.e(TAG, "mLocationService == null");
             }
         });
 
@@ -318,6 +331,9 @@ public class LocationServiceActivity extends BasePlayActivity
                     AcLog.i(TAG, "[onRemoteLocationUpdated] locationInfo: " + locationInfo);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mLocationService == null");
         }
     }
 

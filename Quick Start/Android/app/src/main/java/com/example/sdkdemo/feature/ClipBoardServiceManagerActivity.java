@@ -35,7 +35,8 @@ import java.util.Map;
 
 
 /**
- * 该类用于展示与清晰度{@link IClipBoardServiceManager}相关的功能接口
+ * 该类用于展示与剪切板{@link IClipBoardServiceManager}相关的功能接口
+ * 使用该服务可以实现向云端实例发送剪切板数据的功能。
  */
 public class ClipBoardServiceManagerActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -79,6 +80,9 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
                  */
                 mClipBoardServiceManager.sendClipBoardMessage(
                         ClipData.newPlainText("test", "test data"));
+            }
+            else {
+                AcLog.e(TAG, "mClipBoardServiceManager == null");
             }
         });
     }
@@ -242,10 +246,13 @@ public class ClipBoardServiceManagerActivity extends BasePlayActivity
                  */
                 @Override
                 public void onClipBoardMessageReceived(ClipData clipData) {
-                    AcLog.d(TAG, "[onClipBoardMessageReceived] clipData: " + clipData.getItemAt(0).getText());
+                    AcLog.i(TAG, "[onClipBoardMessageReceived] clipData: " + clipData.getItemAt(0).getText());
                     showToast("[onClipBoardMessageReceived] clipData: " + clipData.getItemAt(0).getText());
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mClipBoardServiceManager == null");
         }
     }
 

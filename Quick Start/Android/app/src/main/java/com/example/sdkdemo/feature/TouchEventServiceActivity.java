@@ -35,7 +35,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 该类用于展示与实例控制{@link TouchEventService}相关的功能接口的使用方法
+ * 该类用于展示与触控事件{@link TouchEventService}相关的功能接口的使用方法
+ * 使用该服务，可以向云端实例发送触控事件来操作实例，
+ * 也可以拦截发送给云端的触控事件，进行一定包装后，再发送给实例。
  */
 public class TouchEventServiceActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -95,7 +97,7 @@ public class TouchEventServiceActivity extends BasePlayActivity
                 mTouchEventService.sendMotionEvent(MotionEvent.ACTION_UP, 0.5f, 0.3f);
             }
             else {
-                showToast("mTouchEventService == null");
+                AcLog.e(TAG, "mTouchEventService == null");
             }
         });
     }
@@ -267,6 +269,9 @@ public class TouchEventServiceActivity extends BasePlayActivity
                     AcLog.i(TAG, "SimpleTouchEventList: " + list);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mTouchEventService == null");
         }
     }
 

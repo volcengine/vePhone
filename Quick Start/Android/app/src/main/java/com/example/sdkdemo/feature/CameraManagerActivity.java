@@ -49,6 +49,9 @@ import java.util.Map;
 
 /**
  * 该类用于展示与相机{@link CameraManager}相关的功能接口
+ * 使用该服务可以实现云端实例对本地视频的采集，采集方式包括内部采集与外部采集。
+ * 内部采集使用本地摄像头等设备进行视频采集，不进行加工处理直接发送给云端实例；
+ * 外部采集可以对本地采集的视频进行一定的加工处理，再发送给云端实例。
  */
 public class CameraManagerActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -99,6 +102,9 @@ public class CameraManagerActivity extends BasePlayActivity
             if (mCameraManager != null) {
                 mCameraManager.setLocalVideoCanvas(surfaceView);
             }
+            else {
+                AcLog.e(TAG, "mCameraManager == null");
+            }
         });
 
         /**
@@ -112,6 +118,9 @@ public class CameraManagerActivity extends BasePlayActivity
             if (mCameraManager != null) {
                 mCameraManager.setLocalVideoMirrorMode(
                         b ? MirrorMode.MIRROR_MODE_ON : MirrorMode.MIRROR_MODE_OFF);
+            }
+            else {
+                AcLog.e(TAG, "mCameraManager == null");
             }
         });
 
@@ -129,6 +138,9 @@ public class CameraManagerActivity extends BasePlayActivity
             if (mCameraManager != null) {
                 mCameraManager.setVideoEncoderConfig(list);
             }
+            else {
+                AcLog.e(TAG, "mCameraManager == null");
+            }
         });
 
         /**
@@ -144,10 +156,16 @@ public class CameraManagerActivity extends BasePlayActivity
             if (mCameraManager != null) {
                 mCameraManager.switchCamera(CameraId.BACK);
             }
+            else {
+                AcLog.e(TAG, "mCameraManager == null");
+            }
         });
         mBtnSwitchFrontCamera.setOnClickListener(v -> {
             if (mCameraManager != null) {
                 mCameraManager.switchCamera(CameraId.FRONT);
+            }
+            else {
+                AcLog.e(TAG, "mCameraManager == null");
             }
         });
     }
@@ -372,6 +390,9 @@ public class CameraManagerActivity extends BasePlayActivity
 //                    }
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mCameraManager == null");
         }
     }
 

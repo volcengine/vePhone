@@ -33,6 +33,8 @@ import java.util.Map;
 
 /**
  * 该类用于展示主功能以外的其他功能接口
+ * 其中包括从云端拉取视频流的暂停与恢复、向云端实例发送按键事件、
+ * 云端实例加载/关闭应用等。
  */
 public class OthersActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {

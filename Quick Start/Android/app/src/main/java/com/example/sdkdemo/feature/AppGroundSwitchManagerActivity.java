@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 该类用于展示与实例控制{@link AppGroundSwitchManager}相关的功能接口的使用方法
+ * 该类用于展示与云端应用切换前后台{@link AppGroundSwitchManager}相关的功能接口的使用方法
  */
 public class AppGroundSwitchManagerActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -79,7 +79,7 @@ public class AppGroundSwitchManagerActivity extends BasePlayActivity
                 mAppGroundSwitchManager.setRemoteAppForeground("com.android.settings");
             }
             else {
-                showToast("mAppGroundSwitchManager == null");
+                AcLog.e(TAG, "mAppGroundSwitchManager == null");
             }
         });
 
@@ -92,7 +92,7 @@ public class AppGroundSwitchManagerActivity extends BasePlayActivity
                 mAppGroundSwitchManager.getRemoteBackgroundAppList();
             }
             else {
-                showToast("mAppGroundSwitchManager == null");
+                AcLog.e(TAG, "mAppGroundSwitchManager == null");
             }
         });
     }
@@ -289,6 +289,9 @@ public class AppGroundSwitchManagerActivity extends BasePlayActivity
                     AcLog.i(TAG, "[onReceivedRemoteAppList] packageNameList: " + packageNameList);
                 }
             });
+        }
+        else {
+            AcLog.e(TAG, "mAppGroundSwitchManager == null");
         }
     }
 
