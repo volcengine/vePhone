@@ -18,6 +18,7 @@ import com.example.sdkdemo.feature.PodControlServiceActivity;
 import com.example.sdkdemo.feature.RotationModeActivity;
 import com.example.sdkdemo.feature.SensorActivity;
 import com.example.sdkdemo.feature.TouchEventServiceActivity;
+import com.example.sdkdemo.feature.VideoRenderModeManagerActivity;
 
 public class MainActivity extends BaseListActivity {
 
@@ -41,6 +42,7 @@ public class MainActivity extends BaseListActivity {
         holder.addItem(R.string.rotation_mode, R.string.rotation_mode_desc, RotationModeActivity.class);
         holder.addItem(R.string.touch_event, R.string.touch_event_desc, TouchEventServiceActivity.class);
         holder.addItem(R.string.multi_media_stream, R.string.multi_media_stream_desc, MultiMediaStreamActivity.class);
+        holder.addItem(R.string.video_render_mode, R.string.video_render_mode_desc, VideoRenderModeManagerActivity.class);
         holder.addItem(R.string.sensor, R.string.sensor_desc, SensorActivity.class);
         holder.addItem(R.string.unclassified, R.string.unclassified_desc, OthersActivity.class);
     }
