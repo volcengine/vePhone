@@ -44,7 +44,10 @@ allprojects {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     // 云手机 SDK
-    implementation 'com.volcengine.vephone:vephone:1.21.0'
+    implementation 'com.volcengine.vephone:vephone:1.29.0'
+        
+    // 游戏手柄
+    implementation 'com.volcengine.vegame:VeGameConsole:1.0.2'
     
     implementation 'androidx.annotation:annotation:1.1.0'
         
@@ -173,49 +176,48 @@ vePhoneEngine.start(phonePlayConfig, IPlayerListener playerListener);
 main
 ├── AndroidManifest.xml
 ├── assets // 该目录及文件需要自行创建
-│   └── sts.json // 保存鉴权相关的 ak/sk/token
+│   └── sts.json // 保存鉴权相关的 podId/productId/ak/sk/token
 ├── java
 │   └── com
 │       └── example
 │           └── sdkdemo
-│               ├── FeatureActivity.kt // 用于指定podId及productId以体验SDK的不同特性
-│               ├── PhoneActivity.java // 显示云手机的Activity
-│               ├── GsonConverter.java // 用于SDK 传入的JSON转换的实现 
 │               ├── InitApplication.java // 工程的Application 负责初始化SDK等
 │               ├── MainActivity.java // 用于展示SDK的特性列表，并进入对应特性的体验界面
-│               ├── TestBean.kt // 用于填写云手机启动的参数
 │               ├── WebViewActivity.kt // 用于展示火山引擎的官网
 │               ├── base
 │               │   ├── BaseListActivity.java
+│               │   ├── BasePlayActivity.java
 │               │   └── BaseSampleActivity.kt
 │               ├── feature // 用于体验SDK不同的特性
-│               │   ├── AudioServiceView.java // 音频
-│               │   ├── CamaraManagerView.java // 相机
-│               │   ├── ClarityServiceView.java // 清晰度
-│               │   ├── ClipBoardServiceManagerView.java // 剪切板
-│               │   ├── FileChannelExtView.java // 大文件通道
-│               │   ├── LocalInputManagerView.java // 本地输入
-│               │   ├── LocationServiceView.java // 定位服务
-│               │   ├── MessageChannelView.java // 消息通道
+│               │   ├── AppGroundSwitchManagerActivity.java // 云端应用前后台切换
+│               │   ├── AudioServiceActivity.java // 音频
+│               │   ├── CameraManagerActivity.java // 相机
+│               │   ├── ClarityServiceActivity.java // 清晰度
+│               │   ├── ClipBoardServiceManagerActivity.java // 剪切板
+│               │   ├── FileExchangeActivity.java // 大文件通道
+│               │   ├── GamePadServiceActivity.java // 游戏手柄
+│               │   ├── LocalInputManagerActivity.java // 本地输入
+│               │   ├── LocationServiceActivity.java // 定位服务
+│               │   ├── MessageChannelActivity.java // 消息通道
 │               │   ├── MultiMediaStreamActivity.java // 多屏取流
-│               │   ├── PadConsoleManagerView.java // 游戏手柄
-│               │   ├── PodControlServiceView.java // 实例控制
+│               │   ├── OthersActivity.java // 其他功能
+│               │   ├── PodControlServiceActivity.java // 实例控制
 │               │   ├── RotationModeActivity.java // 旋转模式
-│               │   ├── SensorView.java // 传感器
-│               │   └── UnclassifiedView.java // 其他
+│               │   ├── SensorActivity.java // 传感器
+│               │   ├── TouchEventServiceActivity.java // 触控事件
+│               │   └── VideoRenderModeManagerActivity.java // 视频渲染模式
 │               └── util
-│                   ├── AssetsUtil.java // 用于读取并解析sts.json文件中的ak/sk/token
-│                   ├── DialogUtils.java // 用于在不同特性的体验界面显示对话框
-│                   ├── Feature.java // 声明不同的特性id
+│                   ├── AssetsUtil.java // 用于读取并解析sts.json文件中的podId/productId/ak/sk/token
 │                   ├── FileUtil.java // 用于文件传输功能的工具类
-│                   ├── ScreenUtil.java // 屏幕工具类，用于适配挖孔屏
-│                   └── SizeUtils.java 
+│                   └── ScreenUtil.java // 屏幕工具类，用于适配挖孔屏
 ```
 
 
 其中, **sts.json** 的格式如下：
 ```java
 {
+    "podId": "your_pod_id",
+    "productId": "your_product_id",
     "ak": "your_ak",
     "sk": "your_sk",
     "token": "your_token"
