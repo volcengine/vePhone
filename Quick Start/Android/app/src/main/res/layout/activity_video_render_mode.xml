@@ -56,27 +56,6 @@
             android:layout_height="wrap_content"
             android:text="COVER" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="视频旋转模式: "
-            android:textColor="@color/teal_700"/>
-
-        <Button
-            android:id="@+id/btn_internal_rotation"
-            android:textSize="12sp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="internal" />
-
-        <Button
-            android:id="@+id/btn_external_rotation"
-            android:textSize="12sp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="external" />
-
     </androidx.appcompat.widget.LinearLayoutCompat>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
