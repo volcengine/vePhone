@@ -15,7 +15,6 @@ import com.volcengine.cloudphone.base.VeAudioFrame;
 import java.nio.ByteBuffer;
 
 public class AudioRecordThread extends Thread {
-
     private static final String TAG = "AudioRecordThread";
     private final AudioRecord mAudioRecord;
     private static final int sampleRateInHz = VeAudioFrame.VeAudioSampleRate.AUDIO_SAMPLE_RATE_48000.value;
@@ -25,12 +24,10 @@ public class AudioRecordThread extends Thread {
     private final int bufferSizeInBytes;
     private volatile boolean recording = true;
     private final AudioService mAudioService;
-    private final boolean mEnableDump;
 
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
-    public AudioRecordThread(AudioService audioService, boolean enableDump) {
+    public AudioRecordThread(AudioService audioService) {
         super("AudioRecordThread");
-        mEnableDump = enableDump;
         mAudioService = audioService;
         if (channelConfig == AudioFormat.CHANNEL_IN_MONO) {
             bufferSizeInBytes = samples * 2;
@@ -52,7 +49,6 @@ public class AudioRecordThread extends Thread {
 
     @Override
     public void run() {
-        AudioDumper dumper = new AudioDumper();
         if (mAudioService == null) {
             return;
         }
@@ -123,16 +119,10 @@ public class AudioRecordThread extends Thread {
                      *        -1 -- 调用失败
                      */
                     mAudioService.pushExternalAudioFrame(StreamIndex.MAIN, frame);
-
-                    // Dump audio data.
-                    if (mEnableDump) {
-                        dumper.accept(audioBuffer);
-                    }
                 }
             }
         } finally {
             mAudioRecord.stop();
-            dumper.close();
             /**
              * (外部采集使用)
              * 取消发布本地音频，音频外部采集需要调用此接口

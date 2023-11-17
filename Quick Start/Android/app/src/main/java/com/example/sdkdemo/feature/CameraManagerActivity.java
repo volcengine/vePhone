@@ -32,11 +32,14 @@ import com.volcengine.cloudcore.common.mode.LocalVideoStreamDescription;
 import com.volcengine.cloudcore.common.mode.LocalVideoStreamError;
 import com.volcengine.cloudcore.common.mode.LocalVideoStreamState;
 import com.volcengine.cloudcore.common.mode.MirrorMode;
+import com.volcengine.cloudcore.common.mode.StreamIndex;
+import com.volcengine.cloudcore.common.mode.VideoSourceType;
 import com.volcengine.cloudphone.apiservice.CameraManager;
 import com.volcengine.cloudphone.apiservice.outinterface.CameraManagerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.cloudphone.apiservice.outinterface.RemoteCameraRequestListener;
+import com.volcengine.cloudphone.base.VeVideoFrame;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 

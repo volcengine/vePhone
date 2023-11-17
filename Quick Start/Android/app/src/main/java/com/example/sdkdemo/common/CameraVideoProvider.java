@@ -17,14 +17,12 @@ import androidx.core.util.Consumer;
 
 import com.volcengine.cloudcore.common.mode.CameraId;
 import com.volcengine.cloudphone.base.VeVideoFrame;
-import com.volcengine.common.SDKContext;
 
 import java.nio.ByteBuffer;
 
 public class CameraVideoProvider implements Camera.PreviewCallback {
 
     private static final String TAG = "CameraVideoProvider";
-    private final VideoDumper mNV21Dumper, mI420Dumper;
     private Camera.Size mPreviewSize;
     private volatile Camera mCamera;
     private int mYuvBufferSize;
@@ -40,8 +38,6 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
 
     public CameraVideoProvider(Context context) {
         mContext = context;
-        mNV21Dumper = new VideoDumper("nv21");
-        mI420Dumper = new VideoDumper("i420");
     }
 
     @RequiresPermission(Manifest.permission.CAMERA)
@@ -67,7 +63,6 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
             Log.w(TAG, "onPreviewFrame: already stopped ignore frame");
             return;
         }
-        writeNV21DataToFile(data);
         mPushStreamHandler.post(() -> {
             final Camera camera1 = mCamera;
             if (isStopped() || camera1 == null) {
@@ -75,7 +70,6 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
                 return;
             }
             nv21ToI420(data, mI420Data, mPreviewSize.width, mPreviewSize.height);
-            writeI420DataToFile(mI420Data);
             updateVideoFrame(mVideoFrame, mI420Data);
 
             if (mFrameConsumer != null) {
@@ -88,30 +82,6 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
 
     public void setFrameConsumer(Consumer<VeVideoFrame> consumer) {
         mFrameConsumer = consumer;
-    }
-
-    private void writeNV21DataToFile(byte[] data){
-        boolean dumpUpVideo = SDKContext.getBoolean("debug.vesdk.dump.upvideo.nv21", false);
-        Log.d(TAG, "writeNV21DataToFile: dumpUpVideo=" + dumpUpVideo);
-        if (dumpUpVideo) {
-            mNV21Dumper.accept(data);
-        } else {
-            mNV21Dumper.close();
-        }
-    }
-
-    private void writeI420DataToFile(byte[] data){
-        boolean dumpUpVideo = SDKContext.getBoolean("debug.vesdk.dump.upvideo.i420", false);
-        Log.d(TAG, "writeI420DataToFile: dumpUpVideo=" + dumpUpVideo);
-        if (dumpUpVideo) {
-            mI420Dumper.accept(data);
-        } else {
-            mI420Dumper.close();
-        }
-    }
-
-    public float getAspectRatio() {
-        return 1f * mPreviewSize.width / mPreviewSize.height;
     }
 
     public void stop() {
@@ -127,8 +97,6 @@ public class CameraVideoProvider implements Camera.PreviewCallback {
         stopPushThread();
         mFrameConsumer = null;
         mVideoFrame = null;
-        mNV21Dumper.close();
-        mI420Dumper.close();
     }
 
     public boolean isStopped(){

@@ -542,7 +542,7 @@ public class AudioServiceActivity extends BasePlayActivity
                          * 开始音频录制并发布外部采集的音频
                          */
 //                        if (mAudioRecordThread == null) {
-//                            mAudioRecordThread = new AudioRecordThread(mAudioService, true);
+//                            mAudioRecordThread = new AudioRecordThread(mAudioService);
 //                            mAudioRecordThread.start();
 //                        }
                     }
