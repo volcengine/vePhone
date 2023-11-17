@@ -55,23 +55,29 @@
 
     <!--  清晰度相关  -->
     <string name="clarity">清晰度</string>
+    <string name="clarity_desc">在该演示中你可以体验与清晰度相关的功能接口</string>
 
     <!--  剪切板相关  -->
     <string name="clipboard">剪切板</string>
     <string name="send_clipboard_data">发送剪切板模拟数据</string>
     <string name="clipboard_desc">在该演示中你可以体验与剪切板相关的功能接口</string>
 
-    <!-- 文件通道相关 -->
-    <string name="file_channel">文件通道</string>
-    <string name="file_channel_desc">在该演示中你可以体验与文件通道相关的功能接口</string>
-
     <!-- 大文件通道相关 -->
     <string name="file_exchange">大文件通道</string>
     <string name="input_filepath">请输入文件路径</string>
     <string name="file_exchange_desc">在该演示中你可以体验与大文件通道相关的功能接口</string>
 
-    <!-- Ground相关 -->
-    <string name="ground">ground</string>
+    <!--游戏手柄相关-->
+    <string name="game_pad">游戏手柄</string>
+    <string name="show_game_pad">显示手柄</string>
+    <string name="hide_game_pad">隐藏手柄</string>
+    <string name="game_pad_desc">在该演示中你可以体验与游戏手柄相关的功能接口</string>
+
+    <!-- 云端应用切换前后台相关 -->
+    <string name="remote_app_ground_switch">云端应用切换前后台</string>
+    <string name="remote_app_ground_switch_desc">在该演示中你可以体验与云端应用切换前后台相关的功能接口</string>
+    <string name="set_remote_app_foreground">云端应用切前台</string>
+    <string name="get_remote_background_app_list">获取云端后台应用列表</string>
 
     <!--定位服务相关-->
     <string name="location">定位服务</string>
@@ -84,7 +90,7 @@
     <string name="set_remote_location">设置云端位置</string>
     <string name="longitude">经度</string>
     <string name="latitude">纬度</string>
-    <string name="location_desc">在该演示中你可以体验与定位相关的功能接口</string>
+    <string name="location_desc">在该演示中你可以体验与定位服务相关的功能接口</string>
 
     <!--消息通道相关-->
     <string name="message_channel">消息通道</string>
@@ -102,35 +108,52 @@
         <item>ACK_MultiChannel</item>
         <item>Timeout_MultiChannel</item>
     </string-array>
+    <string name="ack_msg">回执消息</string>
+    <string name="uid_ack_msg">回执消息\n(指定用户)</string>
+    <string name="timeout_msg">超时消息</string>
+    <string name="uid_timeout_msg">超时消息\n(指定用户)</string>
     <string name="message_channel_desc">在该演示中你可以体验与消息通道相关的功能接口</string>
 
-    <!--PadConsole相关-->
-    <string name="pad_console">游戏手柄</string>
-    <string name="init_game_pad">初始化手柄</string>
-    <string name="show_game_pad">显示手柄</string>
-    <string name="hide_game_pad">隐藏手柄</string>
-    <string name="release_game_pad">销毁手柄</string>
-    <string name="pad_console_desc">在该演示中你可以体验与游戏手柄相关的功能接口</string>
-
-    <!--Pod控制相关-->
-    <string name="pod_control">Pod控制</string>
+    <!--实例控制相关-->
+    <string name="pod_control">实例控制</string>
+    <string name="pod_control_desc">在该演示中你可以体验与实例控制相关的功能接口</string>
     <string name="hint_idle_time">保活时长/秒</string>
     <string name="set_idle_time">设置保活时长</string>
     <string name="hint_auto_recycle_time">无操作回收时长/秒</string>
     <string name="set_auto_recycle_time">设置无操作回收时长</string>
     <string name="get_auto_recycle_time">查询无操作回收时长</string>
-    <string name="set_keep_alive_time">设置Pod保活时间3min</string>
-    <string name="switch_background">开启前后台切换</string>
-    <string name="pod_control_desc">在该演示中你可以体验与Pod控制相关的功能接口</string>
+    <string name="set_keep_alive_time">设置实例保活时间3min</string>
+    <string name="switch_background">切后台</string>
+    <string name="switch_foreground">切前台</string>
+    <string name="screen_shot">截图</string>
+    <string name="screen_record">录屏</string>
+    <string name="get_focused_window_app">获取焦点应用</string>
 
     <!--  旋转相关  -->
     <string name="roll_orientation">旋转</string>
     <string name="rotation_mode">旋转模式</string>
     <string name="rotation_mode_desc">在该演示中你可以体验与旋转模式相关的功能接口</string>
 
+    <!--  触控事件相关  -->
+    <string name="touch_event">触控事件</string>
+    <string name="send_motion_event">发送触控事件</string>
+    <string name="touch_event_desc">在该演示中你可以体验与触控事件相关的功能接口</string>
+
     <!--  多屏取流相关  -->
     <string name="multi_media_stream">多屏取流</string>
     <string name="multi_media_stream_desc">在该演示中你可以体验与多屏取流相关的功能接口</string>
+
+    <!--  多用户服务相关  -->
+    <string name="user_service">多用户服务</string>
+    <string name="user_service_desc">在该演示中你可以体验与多用户服务相关的功能接口</string>
+    <string name="enable_control">设置指定用户的操控权</string>
+    <string name="has_control">查询指定用户的操控权</string>
+    <string name="get_all_controls">查询所有用户的操控权</string>
+
+
+    <!--  渲染模式相关  -->
+    <string name="video_render_mode">渲染模式</string>
+    <string name="video_render_mode_desc">在该演示中你可以体验与渲染模式相关的功能接口</string>
 
     <!--  传感器相关  -->
     <string name="sensor">传感器</string>
@@ -144,17 +167,16 @@
 
     <!--  其他  -->
     <string name="unclassified">其他</string>
+    <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
     <string name="restart">重启云游戏</string>
     <string name="stop">关闭云游戏</string>
     <string name="pause">暂停拉流</string>
     <string name="resume">恢复拉流</string>
     <string name="back">返回</string>
     <string name="test_exception">异常测试</string>
-    <string name="unclassified_desc">在该演示中你可以体验其他的功能接口</string>
-
-    <!--  网络探测相关  -->
-    <string name="probe_network">网络探测</string>
-    <string name="probe_network_desc">在该演示中你可以体验与网络探测相关的功能接口</string>
+    <string name="send_key_event">发送键盘事件</string>
+    <string name="launch_app">加载应用</string>
+    <string name="close_app">关闭应用</string>
 
     <!--  本地输入相关  -->
     <string name="local_input">本地输入</string>
