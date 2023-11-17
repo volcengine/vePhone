@@ -50,16 +50,6 @@ import java.util.Map;
  * 情况三：如果传入的width > 0、height > 0，云端按照指定的宽高比进行推流(如果云端实例屏幕为竖屏，指定的width必须小于height)；
  * 其他情况：同情况一。
  *
- * 另外，可以通过该服务设置视频的旋转模式，目前支持的渲染模式有两种:
- * 外部旋转模式(默认){@link VideoRotationMode#EXTERNAL}、
- * 内部旋转模式{@link VideoRotationMode#INTERNAL}
- * 该参数
- *
- * 在RotationMode设置为自动旋转(默认){@link Rotation#AUTO_ROTATION}时，
- * 需要通过视频旋转模式来判断如何进行处理。(注: 其他RotationMode可以参考{@link RotationModeActivity})
- * 外部旋转模式需要在{@link IStreamListener#onRotation(int)}自行处理旋转逻辑；
- * 内部旋转模式则由SDK内部处理，用户无需做任何处理。
- *
  */
 public class VideoRenderModeManagerActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -391,25 +381,7 @@ public class VideoRenderModeManagerActivity extends BasePlayActivity
     @Override
     public void onRotation(int rotation) {
         AcLog.d(TAG, "[onRotation] rotation: " + rotation);
-        if (mVideoRenderModeManager != null) {
-            /**
-             * 获取当前的视频旋转模式
-             * int getVideoRotationMode()
-             *
-             * @return 0 -- 外部旋转模式
-             *         1 -- 内部旋转模式
-             */
-            if (mVideoRenderModeManager.getVideoRotationMode() == VideoRotationMode.EXTERNAL) {
-                // 外部旋转模式，需要在onRotation回调中处理Activity的方向
-                setRotation(rotation);
-            }
-            else if (mVideoRenderModeManager.getVideoRotationMode() == VideoRotationMode.INTERNAL) {
-                // 内部旋转模式，不需要处理任何逻辑
-            }
-        }
-        else {
-            AcLog.e(TAG, "mVideoRenderModeManager == null");
-        }
+        setRotation(rotation);
     }
 
     /**

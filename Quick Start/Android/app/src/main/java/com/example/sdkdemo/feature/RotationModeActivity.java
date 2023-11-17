@@ -17,6 +17,8 @@ import com.volcengine.androidcloud.common.log.AcLog;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.androidcloud.common.pod.Rotation;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
+import com.volcengine.cloudcore.common.mode.VideoRotationMode;
+import com.volcengine.cloudphone.apiservice.VideoRenderModeManager;
 import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
@@ -29,9 +31,23 @@ import java.util.Map;
 
 
 /**
- * 该类用于展示与RotationMode相关的功能接口的使用方法
- * 使用RotationMode可以实现一种场景：
+ * 该类用于展示与Rotation相关的功能接口的使用方法
+ * Rotation有三种模式：
+ * 自动旋转模式(默认){@link Rotation#AUTO_ROTATION}、
+ * 竖屏模式{@link Rotation#PORTRAIT}、
+ * 竖屏模式(暂不可用){@link Rotation#PORTRAIT}
+ *
+ * 使用竖屏模式{@link Rotation#PORTRAIT}可以实现一种场景：
  * 横屏应用竖屏显示，即：本地Activity的方向始终为竖屏，即使云端实例的应用是横屏显示。
+ *
+ * 另外，在RotationMode设置为自动旋转(默认){@link Rotation#AUTO_ROTATION}时，
+ * 需要通过视频旋转模式{@link VideoRotationMode}来判断如何进行处理。
+ *
+ * 目前支持的渲染模式有两种:
+ * 外部旋转模式(默认){@link VideoRotationMode#EXTERNAL}、
+ * 内部旋转模式{@link VideoRotationMode#INTERNAL}
+ * 外部旋转模式需要在{@link IStreamListener#onRotation(int)}自行处理旋转逻辑；
+ * 内部旋转模式则由SDK内部处理，用户无需做任何处理。
  */
 public class RotationModeActivity extends BasePlayActivity
         implements IPlayerListener, IStreamListener {
@@ -41,6 +57,8 @@ public class RotationModeActivity extends BasePlayActivity
     private ViewGroup mContainer;
     private PhonePlayConfig mPhonePlayConfig;
     private PhonePlayConfig.Builder mBuilder;
+    private Rotation mRotation = Rotation.AUTO_ROTATION;
+    private int mVideoRotationMode = VideoRotationMode.EXTERNAL;
 
 
     @Override
@@ -83,10 +101,11 @@ public class RotationModeActivity extends BasePlayActivity
         AcLog.d(TAG, "[onConfigurationChanged] newConfig: " + newConfig.orientation);
 
         /**
-         * AUTO_ROTATION 模式下，需要 调用该方法;
+         * AUTO_ROTATION 模式下，且使用[外部视频旋转]，需要 调用该方法;
+         * AUTO_ROTATION 模式下，且使用[内部视频旋转]，不需要 调用该方法;
          * PORTRAIT 模式下，不需要 调用该方法。
          */
-//        VePhoneEngine.getInstance().rotate(newConfig.orientation);
+        VePhoneEngine.getInstance().rotate(newConfig.orientation);
     }
 
     private void initView() {
@@ -134,6 +153,8 @@ public class RotationModeActivity extends BasePlayActivity
          *      做法: 在 {@link IStreamListener#onRotation(int)} 中调用 {@link RotationModeActivity#setRotation(int)} ，
          *         在 {@link AppCompatActivity#onConfigurationChanged(Configuration)} 中调用 {@link VePhoneEngine#rotate(int)}。
          *
+         *      但是，如果设置视频旋转模式为内部旋转，SDK内部会对旋转做任何处理，用户无需做任何操作。
+         *
          * 2. PORTRAIT 模式下，推流端(云端实例)只会推送竖屏方向的视频流，
          *      拉流端(本地SDK客户端)无需调整Activity的方向。
          *      做法: 在 {@link IStreamListener#onRotation(int)} 和
@@ -149,7 +170,8 @@ public class RotationModeActivity extends BasePlayActivity
                 .roundId(roundId)
                 .podId(podId)
                 .productId(productId)
-                .rotation(Rotation.PORTRAIT)
+                .rotation(mRotation)
+                .videoRotationMode(mVideoRotationMode)
                 .enableLocalKeyboard(false)
                 .streamListener(this);
 
@@ -240,14 +262,41 @@ public class RotationModeActivity extends BasePlayActivity
     }
 
     @Override
-    public void onRotation(int i) {
-        AcLog.d(TAG, "[onRotation] rotation: " + i);
+    public void onRotation(int rotation) {
+        AcLog.d(TAG, "[onRotation] rotation: " + rotation);
 
         /**
-         * AUTO_ROTATION 模式下，需要 调用该方法;
+         * AUTO_ROTATION 模式下，且使用[外部视频旋转]，需要 调用该方法;
+         * AUTO_ROTATION 模式下，且使用[内部视频旋转]，不需要 调用该方法;
          * PORTRAIT 模式下，不需要 调用该方法。
          */
-//        setRotation(i);
+//        setRotation(rotation);
+
+        VideoRenderModeManager videoRenderModeManager = VePhoneEngine.getInstance().getVideoRenderModeManager();
+        if (videoRenderModeManager != null) {
+            /**
+             * 获取当前的视频旋转模式
+             * int getVideoRotationMode()
+             *
+             * @return 0 -- 外部旋转模式
+             *         1 -- 内部旋转模式
+             */
+            if (videoRenderModeManager.getVideoRotationMode() == VideoRotationMode.EXTERNAL) {
+                if (mRotation.equals(Rotation.AUTO_ROTATION)) {
+                    // 外部旋转模式，需要在onRotation回调中处理Activity的方向
+                    setRotation(rotation);
+                }
+                else {
+                    // 横屏应用竖屏显示，不需要处理任何逻辑
+                }
+            }
+            else if (videoRenderModeManager.getVideoRotationMode() == VideoRotationMode.INTERNAL) {
+                // 内部旋转模式，不需要处理任何逻辑
+            }
+        }
+        else {
+            AcLog.e(TAG, "mVideoRenderModeManager == null");
+        }
     }
 
     @Override
