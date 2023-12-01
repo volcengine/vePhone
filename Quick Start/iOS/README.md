@@ -31,34 +31,34 @@
 2. 在 VePhoneViewController 中填写游戏的 ak、sk、token 等鉴权信息以及 userId、productId、podId 等配置信息。
 
    ```objective-c
-   		self.akTextField.text = @"------ak------";
-   		self.skTextField.text = @"------sk------";
-   		self.tokenTextField.text = @"------token------";
-   		self.userIdTextField.text = @"------userId------";
-   		self.productIdTextField.text = @"------productId------";
-       self.rotationTextField.text = @"0";//默认为0
-   		self.podIdTextField.text = @"------podId------"; 
+   self.akTextField.text = @"------ak------";
+   self.skTextField.text = @"------sk------";
+   self.tokenTextField.text = @"------token------";
+   self.userIdTextField.text = @"------userId------";
+   self.productIdTextField.text = @"------productId------";
+   self.rotationTextField.text = @"0";//默认为0
+   self.podIdTextField.text = @"------podId------"; 
    ```
 
 3. 然后调用 `- (void)startWithConfig:(VePhoneConfigObject *)configObj` 接口启动游戏。
 
    ```objective-c
-   		VePhoneConfigObject *configObj = [VePhoneConfigObject new];
-       configObj.ak = self.configObj.ak;
-       configObj.sk = self.configObj.sk;
-       configObj.token = self.configObj.token;
-       configObj.podId = self.configObj.podId;
-       configObj.userId = self.configObj.userId;
-       configObj.productId = self.configObj.productId;
-       configObj.rotationMode = self.configObj.rotationMode;
-       configObj.autoRecycleTime = self.configObj.autoRecycleTime;
-       configObj.localKeyboardEnable = self.configObj.localKeyboardEnable;
-       // configObj.remoteWindowSize = CGSizeMake(0, 0);
-       // configObj.videoRenderMode = VeBaseVideoRenderModeFit;
-       // 订阅类型
-       [VePhoneManager sharedInstance].streamType = self.configObj.streamType;
-       // 启动
-       [[VePhoneManager sharedInstance] startWithConfig: configObj];
+   VePhoneConfigObject *configObj = [VePhoneConfigObject new];
+   configObj.ak = self.configObj.ak;
+   configObj.sk = self.configObj.sk;
+   configObj.token = self.configObj.token;
+   configObj.podId = self.configObj.podId;
+   configObj.userId = self.configObj.userId;
+   configObj.productId = self.configObj.productId;
+   configObj.rotationMode = self.configObj.rotationMode;
+   configObj.autoRecycleTime = self.configObj.autoRecycleTime;
+   configObj.localKeyboardEnable = self.configObj.localKeyboardEnable;
+   // configObj.remoteWindowSize = CGSizeMake(0, 0);
+   // configObj.videoRenderMode = VeBaseVideoRenderModeFit;
+   // 订阅类型
+   [VePhoneManager sharedInstance].streamType = self.configObj.streamType;
+   // 启动
+   [[VePhoneManager sharedInstance] startWithConfig: configObj];
    ```
 
 4. 结束时，调用 `- (void)stop` 接口结束游戏。
