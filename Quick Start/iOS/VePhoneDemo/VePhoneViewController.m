@@ -33,7 +33,13 @@
 
     self.navigationItem.title = @"云手机演示";
     
-    self.rotationTextField.text = @"0";
+    self.akTextField.text = @"";
+    self.skTextField.text = @"";
+    self.tokenTextField.text = @"";
+    self.userIdTextField.text = @"";
+    self.productIdTextField.text = @"";
+    self.rotationTextField.text = @"";
+    self.podIdTextField.text = @"";
     // 版本号
     self.versionLabel.text = [NSString stringWithFormat: @"VePhoneSDK版本: V%@\nDeviceId: %@", [VePhoneManager currentVersion], [VePhoneManager currentDeviceId]];
 }

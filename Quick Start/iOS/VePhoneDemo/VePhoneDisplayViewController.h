@@ -17,7 +17,9 @@
 @property (nonatomic, copy) NSString *userId;
 @property (nonatomic, copy) NSString *productId;
 @property (nonatomic, assign) NSInteger streamType;
+@property (nonatomic, assign) NSInteger rotationMode;
 @property (nonatomic, assign) NSInteger autoRecycleTime;
+@property (nonatomic, assign) NSInteger localKeyboardEnable;
 
 @end
 
