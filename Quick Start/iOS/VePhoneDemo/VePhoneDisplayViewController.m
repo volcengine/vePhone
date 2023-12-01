@@ -22,6 +22,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <SVProgressHUD/SVProgressHUD.h>
 #import <CommonCrypto/CommonDigest.h>
+#import "UIView+Draggable.h"
 
 @implementation VeCloudPhoneConfigObject
 
@@ -29,10 +30,11 @@
 
 @interface VePhoneDisplayViewController () <VePhoneManagerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 
-@property (nonatomic, strong) UIView *liveView;
-@property (nonatomic, strong) UILabel *logLabel;
+@property (nonatomic, assign) BOOL isNavShow;
 @property (nonatomic, assign) NSInteger rotation;
 @property (nonatomic, strong) UIView *containerView;
+@property (nonatomic, strong) UIView *localVideoView;
+@property (nonatomic, strong) UILabel *timelylogLabel;
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, copy) NSString *operationDelayTime;
 // 音频采集
@@ -46,10 +48,6 @@
 
 @implementation VePhoneDisplayViewController
 
-{
-    BOOL _isNavShow;
-}
-
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -59,9 +57,8 @@
     
     self.rotation = 0;
     [SVProgressHUD showWithStatus: @"正在启动..."];
-    // 初始化云手机实例
-    [VePhoneManager sharedInstance].containerView = self.containerView;
     [VePhoneManager sharedInstance].delegate = self;
+    [VePhoneManager sharedInstance].containerView = self.containerView;
     // 相关开关
     [VePhoneManager sharedInstance].gyroEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingGyroEnabled];
     [VePhoneManager sharedInstance].vibratorEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingVibratorEnabled];
@@ -81,14 +78,11 @@
     configObj.podId = self.configObj.podId;
     configObj.userId = self.configObj.userId;
     configObj.productId = self.configObj.productId;
+    configObj.rotationMode = self.configObj.rotationMode;
     configObj.autoRecycleTime = self.configObj.autoRecycleTime;
+    configObj.localKeyboardEnable = self.configObj.localKeyboardEnable;
     // configObj.remoteWindowSize = CGSizeMake(0, 0);
     // configObj.videoRenderMode = VeBaseVideoRenderModeFit;
-    // 虚拟定位
-    VeBaseLocationInfo *location = [VeBaseLocationInfo new];
-    location.latitude = [UserInfoManager sharedInstance].latitude;
-    location.longitude = [UserInfoManager sharedInstance].longitude;
-//    configObj.remoteLocationMock = location;
     // 订阅类型
     [VePhoneManager sharedInstance].streamType = self.configObj.streamType;
     // 启动
@@ -111,17 +105,25 @@
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear: animated];
-    
+
     [self.navigationController setNavigationBarHidden: YES animated: YES];
-    self.navigationController.interactivePopGestureRecognizer.enabled = NO;
 }
 
 - (void)viewWillDisappear:(BOOL)animated
 {
     [super viewWillDisappear: animated];
-    
+
     [self.navigationController setNavigationBarHidden: NO animated: YES];
-    self.navigationController.interactivePopGestureRecognizer.enabled = YES;
+}
+
+- (void)viewDidLayoutSubviews
+{
+    [super viewDidLayoutSubviews];
+    
+    UIButton *menuBtn = [self.view viewWithTag: 999];
+    if (menuBtn.draggingType == DraggingTypeDisabled) {
+        menuBtn.draggingType = DraggingTypePullOver;
+    }
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle
@@ -142,73 +144,65 @@
         containerView;
     });
     
-    // 退出按钮
-    UIButton *exitButton = [UIButton buttonWithType: UIButtonTypeCustom];
-    exitButton.tag = 100;
-    [exitButton setBackgroundImage: [UIImage imageNamed: @"close"] forState: UIControlStateNormal];
-    [exitButton addTarget: self action: @selector(tappedTestButton:) forControlEvents: UIControlEventTouchUpInside];
-    [self.view addSubview: exitButton];
-    [exitButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.mas_equalTo(self.view).offset(35.0f);
-        make.size.mas_equalTo(CGSizeMake(30.0f, 30.0f));
-        make.top.mas_equalTo(self.view.mas_top).offset(44 + 5.0f);
-    }];
-    
     // 本地视频采集视图
-    self.liveView = ({
-        UIView *liveView = [[UIView alloc] init];
-        liveView.hidden = YES;
-        liveView.backgroundColor = [UIColor blackColor];
-        [self.view addSubview: liveView];
-        [liveView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.mas_equalTo(exitButton);
+    self.localVideoView = ({
+        UIView *localVideoView = [[UIView alloc] init];
+        localVideoView.hidden = YES;
+        localVideoView.backgroundColor = [UIColor blackColor];
+        [self.view addSubview: localVideoView];
+        [localVideoView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.right.mas_equalTo(self.view).offset(-10.0f);
             make.size.mas_equalTo(CGSizeMake(150.0f, 200.0f));
+            make.top.mas_equalTo(self.view.mas_top).offset(44);
         }];
-        liveView;
+        localVideoView;
     });
     
-    // 日志输出
-    self.logLabel = ({
-        UILabel *logLabel = [[UILabel alloc] init];
-        logLabel.numberOfLines = 0;
-        logLabel.textColor = [UIColor yellowColor];
-        logLabel.textAlignment = NSTextAlignmentLeft;
-        logLabel.font = [UIFont systemFontOfSize: 13];
-        [self.view addSubview: logLabel];
-        [logLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.mas_equalTo(self.view).offset(35.0f);
-            make.right.mas_equalTo(self.view).offset(-35.0f);
-            make.bottom.mas_equalTo(self.view).offset(-(34 + 5.0f));
+    // 实时日志
+    self.timelylogLabel = ({
+        UILabel *label = [[UILabel alloc] init];
+        label.userInteractionEnabled = NO;
+        label.textColor = [UIColor greenColor];
+        label.textAlignment = NSTextAlignmentCenter;
+        label.font = [UIFont systemFontOfSize: 11.0f];
+        label.backgroundColor = [UIColor grayColor];
+        label.layer.masksToBounds = YES;
+        label.layer.cornerRadius = 6.0f;
+        label.adjustsFontSizeToFitWidth = YES;
+        [self.view addSubview: label];
+        [label mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.centerX.mas_equalTo(self.view);
+            make.bottom.mas_equalTo(self.view).offset(-34);
         }];
-        logLabel;
+        label;
     });
     
     // 菜单
     UIButton *menuBtn = [UIButton buttonWithType: UIButtonTypeCustom];
-    menuBtn.layer.cornerRadius = 20.0f;
-    menuBtn.layer.masksToBounds = YES;
-    menuBtn.backgroundColor = [UIColor systemBlueColor];
-    menuBtn.titleLabel.font = [UIFont systemFontOfSize: 13.0f];
+    menuBtn.tag = 999;
+    menuBtn.layer.cornerRadius = 14.0f;
+    menuBtn.backgroundColor = [UIColor redColor];
+    menuBtn.titleLabel.font = [UIFont systemFontOfSize: 9.0f];
     [menuBtn setTitle: @"Menu" forState: UIControlStateNormal];
-    [menuBtn setTitleColor: [UIColor whiteColor] forState: UIControlStateNormal];
-    [menuBtn addTarget: self action: @selector(tappedMenuButton:) forControlEvents: UIControlEventTouchUpInside];
+    [menuBtn setTitleColor: [UIColor yellowColor] forState: UIControlStateNormal];
+    [menuBtn addTarget: self action: @selector(tappedButton:) forControlEvents: UIControlEventTouchUpInside];
     [self.view addSubview: menuBtn];
     [menuBtn mas_makeConstraints:^(MASConstraintMaker *make) {
         make.right.mas_equalTo(self.view);
-        make.size.mas_equalTo(CGSizeMake(40, 40));
+        make.size.mas_equalTo(CGSizeMake(28, 28));
         make.bottom.mas_equalTo(self.view).offset(-100);
     }];
     
     self.scrollView = ({
         UIScrollView *scrollView = [[UIScrollView alloc] init];
         scrollView.hidden = YES;
+        scrollView.showsVerticalScrollIndicator = NO;
         [self.view addSubview: scrollView];
         [scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.width.mas_equalTo(170);
-            make.left.mas_equalTo(exitButton);
-            make.top.mas_equalTo(exitButton.mas_bottom).offset(5.0f);
-            make.bottom.mas_equalTo(self.logLabel.mas_top).offset(-5.0f);
+            make.left.mas_equalTo(self.view).offset(10.0f);
+            make.top.mas_equalTo(self.view).offset(44);
+            make.bottom.mas_equalTo(self.view).offset(-34);
         }];
         scrollView;
     });
@@ -220,130 +214,142 @@
         make.width.mas_equalTo(self.scrollView);
     }];
     
-    UIButton *button1 = [self createButton: @"摄像头类型"];
-    button1.tag = 101;
-    [btnView addSubview: button1];
-    [button1 mas_makeConstraints:^(MASConstraintMaker *make) {
+    UIButton *button0 = [self createButton: @"退出"];
+    button0.tag = 100;
+    button0.backgroundColor = [UIColor redColor];
+    [button0 setTitleColor: [UIColor yellowColor] forState: UIControlStateNormal];
+    [btnView addSubview: button0];
+    [button0 mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.mas_equalTo(btnView);
         make.left.mas_equalTo(btnView);
         make.size.mas_equalTo(CGSizeMake(80, 40));
     }];
     
-    UIButton *button2 = [self createButton: @"镜像开关"];
+    UIButton *button1 = [self createButton: @"摄像头类型"];
+    button1.tag = 101;
+    [btnView addSubview: button1];
+    [button1 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button0);
+        make.top.mas_equalTo(button0);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button2 = [self createButton: @"开启镜像"];
     button2.tag = 102;
+    button2.selected = YES;
     [btnView addSubview: button2];
     [button2 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button1);
-        make.top.mas_equalTo(button1);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button0);
+        make.left.mas_equalTo(button0);
+        make.top.mas_equalTo(button0.mas_bottom).offset(10);
     }];
     
     UIButton *button3 = [self createButton: @"发送消息(无回执)"];
     button3.tag = 103;
     [btnView addSubview: button3];
     [button3 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button1);
-        make.left.mas_equalTo(button1);
-        make.top.mas_equalTo(button1.mas_bottom).offset(10);
+        make.size.mas_equalTo(button2);
+        make.top.mas_equalTo(button2);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button4 = [self createButton: @"发送消息(超时3秒)"];
     button4.tag = 104;
     [btnView addSubview: button4];
     [button4 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button3);
-        make.top.mas_equalTo(button3);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button2);
+        make.left.mas_equalTo(button2);
+        make.top.mas_equalTo(button2.mas_bottom).offset(10);
     }];
     
     UIButton *button5 = [self createButton: @"发送消息(uid，无回执)"];
     button5.tag = 105;
     [btnView addSubview: button5];
     [button5 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button3);
-        make.left.mas_equalTo(button3);
-        make.top.mas_equalTo(button3.mas_bottom).offset(10);
+        make.size.mas_equalTo(button4);
+        make.top.mas_equalTo(button4);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button6 = [self createButton: @"发送消息(uid，超时3秒)"];
     button6.tag = 106;
     [btnView addSubview: button6];
     [button6 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button5);
-        make.size.mas_equalTo(button5);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button4);
+        make.left.mas_equalTo(button4);
+        make.top.mas_equalTo(button4.mas_bottom).offset(10);
     }];
     
     UIButton *button7 = [self createButton: @"截图"];
     button7.tag = 107;
     [btnView addSubview: button7];
     [button7 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button5);
-        make.left.mas_equalTo(button5);
-        make.top.mas_equalTo(button5.mas_bottom).offset(10);
+        make.size.mas_equalTo(button6);
+        make.top.mas_equalTo(button6);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button8 = [self createButton: @"键盘事件"];
     button8.tag = 108;
     [btnView addSubview: button8];
     [button8 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button7);
-        make.size.mas_equalTo(button7);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button6);
+        make.left.mas_equalTo(button6);
+        make.top.mas_equalTo(button6.mas_bottom).offset(10);
     }];
     
     UIButton *button9 = [self createButton: @"焦点应用包名"];
     button9.tag = 109;
     [btnView addSubview: button9];
     [button9 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button7);
-        make.left.mas_equalTo(button7);
-        make.top.mas_equalTo(button7.mas_bottom).offset(10);
+        make.size.mas_equalTo(button8);
+        make.top.mas_equalTo(button8);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button10 = [self createButton: @"清晰度切换"];
     button10.tag = 110;
     [btnView addSubview: button10];
     [button10 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button9);
-        make.size.mas_equalTo(button9);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button8);
+        make.left.mas_equalTo(button8);
+        make.top.mas_equalTo(button8.mas_bottom).offset(10);
     }];
     
     UIButton *button11 = [self createButton: @"设置无操作回收时长"];
     button11.tag = 111;
     [btnView addSubview: button11];
     [button11 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button9);
-        make.left.mas_equalTo(button9);
-        make.top.mas_equalTo(button9.mas_bottom).offset(10);
+        make.size.mas_equalTo(button10);
+        make.top.mas_equalTo(button10);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button12 = [self createButton: @"获取无操作回收时长"];
     button12.tag = 112;
     [btnView addSubview: button12];
     [button12 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button11);
-        make.size.mas_equalTo(button11);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button10);
+        make.left.mas_equalTo(button10);
+        make.top.mas_equalTo(button10.mas_bottom).offset(10);
     }];
     
     UIButton *button13 = [self createButton: @"设置后台保活时长"];
     button13.tag = 113;
     [btnView addSubview: button13];
     [button13 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button11);
-        make.left.mas_equalTo(button11);
-        make.top.mas_equalTo(button11.mas_bottom).offset(10);
+        make.size.mas_equalTo(button12);
+        make.top.mas_equalTo(button12);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button14 = [self createButton: @"切换前后台"];
     button14.tag = 114;
     [btnView addSubview: button14];
     [button14 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button13);
-        make.size.mas_equalTo(button13);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button12);
+        make.left.mas_equalTo(button12);
+        make.top.mas_equalTo(button12.mas_bottom).offset(10);
     }];
     
     UIButton *button15 = [self createButton: self.configObj.streamType == VeBaseStreamTypeVideo ? @"静音打开" : @"静音关闭"];
@@ -351,9 +357,9 @@
     [btnView addSubview: button15];
     button15.selected = self.configObj.streamType == VeBaseStreamTypeVideo;
     [button15 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button13);
-        make.left.mas_equalTo(button13);
-        make.top.mas_equalTo(button13.mas_bottom).offset(10);
+        make.size.mas_equalTo(button14);
+        make.top.mas_equalTo(button14);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button16 = [self createButton: self.configObj.streamType == VeBaseStreamTypeAudio ? @"视频暂停" : @"视频播放"];
@@ -361,115 +367,169 @@
     [btnView addSubview: button16];
     button16.selected = self.configObj.streamType == VeBaseStreamTypeAudio;
     [button16 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button15);
-        make.size.mas_equalTo(button15);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button14);
+        make.left.mas_equalTo(button14);
+        make.top.mas_equalTo(button14.mas_bottom).offset(10);
     }];
     
     UIButton *button17 = [self createButton: @"采集视图隐藏"];
     button17.tag = 117;
     [btnView addSubview: button17];
     [button17 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button15);
-        make.left.mas_equalTo(button15);
-        make.top.mas_equalTo(button15.mas_bottom).offset(10);
+        make.size.mas_equalTo(button16);
+        make.top.mas_equalTo(button16);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button18 = [self createButton: @"音频播放设备"];
     button18.tag = 118;
     [btnView addSubview: button18];
     [button18 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button17);
-        make.size.mas_equalTo(button17);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button16);
+        make.left.mas_equalTo(button16);
+        make.top.mas_equalTo(button16.mas_bottom).offset(10);
     }];
     
     UIButton *button19 = [self createButton: @"剪切板"];
     button19.tag = 119;
     [btnView addSubview: button19];
     [button19 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button17);
-        make.left.mas_equalTo(button17);
-        make.top.mas_equalTo(button17.mas_bottom).offset(10);
+        make.size.mas_equalTo(button18);
+        make.top.mas_equalTo(button18);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button20 = [self createButton: @"开始录屏"];
     button20.tag = 120;
     [btnView addSubview: button20];
     [button20 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button19);
-        make.size.mas_equalTo(button19);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button18);
+        make.left.mas_equalTo(button18);
+        make.top.mas_equalTo(button18.mas_bottom).offset(10);
     }];
     
     UIButton *button21 = [self createButton: @"推送文件"];
     button21.tag = 121;
     [btnView addSubview: button21];
     [button21 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button19);
-        make.left.mas_equalTo(button19);
-        make.top.mas_equalTo(button19.mas_bottom).offset(10);
+        make.size.mas_equalTo(button20);
+        make.top.mas_equalTo(button20);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button22 = [self createButton: @"拉取文件"];
     button22.tag = 122;
     [btnView addSubview: button22];
     [button22 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button21);
-        make.size.mas_equalTo(button21);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button20);
+        make.left.mas_equalTo(button20);
+        make.top.mas_equalTo(button20.mas_bottom).offset(10);
     }];
     
     UIButton *button23 = [self createButton: @"切换远端应用到前台"];
     button23.tag = 123;
     [btnView addSubview: button23];
     [button23 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button21);
-        make.left.mas_equalTo(button21);
-        make.top.mas_equalTo(button21.mas_bottom).offset(10);
+        make.size.mas_equalTo(button22);
+        make.top.mas_equalTo(button22);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button24 = [self createButton: @"获取后台APP列表"];
     button24.tag = 124;
     [btnView addSubview: button24];
     [button24 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button23);
-        make.size.mas_equalTo(button23);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button22);
+        make.left.mas_equalTo(button22);
+        make.top.mas_equalTo(button22.mas_bottom).offset(10);
     }];
     
     UIButton *button25 = [self createButton: @"设置导航条"];
     button25.tag = 125;
     [btnView addSubview: button25];
     [button25 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button23);
-        make.left.mas_equalTo(button23);
-        make.top.mas_equalTo(button23.mas_bottom).offset(10);
+        make.size.mas_equalTo(button24);
+        make.top.mas_equalTo(button24);
+        make.right.mas_equalTo(btnView);
     }];
     
     UIButton *button26 = [self createButton: @"获取导航条状态"];
     button26.tag = 126;
     [btnView addSubview: button26];
     [button26 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.mas_equalTo(button25);
-        make.size.mas_equalTo(button25);
-        make.right.mas_equalTo(btnView);
+        make.size.mas_equalTo(button24);
+        make.left.mas_equalTo(button24);
+        make.top.mas_equalTo(button24.mas_bottom).offset(10);
     }];
     
-    UIButton *button27 = [self createButton: @"渲染模式"];
+    UIButton *button27 = [self createButton: @"调高音量"];
     button27.tag = 127;
     [btnView addSubview: button27];
     [button27 mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.size.mas_equalTo(button25);
-        make.left.mas_equalTo(button25);
-        make.top.mas_equalTo(button25.mas_bottom).offset(10);
+        make.size.mas_equalTo(button26);
+        make.top.mas_equalTo(button26);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button28 = [self createButton: @"降低音量"];
+    button28.tag = 128;
+    [btnView addSubview: button28];
+    [button28 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button26);
+        make.left.mas_equalTo(button26);
+        make.top.mas_equalTo(button26.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button29 = [self createButton: @"渲染模式"];
+    button29.tag = 129;
+    [btnView addSubview: button29];
+    [button29 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button28);
+        make.top.mas_equalTo(button28);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button30 = [self createButton: @"查询指定用户控制权"];
+    button30.tag = 130;
+    [btnView addSubview: button30];
+    [button30 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button28);
+        make.left.mas_equalTo(button28);
+        make.top.mas_equalTo(button28.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button31 = [self createButton: @"查询所有用户控制权"];
+    button31.tag = 131;
+    [btnView addSubview: button31];
+    [button31 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button30);
+        make.top.mas_equalTo(button30);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button32 = [self createButton: @"设置指定用户控制权"];
+    button32.tag = 132;
+    [btnView addSubview: button32];
+    [button32 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button30);
+        make.left.mas_equalTo(button30);
+        make.top.mas_equalTo(button30.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button33 = [self createButton: @"开启触控事件"];
+    button33.tag = 133;
+    [btnView addSubview: button33];
+    [button33 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button32);
+        make.top.mas_equalTo(button32);
+        make.right.mas_equalTo(btnView);
         make.bottom.mas_equalTo(btnView);
     }];
 }
 
 #pragma mark - VePhoneManagerDelegate
 
-- (void)firstRemoteAudioFrameArrivedFromEngineManager:(VePhoneManager *)manager
+- (void)firstRemoteAudioFrameArrivedFromPhoneManager:(VePhoneManager *)manager
 {
     if (manager.streamType == VeBaseStreamTypeAudio) {
         [SVProgressHUD dismiss];
@@ -479,17 +539,19 @@
 - (void)phoneManager:(VePhoneManager *)manager startSucceedResult:(NSInteger)streamProfileId reservedId:(NSString *)reservedId extra:(NSDictionary *)extra
 {
     [SVProgressHUD dismiss];
-    [manager setLocalVideoCanvas: self.liveView];
+    [manager setLocalVideoCanvas: self.localVideoView];
 }
 
 - (void)phoneManager:(VePhoneManager *)manager changedDeviceRotation:(NSInteger)rotation
 {
-    self.rotation = rotation;
+    if (self.configObj.rotationMode != VeBaseRotationModePortrait) {
+        self.rotation = rotation;
+    }
 }
 
 - (void)phoneManager:(VePhoneManager *)manager operationDelay:(NSInteger)delayTime
 {
-    self.operationDelayTime = [NSString stringWithFormat: @"操作延迟: %ldms", (long)delayTime];
+    self.operationDelayTime = [NSString stringWithFormat: @"%ld", (long)delayTime];
 }
 
 - (void)phoneManager:(VePhoneManager *)manager onLocalStreamStats:(VeBaseLocalStreamStats *)stats
@@ -500,7 +562,8 @@
 - (void)phoneManager:(VePhoneManager *)manager onRemoteStreamStats:(VeBaseRemoteStreamStats *)stats
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        self.logLabel.text = [NSString stringWithFormat: @"%@ 音频rtt: %ldms 视频rtt: %ldms 音频码率: %ldkbps 视频码率: %ldkbps", self.operationDelayTime, (long)stats.audioRtt, (long)stats.videoRtt, (long)stats.receivedAudioKBitrate, (long)stats.receivedVideoKBitrate];
+        self.timelylogLabel.text = [NSString stringWithFormat: @"delay: %@ms rtt: %ldms loss: %.2f%% bit: %ldkbps fps: %ldfps",
+                                    self.operationDelayTime ?: @"0", (long)stats.videoRtt, stats.audioLossRate + stats.videoLossRate, stats.receivedVideoKBitrate, (long)stats.rendererOutputFrameRate];
     });
 }
 
@@ -551,9 +614,16 @@
     }
 }
 
-- (void)phoneManager:(VePhoneManager *)manager onAudioCaptureDeviceStartState:(BOOL)success
+- (void)phoneManager:(VePhoneManager *)manager onAudioCaptureDeviceState:(VeBaseMediaDeviceState)state deviceError:(VeBaseMediaDeviceError)error
 {
     [SVProgressHUD dismiss];
+    if (error == VeBaseMediaDeviceErrorDeviceNoPermission) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.view makeToast: @"错误，没有麦克风权限"
+                        duration: 2.0f
+                        position: CSToastPositionCenter];
+        });
+    }
 }
 
 - (void)phoneManager:(VePhoneManager *)manager startVideoCaptureRequest:(VeBaseCameraId)cameraId
@@ -577,6 +647,22 @@
     }
 }
 
+- (void)firstLocalVideoFrameCapturedFromPhoneManager:(VePhoneManager *)manager
+{
+    NSLog(@"本地视频采集：首帧到达");
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onVideoCaptureDeviceState:(VeBaseMediaDeviceState)state deviceError:(VeBaseMediaDeviceError)error
+{
+    if (error == VeBaseMediaDeviceErrorDeviceNoPermission) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.view makeToast: @"错误，没有摄像头权限"
+                        duration: 2.0f
+                        position: CSToastPositionCenter];
+        });
+    }
+}
+
 - (void)phoneManager:(VePhoneManager *)manager onScreenShot:(NSInteger)code savePath:(NSString *)path downloadUrl:(NSString *)url
 {
     NSString *toast = [NSString stringWithFormat: @"云手机截图结果：%@，SavePath = %@, DownloadUrl = %@", code == 0 ? @"成功" : @"失败", path, url];
@@ -592,9 +678,9 @@
     NSLog(@"%@", toast);
 }
 
-- (void)phoneManager:(VePhoneManager *)manager switchVideoStreamProfileWithCode:(NSInteger)code fromIndex:(NSInteger)index1 toIndex:(NSInteger)index2
+- (void)phoneManager:(VePhoneManager *)manager switchVideoStreamProfile:(BOOL)result fromIndex:(NSInteger)index1 toIndex:(NSInteger)index2 targetParams:(NSDictionary *)paramsDict
 {
-    NSString *toast = [NSString stringWithFormat: @"清晰度切换：%@，fromIndex = %@, toIndex = %@", code == 0 ? @"成功" : @"失败", @(index1), @(index2)];
+    NSString *toast = [NSString stringWithFormat: @"清晰度切换：%@，fromIndex = %@, toIndex = %@", result ? @"成功" : @"失败", @(index1), @(index2)];
     [self.view makeToast: toast
                 duration: 2.0f
                 position: CSToastPositionCenter];
@@ -631,9 +717,6 @@
 - (void)phoneManager:(VePhoneManager *)manager onReceiveMessage:(VeBaseChannelMessage *)message
 {
     NSString *toast = [NSString stringWithFormat: @"Receive Message = %@", [message description]];
-    [self.view makeToast: toast
-                duration: 2.0f
-                position: CSToastPositionCenter];
     NSLog(@"%@", toast);
 }
 
@@ -693,19 +776,109 @@
     NSLog(@"RemoteAppSwitchedFailed = %ld errorMsg = %@", warningCode, errorMsg);
 }
 
-- (void)phoneManager:(VePhoneManager *)manager
-              status:(VeBaseRecordingStatus)status
-            savePath:(NSString *)savePath
-                 msg:(NSString *)msg
-         downloadUrl:(NSString *)url
+- (void)phoneManager:(VePhoneManager *)manager status:(VeBaseRecordingStatus)status savePath:(NSString *)savePath msg:(NSString *)msg downloadUrl:(NSString *)url
 {
     NSLog(@"status: %li  savePath: %@ downloadUrl: %@ msg: %@", status, savePath, url, msg);
 }
 
 - (void)phoneManager:(VePhoneManager *)manager onNavBarStatus:(NSInteger)status reason:(NSInteger)reason
 {
-    _isNavShow = status;
-    NSLog(@"导航栏%@", status == 0 ? @"隐藏" : @"显示");
+    self.isNavShow = status;
+    [self.view makeToast: [NSString stringWithFormat: @"导航栏--%@", status == 0 ? @"隐藏" : @"显示"]
+                duration: 2.0f
+                position: CSToastPositionCenter];
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onUserJoin:(NSString *)uid
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.view makeToast: [NSString stringWithFormat: @"Pod 远端用户Uid:%@加入房间", uid] duration: 2.0f position: CSToastPositionBottom];
+    });
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onUserLeave:(NSString *)uid
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.view makeToast: [NSString stringWithFormat: @"Pod 远端用户Uid:%@离开房间", uid] duration: 2.0f position: CSToastPositionBottom];
+    });
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onEnableControlResult:(NSInteger)code state:(VePhoneControlState *)state message:(NSString *)msg
+{
+    NSString *toast = [NSString stringWithFormat: @"配置指定用户操控权：%@，state = %@, msg：%@", code == 0 ? @"成功" : @"失败", [state description], msg];
+    [self.view makeToast: toast duration: 2.0f position: CSToastPositionBottom];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onControlStateChanged:(VePhoneControlState *)state
+{
+    NSString *toast = [NSString stringWithFormat: @"房间内操控权变更：state = %@", [state description]];
+    [self.view makeToast: toast duration: 2.0f position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onHasControlResult:(NSInteger)code state:(VePhoneControlState *)state message:(NSString *)msg
+{
+    NSString *toast = [NSString stringWithFormat: @"查询房间内指定用户操控权信息：%@，state = %@, msg：%@", code == 0 ? @"成功" : @"失败", [state description], msg];
+    [self.view makeToast: toast duration: 2.0f position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onAllControlsResult:(NSInteger)code list:(NSArray<VePhoneControlState *> *)states message:(NSString *)msg
+{
+    NSMutableString *str = [NSMutableString string];
+    for (VePhoneControlState *state in states) {
+        [str appendFormat: @"%@; ", [state description]];
+    }
+    if ([str hasSuffix: @"; "]) {
+        [str deleteCharactersInRange: NSMakeRange(str.length - 2, 2)];
+    }
+    NSString *toast = [NSString stringWithFormat: @"查询房间内所有用户操控权信息：%@，states = %@, msg：%@", code == 0 ? @"成功" : @"失败", str, msg];
+    [self.view makeToast: toast duration: 2.0f position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onTouchEvent:(NSArray<VeBaseTouchEventItem *> *)touchArray
+{
+    NSLog(@"touchArray = %@", touchArray);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager networkTypeChangedToType:(VeBaseNetworkType)networkType
+{
+    NSString *str = @"";
+    switch (networkType) {
+        case VeBaseNetworkTypeUnknown:
+            str = @"当前网络类型：未知";
+            break;
+        case VeBaseNetworkTypeDisconnected:
+            str = @"当前网络已断开";
+            break;
+        case VeBaseNetworkTypeLAN:
+            str = @"当前网络类型：LAN局域网";
+            break;
+        case VeBaseNetworkTypeWIFI:
+            str = @"当前网络类型：WIFI";
+            break;
+        case VeBaseNetworkTypeMobile2G:
+            str = @"当前网络类型：2G";
+            break;
+        case VeBaseNetworkTypeMobile3G:
+            str = @"当前网络类型：3G";
+            break;
+        case VeBaseNetworkTypeMobile4G:
+            str = @"当前网络类型：4G";
+            break;
+        case VeBaseNetworkTypeMobile5G:
+            str = @"当前网络类型：5G";
+            break;
+    }
+    if (str.length > 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.view makeToast: str
+                        duration: 2.0f
+                        position: CSToastPositionBottom];
+        });
+    }
 }
 
 - (void)phoneManager:(VePhoneManager *)manager onPodExit:(VePhoneErrorCode)errCode
@@ -866,31 +1039,24 @@
 - (UIButton *)createButton:(NSString *)title
 {
     UIButton *button = [UIButton buttonWithType: UIButtonTypeCustom];
+    button.layer.cornerRadius = 3.0f;
     button.titleLabel.adjustsFontSizeToFitWidth = YES;
     button.backgroundColor = [UIColor systemBlueColor];
     button.titleLabel.font = [UIFont systemFontOfSize: 13.0f];
     [button setTitle: title forState: UIControlStateNormal];
     [button setTitleColor: [UIColor whiteColor] forState: UIControlStateNormal];
-    [button addTarget: self action: @selector(tappedTestButton:) forControlEvents: UIControlEventTouchUpInside];
+    [button addTarget: self action: @selector(tappedButton:) forControlEvents: UIControlEventTouchUpInside];
     return button;
-}
-
-- (void)setStreamStats:(NSString *)stats
-{
-    self.logLabel.text = [NSString stringWithFormat: @"%@ %@", self.operationDelayTime, stats];
 }
 
 #pragma mark - button action
 
-- (void)tappedMenuButton:(UIButton *)button
+- (void)tappedButton:(UIButton *)btn
 {
-    button.selected = !button.selected;
-    self.scrollView.hidden = !button.selected;
-}
-
-- (void)tappedTestButton:(UIButton *)btn
-{
-    if (btn.tag == 100) { // 退出
+    if (btn.tag == 999) { // Menu
+        btn.selected = !btn.selected;
+        self.scrollView.hidden = !btn.selected;
+    } else if (btn.tag == 100) { // 退出
         [SVProgressHUD dismiss];
         [[VePhoneManager sharedInstance] stop];
         [self.navigationController popViewControllerAnimated: YES];
@@ -957,7 +1123,7 @@
             }
         }];
     } else if (btn.tag == 111) {
-        __weak __typeof(self)weakSelf = self;
+        __weak typeof(self)weakSelf = self;
         [self setCustomViewController: @"设置无操作回收时长" hintText: nil tappedSureBlock:^(UITextField *tf) {
             if ([tf.text integerValue] != NSNotFound) {
                 if ([[VePhoneManager sharedInstance] setAutoRecycleTime: [tf.text integerValue]] == -2) {
@@ -970,7 +1136,7 @@
     } else if (btn.tag == 112) {
         [[VePhoneManager sharedInstance] getAutoRecycleTime];
     } else if (btn.tag == 113) {
-        __weak __typeof(self)weakSelf = self;
+        __weak typeof(self)weakSelf = self;
         [self setCustomViewController: @"设置后台保活时长" hintText: nil tappedSureBlock:^(UITextField *tf) {
             if ([tf.text integerValue] != NSNotFound) {
                 if ([[VePhoneManager sharedInstance] setIdleTime: [tf.text integerValue]] == -2) {
@@ -1006,7 +1172,7 @@
         
     } else if (btn.tag == 117) {
         btn.selected = !btn.selected;
-        self.liveView.hidden = !btn.selected;
+        self.localVideoView.hidden = !btn.selected;
         [btn setTitle: btn.selected ? @"采集视图显示" : @"采集视图隐藏" forState: UIControlStateNormal];
     } else if (btn.tag == 118) {
         CustomViewController *alert = [CustomViewController alertControllerWithTitle: @"音频播放设备" message:nil preferredStyle: UIAlertControllerStyleActionSheet];
@@ -1053,35 +1219,48 @@
         imagePicker.modalPresentationStyle = UIModalPresentationFullScreen;
         [self presentViewController:imagePicker animated:YES completion:nil];
     } else if (btn.tag == 122) {
-        VeFile *file = [VeFile new];
-        file.name = @"1.png";
-        file.podFilePath = @"/sdcard/Download/";
-        [[VePhoneManager sharedInstance] startPullFile:file onStart:^(VeFile *file) {
-            NSLog(@"拉取文件开始-------%@\n", file);
-        } onProgress:^(VeFile *file, NSInteger progress) {
-            [SVProgressHUD showProgress:progress / 100.0 status:[NSString stringWithFormat:@"文件拉取中(%ld)%%", progress]];
-            NSLog(@"拉取文件进度-------%ld\n", progress);
-        } onComplete:^(VeFile *file, NSString *url) {
-            [SVProgressHUD dismiss];
-            NSLog(@"拉取文件完成-------%@\n", url);
-            CustomViewController *alert = [CustomViewController alertControllerWithTitle:nil message:@"文件拉取完成，是否打开？" preferredStyle:UIAlertControllerStyleAlert];
-            alert.rotation = self.rotation;
-            UIAlertAction *leftAction = [UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil];
-            UIAlertAction *rightAction = [UIAlertAction actionWithTitle:@"打开" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                if (url && [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:url]]) {
-                    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
-                } else {
-                    [SVProgressHUD showInfoWithStatus:@"文件打开失败"];
-                }
-            }];
-            [alert addAction:leftAction];
-            [alert addAction:rightAction];
-            [self presentViewController:alert animated:NO completion:nil];
-        } onCancel:^(VeFile *file) {
-            NSLog(@"取消拉取文件-------%@\n", file);
-        } onError:^(VeFile *file, VePhoneErrorCode err) {
-            NSLog(@"拉取文件错误-------%@\n", file);
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        NSString *path = [paths objectAtIndex:0];
+        CustomViewController *alert = [CustomViewController alertControllerWithTitle:nil message:@"输入拉取路径" preferredStyle:UIAlertControllerStyleAlert];
+        alert.rotation = self.rotation;
+        __block NSString *target;
+        __block UITextField *tf1;
+        __block UITextField *tf2;
+        [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+            textField.placeholder = @"请输入拉取的文件名";
+            textField.text = @"test.png";
+            tf1 = textField;
         }];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+            textField.placeholder = @"请输入存储路径，不输入则默认存储至Document下";
+            textField.text = path;
+            tf2 = textField;
+        }];
+        VeFile *file = [VeFile new];
+        file.name = tf1.text ?: @"test.png";
+        file.podFilePath = @"/sdcard/Download/";
+        UIAlertAction *leftAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            target = tf2.text;
+            [[VePhoneManager sharedInstance] startPullFile:file target:target onStart:^(VeFile *file) {
+                NSLog(@"拉取文件开始-------%@\n", file);
+            } onProgress:^(VeFile *file, NSInteger progress) {
+                [SVProgressHUD showProgress:progress / 100.0 status:[NSString stringWithFormat:@"文件拉取中(%ld)%%", progress]];
+                NSLog(@"拉取文件进度-------%ld\n", progress);
+            } onComplete:^(VeFile *file, NSString *url) {
+                [SVProgressHUD dismiss];
+                NSLog(@"拉取文件完成-------%@\n", url);
+            } onCancel:^(VeFile *file) {
+                [SVProgressHUD dismiss];
+                NSLog(@"取消拉取文件-------%@\n", file);
+            } onError:^(VeFile *file, VePhoneErrorCode err) {
+                [SVProgressHUD dismiss];
+                NSLog(@"拉取文件错误-------%@----errorCode = %ld\n", file, err);
+            }];
+        }];
+        [alert addAction:leftAction];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self presentViewController:alert animated:NO completion:nil];
+        });
     } else if (btn.tag == 123) {
         [self setCustomViewController: @"切换远端App到前台" hintText: @"请输入packageName" tappedSureBlock:^(UITextField *tf) {
             if (tf.text.length != 0) {
@@ -1091,15 +1270,58 @@
     } else if (btn.tag == 124) {
         [[VePhoneManager sharedInstance] getRemoteBackgroundAppList];
     } else if (btn.tag == 125) {
-        [[VePhoneManager sharedInstance] setNavBarStatus: !_isNavShow];
+        [[VePhoneManager sharedInstance] setNavBarStatus: !self.isNavShow];
     } else if (btn.tag == 126) {
         [[VePhoneManager sharedInstance] getNavBarStatus];
     } else if (btn.tag == 127) {
+        [[VePhoneManager sharedInstance] volumeUp];
+    } else if (btn.tag == 128) {
+        [[VePhoneManager sharedInstance] volumeDown];
+    } else if (btn.tag == 129) {
         [self setCustomViewController: @"设置渲染模式" hintText: @"0: Fit 1: Fill 2: Cover" tappedSureBlock:^(UITextField *tf) {
             if ([tf.text integerValue] != NSNotFound) {
                 [[VePhoneManager sharedInstance] updateVideoRenderMode: [tf.text integerValue]];
             }
         }];
+    } else if (btn.tag == 130) {
+        [self setCustomViewController: @"请输入目标Uid" hintText: nil tappedSureBlock:^(UITextField *tf) {
+            if (tf.text.length > 0) {
+                [[VePhoneManager sharedInstance] hasControl: tf.text];
+            }
+        }];
+    } else if (btn.tag == 131) {
+        [[VePhoneManager sharedInstance] getAllControls];
+    } else if (btn.tag == 132) {
+        CustomViewController *alert = [CustomViewController alertControllerWithTitle: @"请输入目标Uid&操控权" message: nil preferredStyle: UIAlertControllerStyleAlert];
+        alert.rotation = self.rotation;
+        __block UITextField *tf1 = [UITextField new];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+            tf1 = textField;
+            tf1.placeholder = @"目标用户的Uid";
+            tf1.keyboardType = UIKeyboardTypeDefault;
+        }];
+        __block UITextField *tf2 = [UITextField new];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+            tf2 = textField;
+            tf2.placeholder = @"0: 无操控权；1: 有操控权";
+            tf2.keyboardType = UIKeyboardTypeDecimalPad;
+        }];
+        UIAlertAction *action0 = [UIAlertAction actionWithTitle: @"取消" style:UIAlertActionStyleCancel handler: nil];
+        [alert addAction: action0];
+        UIAlertAction *action1 = [UIAlertAction actionWithTitle: @"确认" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+            if (tf1.text.length > 0 && [tf2.text integerValue] != NSNotFound) {
+                VePhoneControlState *state = [VePhoneControlState new];
+                state.userId = tf1.text;
+                state.enable = [tf2.text integerValue];
+                [[VePhoneManager sharedInstance] enableControl: state];
+            }
+        }];
+        [alert addAction: action1];
+        [self presentViewController: alert animated: NO completion: nil];
+    } else if (btn.tag == 133) { // 拦截触控事件
+        btn.selected = !btn.selected;
+        [[VePhoneManager sharedInstance] setInterceptSendTouchEvent: btn.selected];
+        [btn setTitle: btn.selected ? @"禁止触控事件" : @"开启触控事件" forState: UIControlStateNormal];
     }
 }
 
@@ -1138,7 +1360,7 @@
     alert.rotation = self.rotation;
     [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
         textField.placeholder = hint;
-        textField.keyboardType = UIKeyboardTypeDecimalPad;
+        textField.keyboardType = UIKeyboardTypeDefault;
         tf = textField;
     }];
     UIAlertAction *action0 = [UIAlertAction actionWithTitle: @"取消" style:UIAlertActionStyleCancel handler: nil];
@@ -1164,28 +1386,51 @@
     } else {
         imageData = UIImageJPEGRepresentation(image, 1.0);
     }
+    CustomViewController *alert = [CustomViewController alertControllerWithTitle:nil message:@"输入拉取路径" preferredStyle:UIAlertControllerStyleAlert];
+    alert.rotation = self.rotation;
+    __block NSString *target;
+    __block UITextField *tf1;
+    __block UITextField *tf2;
+    [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+        textField.placeholder = @"请输入推送的文件名";
+        textField.text = @"test.png";
+        tf1 = textField;
+    }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField * _Nonnull textField) {
+        textField.placeholder = @"请输入推送路径";
+        textField.text = @"/sdcard/Download";
+        tf2 = textField;
+    }];
     VeFile *file = [VeFile new];
     file.fileData = imageData;
-    file.name = @"1.png";
-    file.md5 = [self md5Str:imageData];
-    [[VePhoneManager sharedInstance] startPushFile:file target:@"/sdcard/Download" onStart:^(VeFile *file) {
-        NSLog(@"推送文件开始-------%@\n", file);
-    } onProgress:^(VeFile *file, NSInteger progress) {
-        [SVProgressHUD showProgress:progress / 100.0 status:[NSString stringWithFormat:@"文件拉取中(%ld)%%", progress]];
-        NSLog(@"推送文件进度-------%ld\n", progress);
-    } onComplete:^(VeFile *file) {
-        [SVProgressHUD dismiss];
-        NSLog(@"推送文件完成-------%@\n", file);
-    } onCancel:^(VeFile *file) {
-        NSLog(@"推送文件取消-------%@\n", file);
-    } onError:^(VeFile *file, VePhoneErrorCode err) {
-        NSLog(@"推送文件出错-------%@\n", file);
+    file.name = tf1.text;
+    file.md5 = [self md5String:imageData];
+    target = tf2.text;
+    UIAlertAction *leftAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        [[VePhoneManager sharedInstance] startPushFile:file target:target onStart:^(VeFile *file) {
+            NSLog(@"推送文件开始-------%@\n", file);
+        } onProgress:^(VeFile *file, NSInteger progress) {
+            [SVProgressHUD showProgress:progress / 100.0 status:[NSString stringWithFormat:@"文件拉取中(%ld)%%", progress]];
+            NSLog(@"推送文件进度-------%ld\n", progress);
+        } onComplete:^(VeFile *file) {
+            [SVProgressHUD dismiss];
+            NSLog(@"推送文件完成-------%@\n", file);
+        } onCancel:^(VeFile *file) {
+            NSLog(@"推送文件取消-------%@\n", file);
+        } onError:^(VeFile *file, VePhoneErrorCode err) {
+            NSLog(@"推送文件出错-------%@\n", file);
+        }];
     }];
+    [alert addAction:leftAction];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self presentViewController:alert animated:NO completion:nil];
+    });
 }
 
-- (NSString *)md5Str:(NSData *)strData {
+- (NSString *)md5String:(NSData *)data
+{
     unsigned char result[CC_MD5_DIGEST_LENGTH];
-    CC_MD5(strData.bytes, (CC_LONG)strData.length, result);
+    CC_MD5(data.bytes, (CC_LONG)data.length, result);
     return [NSString stringWithFormat:
             @"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
             result[0], result[1], result[2], result[3],
@@ -1200,26 +1445,28 @@
 - (void)setRotation:(NSInteger)rotation
 {
     if (_rotation != rotation) {
-        
         _rotation = rotation;
-        
         if (@available(iOS 16, *)) {
             [self setNeedsUpdateOfSupportedInterfaceOrientations];
         } else {
             [Utils rotateDeviceToOrientation: rotation];
         }
-        UIView *exitBtn = [self.view viewWithTag: 100];
         if (rotation == 0) {
-            [exitBtn mas_updateConstraints:^(MASConstraintMaker *make) {
-                make.left.mas_equalTo(self.view).offset(35.0f);
-                make.top.mas_equalTo(self.view.mas_top).offset(44 + 5.0f);
+            [self.scrollView mas_updateConstraints:^(MASConstraintMaker *make) {
+                make.left.mas_equalTo(self.view).offset(20.0f);
+                make.top.mas_equalTo(self.view).offset(44);
             }];
         } else {
-            [exitBtn mas_updateConstraints:^(MASConstraintMaker *make) {
-                make.top.mas_equalTo(self.view.mas_top).offset(20.0f);
+            [self.scrollView mas_updateConstraints:^(MASConstraintMaker *make) {
+                make.top.mas_equalTo(self.view).offset(20.0f);
                 make.left.mas_equalTo(self.view).offset(44);
             }];
         }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5f * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIButton *menuBtn = [self.view viewWithTag: 999];
+            menuBtn.center = CGPointMake(self.view.bounds.size.width - menuBtn.bounds.size.width / 2, self.view.bounds.size.height / 2 + menuBtn.bounds.size.height);
+            [self.scrollView setContentOffset: CGPointMake(0, 0) animated: NO];
+        });
     }
 }
 
@@ -1285,7 +1532,7 @@
         _videoCapture.sessionInitSuccessCallBack = ^() {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [weakSelf.view.layer addSublayer: weakSelf.videoCapture.previewLayer];
-                weakSelf.videoCapture.previewLayer.frame = weakSelf.liveView.frame;
+                weakSelf.videoCapture.previewLayer.frame = weakSelf.localVideoView.frame;
             });
         };
         _videoCapture.sampleBufferOutputCallBack = ^(CMSampleBufferRef sample) {
@@ -1303,7 +1550,8 @@
         solution.width = 1080;
         solution.height = 1920;
         solution.frameRate = 30;
-        solution.maxBitrate = 2000;
+        solution.minBitrate = 1000;
+        solution.maxBitrate = 3000;
         [[VePhoneManager sharedInstance] setVideoEncoderConfig: @[solution]];
     }
     
@@ -1339,6 +1587,11 @@
         mask = UIInterfaceOrientationMaskLandscapeRight;
     }
     return mask;
+}
+
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation
+{
+    return UIInterfaceOrientationPortrait;
 }
 
 - (void)dealloc
