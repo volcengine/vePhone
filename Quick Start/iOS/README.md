@@ -60,8 +60,32 @@
    // 启动
    [[VePhoneManager sharedInstance] startWithConfig: configObj];
    ```
+4. 实现相关代理接口。
 
-4. 结束时，调用 `- (void)stop` 接口结束游戏。
+   ```objective-c
+   #pragma mark - VePhoneManagerDelegate
+   - (void)phoneManager:(VePhoneManager *)manager startSucceedResult:(NSInteger)streamProfileId reservedId:(NSString *)reservedId extra:(NSDictionary *)extra
+   {
+       // 启动成功，收到首帧画面回调
+   }
+   
+   - (void)phoneManager:(VePhoneManager *)manager changedDeviceRotation:(NSInteger)rotation
+   {
+       // 横竖屏方向回调，注意：VePhoneSDK只负责横竖屏方向回调，不负责横竖屏的旋转，接入方根据rotation自行处理
+   }
+   
+   - (void)phoneManager:(VePhoneManager *)manager onWarning:(VePhoneWarningCode)warnCode
+   {
+       // 警告回调
+   }
+   
+   - (void)phoneManager:(VePhoneManager *)manager onError:(VePhoneErrorCode)errCode
+   {
+       // 错误回调
+   }
+   ```
+
+5. 结束时，调用 `- (void)stop` 接口结束游戏。
 
    ```objective-c
    [[VePhoneManager sharedInstance] stop];
