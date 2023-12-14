@@ -144,23 +144,15 @@ VePhoneEngine.getInstance().prepare();
 ```java
 PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
 
-builder.userId(userId) // 用户userid
+builder.userId(userId) // 必填参数，用户userid
     .ak(ak) // 必填参数，临时鉴权 ak
     .sk(sk)  // 必填参数，临时鉴权 sk
     .token(token) // 必填参数，临时鉴权 token
-    .container(mContainer) // 必填参数，用来承载画面的 Container, 参数说明: layout 需要是 FrameLayout 或者 FrameLayout 的子类
-    .roundId(intent.getStringExtra(KEY_ROUND_ID)) // 必填参数，自定义roundId
-    .videoStreamProfileId(intent.getIntExtra(KEY_ClARITY_ID, 1)) // 选填参数，清晰度ID
-    .podId(intent.getStringExtra(KEY_POD_ID)) // 必填, podId
-    .productId(intent.getStringExtra(KEY_PRODUCT_ID)) // 必填, productId
-    .enableGravitySensor(true) // 打开重力传感器开关
-    .enableGyroscopeSensor(true) // 打开陀螺仪开关
-    .enableMagneticSensor(true) // 打开磁力传感器开关
-    .enableOrientationSensor(true) // 打开方向传感器开关
-    .enableVibrator(true) // 打开本地振动开关
-    .enableLocationService(true) // 打开本地定位功能开关
-    .enableLocalKeyboard(true) // 打开本地键盘开关
-    .streamListener(IStreamListener streamListener); // 获取音视频流信息回调监听
+    .container(container) // 必填参数，用来承载画面的 Container, 参数说明: layout 需要是 FrameLayout 或者 FrameLayout 的子类
+    .roundId(roundId) // 必填参数，自定义roundId
+    .podId(podId) // 必填参数，podId
+    .productId(productId) // 必填参数，productId
+    .streamListener(streamListener); // 必填参数，获取音视频流信息回调监听
 
 PhonePlayConfig phonePlayConfig = builder.build();
 ```

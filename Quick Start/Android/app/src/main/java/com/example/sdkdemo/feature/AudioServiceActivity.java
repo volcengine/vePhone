@@ -57,7 +57,7 @@ public class AudioServiceActivity extends BasePlayActivity
     private SwitchCompat mSwShowOrHide, mSwSendAudio;
     private LinearLayoutCompat mLlButtons;
     private Button mBtnMute, mBtnVolumeUp, mBtnVolumeDown, mBtnGetSettings,
-            mBtnChangeAudioPlaybackDevice;
+            mBtnSetJBDelay, mBtnChangeAudioPlaybackDevice;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -76,6 +76,7 @@ public class AudioServiceActivity extends BasePlayActivity
         mBtnVolumeUp = findViewById(R.id.btn_volume_up);
         mBtnVolumeDown = findViewById(R.id.btn_volume_down);
         mSwSendAudio = findViewById(R.id.sw_send_audio);
+        mBtnSetJBDelay = findViewById(R.id.btn_set_jitter_buffer);
         mBtnGetSettings = findViewById(R.id.btn_get_settings);
         mBtnChangeAudioPlaybackDevice = findViewById(R.id.btn_change_audio_playback_device);
 
@@ -115,6 +116,16 @@ public class AudioServiceActivity extends BasePlayActivity
             }
         });
 
+        mBtnSetJBDelay.setOnClickListener(view -> {
+            if (mAudioService != null) {
+                /**
+                 * setJitterBufferDelay(int delay) -- 设置音频JitterBuffer缓冲时长，单位: ms
+                 * 当 delay<30ms 时，SDK内部会处理成30以防止过低；可以通过设置 delay=0 使延迟时间恢复到正常值
+                 */
+                mAudioService.setJitterBufferDelay(0);
+            }
+        });
+
         mBtnGetSettings.setOnClickListener(view -> {
             if (mAudioService != null) {
                 /**
@@ -123,12 +134,14 @@ public class AudioServiceActivity extends BasePlayActivity
                  * getLocalAudioCaptureVolume() -- 获取本地设备采集音量
                  * isEnableSendAudioStream() -- 是否向云端实例发送音频流
                  * isSendingAudioStream() -- 是否正在向云端实例发送音频流
+                 * getJitterBufferDelay() -- 获取音频JitterBuffer缓冲时长，单位：ms
                  */
                 showToast("本地设备播放音量: " + mAudioService.getLocalAudioPlaybackVolume() + "\n" +
                         "远端实例播放音量: " + mAudioService.getRemoteAudioPlaybackVolume() + "\n" +
                         "本地设备采集音量: " + mAudioService.getLocalAudioCaptureVolume() + "\n" +
                         "是否发送音频流: " + mAudioService.isEnableSendAudioStream() + "\n" +
-                        "是否正在发送音频流: " + mAudioService.isSendingAudioStream());
+                        "是否正在发送音频流: " + mAudioService.isSendingAudioStream() + "\n" +
+                        "音频JitterBuffer缓冲时长: " + mAudioService.getJitterBufferDelay());
             }
             else {
                 AcLog.e(TAG, "mAudioService == null");
