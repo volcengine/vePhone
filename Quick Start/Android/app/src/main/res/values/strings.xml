@@ -34,6 +34,7 @@
     <string name="enable_send_audio">是否发送音频流</string>
     <string name="start_send_audio">开始发送音频</string>
     <string name="stop_send_audio">停止发送音频</string>
+    <string name="set_jitter_buffer">设置JitterBuffer</string>
     <string name="local_audio_playback_volume">本地音频播放音量</string>
     <string name="remote_audio_playback_volume">云端音频播放音量</string>
     <string name="local_audio_capture_volume">本地音频采集音量</string>

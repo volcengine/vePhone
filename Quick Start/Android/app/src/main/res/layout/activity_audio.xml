@@ -59,6 +59,13 @@
             android:layout_height="wrap_content" />
 
         <Button
+            android:id="@+id/btn_set_jitter_buffer"
+            android:text="@string/set_jitter_buffer"
+            android:textSize="12sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <Button
             android:id="@+id/btn_get_settings"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
