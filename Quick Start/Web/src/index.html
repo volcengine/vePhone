@@ -1,43 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>云手机 Web SDK Quick Start Example</title>
-    <link rel="stylesheet" href="index.css" />
-    <link
-      href="https://unpkg.com/bootstrap@5.2.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="./libs/jquery-ui.min.css" />
+    <link rel="stylesheet" href="./libs/bootstrap.min.css" />
+    <link rel="stylesheet" href="./index.css" />
+    <script src="./libs/jquery.min.js"></script>
+    <script src="./libs/jquery-ui.min.js"></script>
+    <script src="./libs/jquery.ui.touch-punch.min.js"></script>
+    <script src="./libs/bootstrap.bundle.min.js"></script>
   </head>
   <body>
-    <div class="action-container">
+    <div id="show-action-btn" class="btn btn-sm btn-primary">展示操作按钮</div>
+    <div class="action-container gap-1">
+      <button id="hide-action-btn" class="btn btn-sm btn-primary">
+        隐藏操作按钮
+      </button>
       <button id="start-btn" class="btn btn-sm btn-primary">启动云手机</button>
-      <button id="stop-btn" class="btn btn-sm btn-primary hidden">
-        关闭云手机
-      </button>
-      <button id="rotate-270-btn" class="btn btn-sm btn-primary disabled">
-        横屏
-      </button>
-      <button id="rotate-0-btn" class="btn btn-sm btn-primary disabled">
-        竖屏
-      </button>
-      <button id="screenshot-btn" class="btn btn-sm btn-primary disabled">
-        截图
-      </button>
-      <button
-        id="screen-record-start-btn"
-        class="btn btn-sm btn-primary disabled"
-      >
-        开启录制
-      </button>
-      <button id="screen-record-stop-btn" class="btn btn-sm btn-primary hidden">
-        停止录制
-      </button>
+      <button id="stop-btn" class="btn btn-sm btn-primary">关闭云手机</button>
     </div>
-    <div id="player" class="pc-portrait"></div>
-    <script src="lib/vePhoneSDK-Web.js"></script>
+    <div class="player-container">
+      <div id="player"></div>
+    </div>
+    <script src="./libs/vephone-sdk.min.js"></script>
     <script type="module" src="main.js"></script>
   </body>
 </html>

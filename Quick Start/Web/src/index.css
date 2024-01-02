@@ -1,51 +1,57 @@
 body {
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 }
 
-.hidden {
-    display: none !important;
-}
 .action-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: absolute;
+  left: 0;
+  top: 12px;
+  z-index: 10;
 }
-.action-container > button:not(:last-child) {
-    margin-right: 4px;
+
+.player-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
 }
 
 #player {
-    overflow: hidden;
-    margin: 0 auto;
+  overflow: hidden;
+  width: 100%;
+  height: 100vh;
 }
 
-.pc-landscape {
-    height: 100vw;
-    max-height: calc(calc(100vh - 42px) / 1920 * 1080);
-    width: calc(100vh - 42px);
+#show-action-btn {
+  /* 默认隐藏「展示操作按钮」 */
+  display: none;
+  position: absolute;
+  z-index: 12;
+  top: 12px;
 }
 
-.pc-portrait {
-    width: 100vw;
-    max-width: calc(calc(100vh - 42px) / 1920 * 1080);
-    height: calc(100vh - 42px);
+#stop-btn {
+  /* 默认隐藏「关闭云手机按钮」 */
+  display: none;
 }
 
-@media screen and (max-width: 980px) {
-    #player {
-        width: 100vw;
-        max-height: initial;
-        max-width: initial;
-        height: calc(100vw * 1920 / 1080);
-    }
+.pc-player {
+  border: 1px solid #DDE2E9;
+  box-shadow: 0px 50px 80px rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
 }
 
-@media screen and (min-width: 980px) {
-    #player {
-        border: 1px solid #DDE2E9;
-        box-shadow: 0px 50px 80px rgba(0, 0, 0, 0.12);
-        border-radius: 12px;
-    }
+#player.pc-portrait {
+  height: calc(100vh - 24px);
+  width: calc(calc(100vh - 24px) / 1920 * 1080);
+}
+
+#player.pc-landscape {
+  width: calc(100vh - 24px);
+  height: calc(calc(100vh - 24px) / 1920 * 1080);
 }
