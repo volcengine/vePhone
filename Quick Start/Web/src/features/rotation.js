@@ -43,7 +43,13 @@ const rotation = (vePhoneSdkInstance) => {
           });
       }
     },
-    stopSuccess() {},
+    stopSuccess() {
+      $(landscapeScreenBtn).remove();
+      landscapeScreenBtn = null;
+
+      $(portraitScreenBtn).remove();
+      portraitScreenBtn = null;
+    },
   };
 };
 
