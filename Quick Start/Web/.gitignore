@@ -23,5 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 
-.env.local
-src/lib/vePhoneSDK-Web.js
+src/.env.local
