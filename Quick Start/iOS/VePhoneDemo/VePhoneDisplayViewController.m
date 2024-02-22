@@ -1079,23 +1079,23 @@
                     duration: 2.0f
                     position: CSToastPositionCenter];
     } else if (btn.tag == 103) {
-        NSString *payload = @"ByteDance Is The Best Internet Company";
+        NSString *payload = @"Test text";
         VeBaseChannelMessage *msg = [[VePhoneManager sharedInstance] sendMessage: payload];
         NSLog(@"send no ack msg: %@", [msg description]);
     } else if (btn.tag == 104) {
-        NSString *payload = @"ByteDance‘s CEO is LiangRuBo";
+        NSString *payload = @"Test text";
         VeBaseChannelMessage *msg = [[VePhoneManager sharedInstance] sendMessage: payload timeout: 3000];
         NSLog(@"send timeout msg: %@", [msg description]);
     } else if (btn.tag == 105) {
         for (int i = 1; i <= 5; i++) {
-            NSString *payload = @"ByteDance Is The Best Internet Company";
+            NSString *payload = @"Test text";
             NSString *channel_uid = [NSString stringWithFormat: @"com.bytedance.vemessagechannelprj.prj%d", i];
             VeBaseChannelMessage *msg = [[VePhoneManager sharedInstance] sendMessage: payload channel: channel_uid];
             NSLog(@"send no ack channel msg: %@", [msg description]);
         }
     } else if (btn.tag == 106) {
         for (int i = 1; i <= 5; i++) {
-            NSString *payload = @"ByteDance‘s CEO is LiangRuBo";
+            NSString *payload = @"Test text";
             NSString *channel_uid = [NSString stringWithFormat: @"com.bytedance.vemessagechannelprj.prj%d", i];
             VeBaseChannelMessage *msg = [[VePhoneManager sharedInstance] sendMessage: payload timeout: 3000 channel: channel_uid];
             NSLog(@"send timeout channel msg: %@", [msg description]);
