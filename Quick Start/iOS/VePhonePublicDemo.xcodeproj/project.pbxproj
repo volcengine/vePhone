@@ -15,14 +15,8 @@
 		2B91841B2808252800687C31 /* Utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9184192808252800687C31 /* Utils.m */; };
 		2B9EDDC529DFEA0100492221 /* VideoCaptureTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */; };
 		2B9EDDC629DFEA0100492221 /* AudioCaptureTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */; };
-		2B9EDDC929DFEA1000492221 /* Constants.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDC729DFEA1000492221 /* Constants.m */; };
-		2B9EDDCC29DFEA4A00492221 /* UserInfoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */; };
 		2B9EDDCF29DFEA6600492221 /* VeCloudPhonePreview.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */; };
 		2B9EDDD229DFEAE300492221 /* CustomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B9EDDD029DFEAE300492221 /* CustomViewController.m */; };
-		2BB405E42AF9E918003FF073 /* VePhone.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB405E22AF9E918003FF073 /* VePhone.framework */; };
-		2BB405E52AF9EA9C003FF073 /* VolcEngineRTC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */; };
-		2BB405E72AF9EB30003FF073 /* VePhone.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2BB405E22AF9E918003FF073 /* VePhone.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		2BB405E82AF9EB30003FF073 /* VolcEngineRTC.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2BC4910A2B19933B00CC3516 /* UIView+Draggable.m in Sources */ = {isa = PBXBuildFile; fileRef = 2BC491092B19933B00CC3516 /* UIView+Draggable.m */; };
 		2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BDE096029ADE8BB00874209 /* libPods-VePhonePublicDemo.a */; };
 		C83BF0051E1234250016E53D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C83BF0041E1234250016E53D /* main.m */; };
@@ -48,8 +42,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				2BB405E72AF9EB30003FF073 /* VePhone.framework in CopyFiles */,
-				2BB405E82AF9EB30003FF073 /* VolcEngineRTC.framework in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,17 +65,10 @@
 		2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VideoCaptureTool.m; sourceTree = "<group>"; };
 		2B9EDDC229DFEA0100492221 /* AudioCaptureTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioCaptureTool.h; sourceTree = "<group>"; };
 		2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AudioCaptureTool.m; sourceTree = "<group>"; };
-		2B9EDDC729DFEA1000492221 /* Constants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Constants.m; sourceTree = "<group>"; };
-		2B9EDDC829DFEA1000492221 /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
-		2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UserInfoManager.m; sourceTree = "<group>"; };
-		2B9EDDCB29DFEA4A00492221 /* UserInfoManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UserInfoManager.h; sourceTree = "<group>"; };
 		2B9EDDCD29DFEA6600492221 /* VeCloudPhonePreview.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VeCloudPhonePreview.h; sourceTree = "<group>"; };
 		2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VeCloudPhonePreview.m; sourceTree = "<group>"; };
 		2B9EDDD029DFEAE300492221 /* CustomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CustomViewController.m; sourceTree = "<group>"; };
 		2B9EDDD129DFEAE300492221 /* CustomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CustomViewController.h; sourceTree = "<group>"; };
-		2B9EDDD329DFEAFB00492221 /* Define.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Define.h; sourceTree = "<group>"; };
-		2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = VolcEngineRTC.framework; sourceTree = "<group>"; };
-		2BB405E22AF9E918003FF073 /* VePhone.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = VePhone.framework; sourceTree = "<group>"; };
 		2BC491082B19933B00CC3516 /* UIView+Draggable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIView+Draggable.h"; sourceTree = "<group>"; };
 		2BC491092B19933B00CC3516 /* UIView+Draggable.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIView+Draggable.m"; sourceTree = "<group>"; };
 		2BDE095E29ADE84E00874209 /* libMasonry.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libMasonry.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,20 +91,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2BB405E52AF9EA9C003FF073 /* VolcEngineRTC.framework in Frameworks */,
 				2BDE096129ADE8BB00874209 /* libPods-VePhonePublicDemo.a in Frameworks */,
-				2BB405E42AF9E918003FF073 /* VePhone.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2B0C8D6D26E0B38400753D2A /* VePhoneSDK */ = {
+		2BA0FFF82BA83ED600932642 /* VePhoneSDK */ = {
 			isa = PBXGroup;
 			children = (
-				2BB405E22AF9E918003FF073 /* VePhone.framework */,
-				2BB405E12AF9E918003FF073 /* VolcEngineRTC.framework */,
 			);
 			path = VePhoneSDK;
 			sourceTree = "<group>";
@@ -156,23 +137,20 @@
 		C83BF0021E1234250016E53D /* VePhoneDemo */ = {
 			isa = PBXGroup;
 			children = (
-				2B9EDDD329DFEAFB00492221 /* Define.h */,
-				2B9EDDCD29DFEA6600492221 /* VeCloudPhonePreview.h */,
-				2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */,
-				2BC491082B19933B00CC3516 /* UIView+Draggable.h */,
-				2BC491092B19933B00CC3516 /* UIView+Draggable.m */,
 				2B91841A2808252800687C31 /* Utils.h */,
 				2B9184192808252800687C31 /* Utils.m */,
-				2B9EDDCB29DFEA4A00492221 /* UserInfoManager.h */,
-				2B9EDDCA29DFEA4A00492221 /* UserInfoManager.m */,
-				2B9EDDC829DFEA1000492221 /* Constants.h */,
-				2B9EDDC729DFEA1000492221 /* Constants.m */,
+				C83BF0061E1234250016E53D /* AppDelegate.h */,
+				C83BF0071E1234250016E53D /* AppDelegate.m */,
 				2B9EDDC229DFEA0100492221 /* AudioCaptureTool.h */,
 				2B9EDDC329DFEA0100492221 /* AudioCaptureTool.m */,
 				2B9EDDC029DFEA0100492221 /* VideoCaptureTool.h */,
 				2B9EDDC129DFEA0100492221 /* VideoCaptureTool.m */,
-				C83BF0061E1234250016E53D /* AppDelegate.h */,
-				C83BF0071E1234250016E53D /* AppDelegate.m */,
+				2BC491082B19933B00CC3516 /* UIView+Draggable.h */,
+				2BC491092B19933B00CC3516 /* UIView+Draggable.m */,
+				2B9EDDD129DFEAE300492221 /* CustomViewController.h */,
+				2B9EDDD029DFEAE300492221 /* CustomViewController.m */,
+				2B9EDDCD29DFEA6600492221 /* VeCloudPhonePreview.h */,
+				2B9EDDCE29DFEA6600492221 /* VeCloudPhonePreview.m */,
 				2B6D6C3A26E642FA0073011E /* VePhoneViewController.h */,
 				2B6D6C3B26E642FA0073011E /* VePhoneViewController.m */,
 				2B6D6C3C26E642FA0073011E /* VePhoneViewController.xib */,
@@ -182,10 +160,8 @@
 				2B148BF52953FE49004F396F /* SVProgressHUD+Category.m */,
 				2B6D6C4026E645C70073011E /* VePhoneDisplayViewController.h */,
 				2B6D6C3F26E645C70073011E /* VePhoneDisplayViewController.m */,
-				2B9EDDD129DFEAE300492221 /* CustomViewController.h */,
-				2B9EDDD029DFEAE300492221 /* CustomViewController.m */,
+				2BA0FFF82BA83ED600932642 /* VePhoneSDK */,
 				C83BF0111E1234250016E53D /* LaunchScreen.storyboard */,
-				2B0C8D6D26E0B38400753D2A /* VePhoneSDK */,
 				C83BF0031E1234250016E53D /* Supporting Files */,
 			);
 			path = VePhoneDemo;
@@ -329,11 +305,9 @@
 			files = (
 				2B6D6C3D26E642FA0073011E /* VePhoneViewController.m in Sources */,
 				2B9EDDC629DFEA0100492221 /* AudioCaptureTool.m in Sources */,
-				2B9EDDCC29DFEA4A00492221 /* UserInfoManager.m in Sources */,
 				2B148BF72953FE49004F396F /* SVProgressHUD+Category.m in Sources */,
 				C83BF0081E1234250016E53D /* AppDelegate.m in Sources */,
 				2B6D6C4126E645C70073011E /* VePhoneDisplayViewController.m in Sources */,
-				2B9EDDC929DFEA1000492221 /* Constants.m in Sources */,
 				2B9EDDD229DFEAE300492221 /* CustomViewController.m in Sources */,
 				2BC4910A2B19933B00CC3516 /* UIView+Draggable.m in Sources */,
 				C83BF0051E1234250016E53D /* main.m in Sources */,
@@ -513,7 +487,7 @@
 					"\"${PODS_ROOT}/Headers/Public/YYKit\"",
 				);
 				INFOPLIST_FILE = VePhoneDemo/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -537,6 +511,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bytedance.deviceservice.cloudphone;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = dev_common;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_WORKSPACE = YES;
 			};
 			name = Debug;
@@ -575,7 +553,7 @@
 					"\"${PODS_ROOT}/Headers/Public/SDWebImage\"",
 				);
 				INFOPLIST_FILE = VePhoneDemo/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -600,6 +578,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = dev_common;
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = DeviceManagerServiceInHouse.dist;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_WORKSPACE = YES;
 			};
 			name = Release;

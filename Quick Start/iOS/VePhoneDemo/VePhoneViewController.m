@@ -20,7 +20,6 @@
 @property (weak, nonatomic) IBOutlet UITextField *tokenTextField;
 @property (weak, nonatomic) IBOutlet UITextField *userIdTextField;
 @property (weak, nonatomic) IBOutlet UITextField *productIdTextField;
-@property (weak, nonatomic) IBOutlet UITextField *rotationTextField;
 @property (weak, nonatomic) IBOutlet UITextField *podIdTextField;
 
 @end
@@ -36,10 +35,9 @@
     self.akTextField.text = @"";
     self.skTextField.text = @"";
     self.tokenTextField.text = @"";
-    self.userIdTextField.text = @"";
     self.productIdTextField.text = @"";
-    self.rotationTextField.text = @"";
     self.podIdTextField.text = @"";
+    self.userIdTextField.text = @"";
     // 版本号
     self.versionLabel.text = [NSString stringWithFormat: @"VePhoneSDK版本: V%@\nDeviceId: %@", [VePhoneManager currentVersion], [VePhoneManager currentDeviceId]];
 }
