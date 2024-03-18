@@ -9,11 +9,8 @@
 #import "Masonry.h"
 #import <SVProgressHUD/SVProgressHUD.h>
 #import "VePhoneDisplayViewController.h"
-
 #import "Utils.h"
-#import "Constants.h"
 #import <Toast/Toast.h>
-#import "UserInfoManager.h"
 #import "AudioCaptureTool.h"
 #import "VideoCaptureTool.h"
 #import "VeCloudPhonePreview.h"
@@ -59,13 +56,14 @@
     [SVProgressHUD showWithStatus: @"正在启动..."];
     [VePhoneManager sharedInstance].delegate = self;
     [VePhoneManager sharedInstance].containerView = self.containerView;
-    // 相关开关
-    [VePhoneManager sharedInstance].gyroEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingGyroEnabled];
-    [VePhoneManager sharedInstance].vibratorEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingVibratorEnabled];
-    [VePhoneManager sharedInstance].oritationEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingOrientationEnabled];
-    [VePhoneManager sharedInstance].locationEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingLocationRequestEnabled];
-    [VePhoneManager sharedInstance].magnetometerEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingMagnetometerEnabled];
-    [VePhoneManager sharedInstance].accelerometerEnable = [[NSUserDefaults standardUserDefaults] boolForKey: keySettingAccelerometerEnabled];
+    // 传感器开关
+    [[VePhoneManager sharedInstance] setGyroState:NO];
+    [[VePhoneManager sharedInstance] setGravityState:NO];
+    [[VePhoneManager sharedInstance] setVibratorState:NO];
+    [[VePhoneManager sharedInstance] setMagneticState:NO];
+    [[VePhoneManager sharedInstance] setOrientationState:NO];
+    [[VePhoneManager sharedInstance] setLocationState:NO];
+    [[VePhoneManager sharedInstance] setAccelerometerState:NO];
     // 附加信息
     [[VePhoneManager sharedInstance] setExtraParameters: @{
         @"key_code_bypass": @(NO),
@@ -78,13 +76,6 @@
     configObj.podId = self.configObj.podId;
     configObj.userId = self.configObj.userId;
     configObj.productId = self.configObj.productId;
-    configObj.rotationMode = self.configObj.rotationMode;
-    configObj.autoRecycleTime = self.configObj.autoRecycleTime;
-    configObj.localKeyboardEnable = self.configObj.localKeyboardEnable;
-    // configObj.remoteWindowSize = CGSizeMake(0, 0);
-    // configObj.videoRenderMode = VeBaseVideoRenderModeFit;
-    // 订阅类型
-    [VePhoneManager sharedInstance].streamType = self.configObj.streamType;
     // 启动
     [[VePhoneManager sharedInstance] startWithConfig: configObj];
     
@@ -307,7 +298,7 @@
         make.right.mas_equalTo(btnView);
     }];
     
-    UIButton *button10 = [self createButton: @"清晰度切换"];
+    UIButton *button10 = [self createButton: @"设置清晰度ID"];
     button10.tag = 110;
     [btnView addSubview: button10];
     [button10 mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -352,20 +343,20 @@
         make.top.mas_equalTo(button12.mas_bottom).offset(10);
     }];
     
-    UIButton *button15 = [self createButton: self.configObj.streamType == VeBaseStreamTypeVideo ? @"静音打开" : @"静音关闭"];
+    UIButton *button15 = [self createButton: @"静音关闭"];
     button15.tag = 115;
+    button15.selected = NO;
     [btnView addSubview: button15];
-    button15.selected = self.configObj.streamType == VeBaseStreamTypeVideo;
     [button15 mas_makeConstraints:^(MASConstraintMaker *make) {
         make.size.mas_equalTo(button14);
         make.top.mas_equalTo(button14);
         make.right.mas_equalTo(btnView);
     }];
     
-    UIButton *button16 = [self createButton: self.configObj.streamType == VeBaseStreamTypeAudio ? @"视频暂停" : @"视频播放"];
+    UIButton *button16 = [self createButton: @"视频播放"];
     button16.tag = 116;
+    button16.selected = NO;
     [btnView addSubview: button16];
-    button16.selected = self.configObj.streamType == VeBaseStreamTypeAudio;
     [button16 mas_makeConstraints:^(MASConstraintMaker *make) {
         make.size.mas_equalTo(button14);
         make.left.mas_equalTo(button14);
@@ -523,6 +514,186 @@
         make.size.mas_equalTo(button32);
         make.top.mas_equalTo(button32);
         make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button34 = [self createButton: @"设置本地/云端输入法"];
+    button34.tag = 134;
+    [btnView addSubview: button34];
+    [button34 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button32);
+        make.left.mas_equalTo(button32);
+        make.top.mas_equalTo(button32.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button35 = [self createButton: @"查询本地/云端输入法"];
+    button35.tag = 135;
+    [btnView addSubview: button35];
+    [button35 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button34);
+        make.top.mas_equalTo(button34);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button36 = [self createButton: @"向云端输入框发送文本"];
+    button36.tag = 136;
+    [btnView addSubview: button36];
+    [button36 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button34);
+        make.left.mas_equalTo(button34);
+        make.top.mas_equalTo(button34.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button37 = [self createButton: @"云端输入框能否文本发送"];
+    button37.tag = 137;
+    [btnView addSubview: button37];
+    [button37 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button36);
+        make.size.mas_equalTo(button36);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button38 = [self createButton: @"设置云端实例全面屏"];
+    button38.tag = 138;
+    [btnView addSubview: button38];
+    [button38 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button36);
+        make.left.mas_equalTo(button36);
+        make.top.mas_equalTo(button36.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button39 = [self createButton: @"获取后台保活时长"];
+    button39.tag = 139;
+    [btnView addSubview: button39];
+    [button39 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button38);
+        make.size.mas_equalTo(button38);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button40 = [self createButton: @"获取清晰度ID"];
+    button40.tag = 140;
+    [btnView addSubview: button40];
+    [button40 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button38);
+        make.left.mas_equalTo(button38);
+        make.top.mas_equalTo(button38.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button41 = [self createButton: @"设置震动开关"];
+    button41.tag = 141;
+    [btnView addSubview: button41];
+    [button41 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button40);
+        make.size.mas_equalTo(button40);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button42 = [self createButton: @"设置音频注入开关"];
+    button42.tag = 142;
+    [btnView addSubview: button42];
+    [button42 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.size.mas_equalTo(button40);
+        make.left.mas_equalTo(button40);
+        make.top.mas_equalTo(button40.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button43 = [self createButton: @"获取音频注入开关"];
+    button43.tag = 143;
+    [btnView addSubview: button43];
+    [button43 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button42);
+        make.size.mas_equalTo(button42);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button44 = [self createButton: @"设置陀螺仪开关"];
+    button44.tag = 144;
+    [btnView addSubview: button44];
+    [button44 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(button42);
+        make.size.mas_equalTo(button42);
+        make.top.mas_equalTo(button42.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button45 = [self createButton: @"获取陀螺仪入开关"];
+    button45.tag = 145;
+    [btnView addSubview: button45];
+    [button45 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button44);
+        make.size.mas_equalTo(button44);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button46 = [self createButton: @"设置定位开关"];
+    button46.tag = 146;
+    [btnView addSubview: button46];
+    [button46 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(button44);
+        make.size.mas_equalTo(button44);
+        make.top.mas_equalTo(button44.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button47 = [self createButton: @"获取定位开关"];
+    button47.tag = 147;
+    [btnView addSubview: button47];
+    [button47 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button46);
+        make.size.mas_equalTo(button46);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button48 = [self createButton: @"设置磁力开关"];
+    button48.tag = 148;
+    [btnView addSubview: button48];
+    [button48 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(button46);
+        make.size.mas_equalTo(button46);
+        make.top.mas_equalTo(button46.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button49 = [self createButton: @"获取磁力开关"];
+    button49.tag = 149;
+    [btnView addSubview: button49];
+    [button49 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button48);
+        make.size.mas_equalTo(button48);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button50 = [self createButton: @"设置方向开关"];
+    button50.tag = 150;
+    [btnView addSubview: button50];
+    [button50 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(button48);
+        make.size.mas_equalTo(button48);
+        make.top.mas_equalTo(button48.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button51 = [self createButton: @"获取方向开关"];
+    button51.tag = 151;
+    [btnView addSubview: button51];
+    [button51 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button50);
+        make.size.mas_equalTo(button50);
+        make.right.mas_equalTo(btnView);
+    }];
+    
+    UIButton *button52 = [self createButton: @"设置加速度开关"];
+    button52.tag = 152;
+    [btnView addSubview: button52];
+    [button52 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(button50);
+        make.size.mas_equalTo(button50);
+        make.top.mas_equalTo(button50.mas_bottom).offset(10);
+    }];
+    
+    UIButton *button53 = [self createButton: @"获取加速度开关"];
+    button53.tag = 153;
+    [btnView addSubview: button53];
+    [button53 mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.mas_equalTo(button52);
+        make.size.mas_equalTo(button52);
+        make.right.mas_equalTo(btnView);
         make.bottom.mas_equalTo(btnView);
     }];
 }
@@ -531,9 +702,12 @@
 
 - (void)firstRemoteAudioFrameArrivedFromPhoneManager:(VePhoneManager *)manager
 {
-    if (manager.streamType == VeBaseStreamTypeAudio) {
-        [SVProgressHUD dismiss];
-    }
+    NSLog(@"---firstRemoteAudioFrameArrived---");
+}
+
+- (void)firstRemoteVideoFrameArrivedFromPhoneManager:(VePhoneManager *)manager
+{
+    NSLog(@"---firstRemoteVideoFrameArrived---");
 }
 
 - (void)phoneManager:(VePhoneManager *)manager startSucceedResult:(NSInteger)streamProfileId reservedId:(NSString *)reservedId extra:(NSDictionary *)extra
@@ -544,9 +718,7 @@
 
 - (void)phoneManager:(VePhoneManager *)manager changedDeviceRotation:(NSInteger)rotation
 {
-    if (self.configObj.rotationMode != VeBaseRotationModePortrait) {
-        self.rotation = rotation;
-    }
+    self.rotation = rotation;
 }
 
 - (void)phoneManager:(VePhoneManager *)manager operationDelay:(NSInteger)delayTime
@@ -678,9 +850,94 @@
     NSLog(@"%@", toast);
 }
 
-- (void)phoneManager:(VePhoneManager *)manager switchVideoStreamProfile:(BOOL)result fromIndex:(NSInteger)index1 toIndex:(NSInteger)index2 targetParams:(NSDictionary *)paramsDict
+- (void)phoneManager:(VePhoneManager *)manager onVideoStreamProfileChanged:(NSInteger)current fromStreamProfileId:(NSInteger)from callUserId:(NSString *)userId targetParams:(NSDictionary *)paramsDict result:(BOOL)result
 {
-    NSString *toast = [NSString stringWithFormat: @"清晰度切换：%@，fromIndex = %@, toIndex = %@", result ? @"成功" : @"失败", @(index1), @(index2)];
+    NSString *toast = [NSString stringWithFormat: @"设置清晰度current = %@，from = %@，callUserId = %@，result = %@", @(current), @(from), userId, result ? @"成功" : @"失败"];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onGetVideoStreamProfile:(NSInteger)streamProfileId result:(BOOL)result
+{
+    NSString *toast = [NSString stringWithFormat: @"获取清晰度ID = %@，result = %@", @(streamProfileId), result ? @"成功" : @"失败"];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onSensorsStateChanged:(BOOL)state type:(NSInteger)type callUserId:(NSString *)userId result:(BOOL)result message:(NSString *)msg
+{
+    NSString *typeStr = @"";
+    if (type == 1) {
+        typeStr = @"加速度";
+    } else if (type == 2) {
+        typeStr = @"陀螺仪";
+    } else if (type == 3) {
+        typeStr = @"磁力";
+    } else if (type == 4) {
+        typeStr = @"方向";
+    } else if (type == 5) {
+        typeStr = @"重力";
+    } else if (type == 20) {
+        typeStr = @"定位";
+    }
+    if (msg.length == 0) {
+        msg = @"null";
+    }
+    NSString *toast = [NSString stringWithFormat: @"设置%@传感器开关：%@，state = %@，callUserId = %@, error message = %@", typeStr, result ? @"成功" : @"失败", state ? @"打开" : @"关闭", userId, msg];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onGetSensorsState:(BOOL)state type:(NSInteger)type result:(BOOL)result message:(NSString *)msg
+{
+    NSString *typeStr = @"";
+    if (type == 1) {
+        typeStr = @"加速度";
+    } else if (type == 2) {
+        typeStr = @"陀螺仪";
+    } else if (type == 3) {
+        typeStr = @"磁力";
+    } else if (type == 4) {
+        typeStr = @"方向";
+    } else if (type == 5) {
+        typeStr = @"重力";
+    } else if (type == 20) {
+        typeStr = @"定位";
+    }
+    if (msg.length == 0) {
+        msg = @"null";
+    }
+    NSString *toast = [NSString stringWithFormat: @"获取%@传感器开关：%@, state = %@，error message = %@", typeStr, result ? @"成功" : @"失败", state ? @"打开" : @"关闭", msg];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onAudioInjectionStateChanged:(BOOL)state callUserId:(NSString *)userId result:(BOOL)result message:(NSString *)msg
+{
+    if (msg.length == 0) {
+        msg = @"null";
+    }
+    NSString *toast = [NSString stringWithFormat: @"设置音频注入开关：%@，state = %@，callUserId = %@，error message = %@", result ? @"成功" : @"失败", state ? @"打开" : @"关闭", userId, msg];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onGetAudioInjectionState:(BOOL)state result:(BOOL)result message:(NSString *)msg
+{
+    if (msg.length == 0) {
+        msg = @"null";
+    }
+    NSString *toast = [NSString stringWithFormat: @"获取音频注入开关：%@，state = %@，error message = %@", result ? @"成功" : @"失败", state ? @"打开" : @"关闭", msg];
     [self.view makeToast: toast
                 duration: 2.0f
                 position: CSToastPositionCenter];
@@ -738,18 +995,36 @@
     NSLog(@"%@", toast);
 }
 
-- (void)phoneManager:(VePhoneManager *)manager setAutoRecycleTimeCallback:(NSInteger)code time:(NSInteger)time
+- (void)phoneManager:(VePhoneManager *)manager onAutoRecycleTimeChanged:(NSInteger)time callUserId:(NSString *)userId result:(BOOL)result
 {
-    NSString *toast = [NSString stringWithFormat: @"设置无操作回收时长：%@，time = %ld", code == 0 ? @"成功" : @"失败", time];
+    NSString *toast = [NSString stringWithFormat: @"设置无操作回收时长 = %ld，userId = %@，result = %@", time, userId, result ? @"成功" : @"失败"];
     [self.view makeToast: toast
                 duration: 2.0f
                 position: CSToastPositionCenter];
     NSLog(@"%@", toast);
 }
 
-- (void)phoneManager:(VePhoneManager *)manager getAutoRecycleTimeCallback:(NSInteger)code time:(NSInteger)time
+- (void)phoneManager:(VePhoneManager *)manager onGetAutoRecycleTime:(NSInteger)time result:(BOOL)result
 {
-    NSString *toast = [NSString stringWithFormat: @"获取无操作回收时长：%@，time = %ld", code == 0 ? @"成功" : @"失败", time];
+    NSString *toast = [NSString stringWithFormat: @"获取无操作回收时长 = %ld，result = %@", time, result ? @"成功" : @"失败"];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onIdleTimeChanged:(NSInteger)time callUserId:(NSString *)userId result:(BOOL)result
+{
+    NSString *toast = [NSString stringWithFormat: @"设置后台保活时长 = %ld，userId = %@，result = %@", time, userId, result ? @"成功" : @"失败"];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+    NSLog(@"%@", toast);
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onGetIdleTime:(NSInteger)time result:(BOOL)result
+{
+    NSString *toast = [NSString stringWithFormat: @"获取后台保活时长 = %ld，result = %@", time, result ? @"成功" : @"失败"];
     [self.view makeToast: toast
                 duration: 2.0f
                 position: CSToastPositionCenter];
@@ -881,6 +1156,50 @@
     }
 }
 
+- (void)phoneManager:(VePhoneManager *)manager onKeyboardTypeChanged:(VePhoneKeyboardType)type code:(VePhoneWarningCode)code
+{
+    [self.view makeToast: code == 0 ? (type == 0 ? @"Pod输入法" : @"本地输入法") : [NSString stringWithFormat: @"%ld, 不允许设置", code]
+                duration: 2.0f
+                position: CSToastPositionBottom];
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onGetKeyboardTypeResult:(VePhoneKeyboardType)type
+{
+    [self.view makeToast: type == 0 ? @"Pod输入法" : @"本地输入法"
+                duration: 2.0f
+                position: CSToastPositionBottom];
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onTextInputEnableStateChanged:(BOOL)enable
+{
+    NSString *toast = [NSString stringWithFormat: @"云端输入框支持文本输入：%@", enable ? @"YES" : @"NO"];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionBottom];
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onSyncPodRoomState:(NSInteger)podType roomState:(NSInteger)roomState podList:(NSArray<NSString *> *)podList
+{
+    NSString *jsonPodList = nil;
+    if ([NSJSONSerialization isValidJSONObject:podList]) {
+        NSError *error = nil;
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:podList options:kNilOptions error:&error];
+        jsonPodList = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    }
+    NSString *toast = [NSString stringWithFormat: @"群控Pod类型：%@，房间状态：%@，Pod列表：%@", podType ? @"主控" : @"从控", roomState ? @"加房" : @"离房", jsonPodList];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionCenter];
+}
+
+- (void)phoneManager:(VePhoneManager *)manager onFullScreenStateChanged:(NSString *)callUserId width:(NSInteger)width height:(NSInteger)height
+{
+    NSString *toast = [NSString stringWithFormat: @"全面屏状态切换用户ID：%@，宽度：%ld，高度：%ld", callUserId, width, height];
+    [self.view makeToast: toast
+                duration: 2.0f
+                position: CSToastPositionBottom];
+}
+
 - (void)phoneManager:(VePhoneManager *)manager onPodExit:(VePhoneErrorCode)errCode
 {
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -888,7 +1207,7 @@
         NSString *toast = @"";
         if (errCode == ERROR_REMOTE_ABNORMAL_EXIT) {
             toast = @"40000 云端服务异常退出";
-        } else if (errCode == ERROR_REMOTE_CRASH) {
+        } else if (errCode == ERROR_REMOTE_OPENAPI_EXIT) {
             toast = @"40001 云端服务崩溃";
         } else if (errCode == ERROR_STREAM_STOPPED_AUTO_RECYCLE) {
             toast = @"40004 长期未操作，云端服务自动断开";
@@ -898,6 +1217,8 @@
             toast = @"40008 云端服务后台超时";
         } else if (errCode == ERROR_POD_EXIT_GENERAL) {
             toast = @"40009 云端游戏退出";
+        } else if (errCode == ERROR_REMOTE_POWER_OFF) {
+            toast = @"40011 云端关机";
         }
         if (toast.length > 0) {
             [self.view makeToast: toast
@@ -931,7 +1252,6 @@
         }
     });
 }
-
 
 - (void)phoneManager:(VePhoneManager *)manager onWarning:(VePhoneWarningCode)warnCode
 {
@@ -1004,7 +1324,7 @@
         } else if (errCode == ERROR_ACCOUNTID_MISMATCH) {
             toast = @"11019 火山账号不匹配";
         } else if (errCode == ERROR_POD_NOT_READY) {
-            toast = @"11014 Pod 未就绪";
+            toast = @"11020 Pod 未就绪";
         } else if (errCode == ERROR_DOWN_STREAM_UNKNOWN_ERROR) {
             toast = @"11021 服务下游未知错误";
         } else if (errCode == ERROR_STREAM_GENERAL) {
@@ -1021,6 +1341,8 @@
             toast = @"30008 画布尺寸无效";
         } else if (errCode == ERROR_INIT_ACCOUNT_ID_ILLEGAL) {
             toast = @"30009 火山账户ID非法";
+        } else if (errCode == ERROR_FIRST_FRAME_TIME_OUT) {
+            toast = @"33001 首帧超时";
         } else if (errCode == ERROR_NET_REQUEST_ERROR) {
             toast = @"60001 网络请求失败";
         } else if (errCode == ERROR_HTTP_REQUEST_ERROR) {
@@ -1119,7 +1441,7 @@
     } else if (btn.tag == 110) {
         [self setCustomViewController: @"设置清晰度档位" hintText: nil tappedSureBlock:^(UITextField *tf) {
             if ([tf.text integerValue] != NSNotFound) {
-                [[VePhoneManager sharedInstance] switchVideoStreamProfile: tf.text.integerValue];
+                [[VePhoneManager sharedInstance] setVideoStreamProfileId: tf.text.integerValue];
             }
         }];
     } else if (btn.tag == 111) {
@@ -1322,6 +1644,95 @@
         btn.selected = !btn.selected;
         [[VePhoneManager sharedInstance] setInterceptSendTouchEvent: btn.selected];
         [btn setTitle: btn.selected ? @"禁止触控事件" : @"开启触控事件" forState: UIControlStateNormal];
+    } else if (btn.tag == 134) {
+        [self setCustomViewController: @"设置本地/云端输入法" hintText: @"0: 云端 1: 本地" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setKeyboardType: [tf.text integerValue]];
+            }
+        }];
+    } else if (btn.tag == 135) {
+        [[VePhoneManager sharedInstance] getKeyboardType];
+    } else if (btn.tag == 136) {
+        if ([VePhoneManager sharedInstance].isTextInputEnable == NO) {
+            [self.view makeToast: @"云端输入框不支持文本输入"
+                        duration: 2.0f
+                        position: CSToastPositionBottom];
+            return;
+        }
+        [self setCustomViewController: @"向云端输入框发送文本" hintText: @"文本消息" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] sendInputText: tf.text];
+            }
+        }];
+    } else if (btn.tag == 137) {
+        NSString *toast = [NSString stringWithFormat: @"云端输入框支持文本输入：%@", [VePhoneManager sharedInstance].isTextInputEnable ? @"YES" : @"NO"];
+        [self.view makeToast: toast
+                    duration: 2.0f
+                    position: CSToastPositionBottom];
+    } else if (btn.tag == 138) {
+        [self setCustomViewController: @"设置云端实例全面屏状态" hintText: @"0：非全屏，1：全屏" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] enableFullScreen: [tf.text integerValue]];
+            }
+        }];
+    } else if (btn.tag == 139) {
+        [[VePhoneManager sharedInstance] getIdleTime];
+    } else if (btn.tag == 140) {
+        [[VePhoneManager sharedInstance] getVideoStreamProfileId];
+    } else if (btn.tag == 141) {
+        [self setCustomViewController: @"设置震动开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setVibratorState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 142) {
+        [self setCustomViewController: @"设置音频注入开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setAudioInjectionState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 143) {
+        [[VePhoneManager sharedInstance] getAudioInjectionState];
+    } else if (btn.tag == 144) {
+        [self setCustomViewController: @"设置陀螺仪开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setGyroState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 145) {
+        [[VePhoneManager sharedInstance] getGyroState];
+    } else if (btn.tag == 146) {
+        [self setCustomViewController: @"设置定位开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setLocationState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 147) {
+        [[VePhoneManager sharedInstance] getLocationState];
+    } else if (btn.tag == 148) {
+        [self setCustomViewController: @"设置磁力开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setMagneticState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 149) {
+        [[VePhoneManager sharedInstance] getMagneticState];
+    } else if (btn.tag == 150) {
+        [self setCustomViewController: @"设置方向开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setOrientationState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 151) {
+        [[VePhoneManager sharedInstance] getOrientationState];
+    } else if (btn.tag == 152) {
+        [self setCustomViewController: @"设置加速度开关" hintText: @"0：关闭；1：打开" tappedSureBlock:^(UITextField *tf) {
+            if ([tf.text integerValue] != NSNotFound) {
+                [[VePhoneManager sharedInstance] setAccelerometerState: [tf.text intValue]];
+            }
+        }];
+    } else if (btn.tag == 153) {
+        [[VePhoneManager sharedInstance] getAccelerometerState];
     }
 }
 

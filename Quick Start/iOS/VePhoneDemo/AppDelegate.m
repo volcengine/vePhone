@@ -7,9 +7,9 @@
 //
 
 #import "AppDelegate.h"
+#import <VePhone/VePhone.h>
 #import "VePhoneViewController.h"
 #import "VeNavigationController.h"
-#import "VePhone/VePhoneManager.h"
 #import <SVProgressHUD/SVProgressHUD.h>
 
 @implementation AppDelegate
