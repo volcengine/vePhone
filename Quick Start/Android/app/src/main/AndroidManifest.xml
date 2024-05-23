@@ -154,7 +154,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 从火山控制台获取您的accountId输入即可，注意此为必填项 -->
+        <!-- todo: 从火山控制台获取您的accountId输入即可，注意此为必填项 -->
         <meta-data
             android:name="VOLC_ACCOUNT_ID"
             android:value="2100052949" />

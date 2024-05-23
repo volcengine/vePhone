@@ -23,7 +23,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -44,7 +44,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
-    // 从Maven仓库获取sdk
+    // todo: 从Maven仓库获取sdk最新版本
     implementation 'com.volcengine.vephone:vephone:1.30.0'
     // 或者依赖离线包
 //    implementation files('libs/phone-lite-release.aar')
