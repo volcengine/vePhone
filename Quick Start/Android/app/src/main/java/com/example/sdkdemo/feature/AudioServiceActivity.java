@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -16,6 +17,7 @@ import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.blankj.utilcode.util.PermissionUtils;
+import com.blankj.utilcode.util.ToastUtils;
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.util.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
@@ -183,7 +185,8 @@ public class AudioServiceActivity extends BasePlayActivity
          *     "token": "your_token"
          * }
          */
-        String ak = "", sk = "", token = "", podId = "", productId = "";  // 这里需要替换成你的 ak/sk/token/podId/productId
+        // todo: 这里需要替换成你的 ak/sk/token/podId/productId
+        String ak = "", sk = "", token = "", podId = "", productId = "";
         String sts = AssetsUtil.getTextFromAssets(this.getApplicationContext(), "sts.json");
         try {
             JSONObject stsJObj = new JSONObject(sts);
@@ -194,6 +197,11 @@ public class AudioServiceActivity extends BasePlayActivity
             productId = stsJObj.getString("productId");
         } catch (JSONException e) {
             e.printStackTrace();
+        }
+
+        if (TextUtils.isEmpty(ak) || TextUtils.isEmpty(sk) || TextUtils.isEmpty(token) || TextUtils.isEmpty(podId) || TextUtils.isEmpty(productId)) {
+            ToastUtils.showShort("必填参数缺失");
+            return;
         }
 
         String roundId = "roundId_123";
