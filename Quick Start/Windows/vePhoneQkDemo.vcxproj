@@ -127,7 +127,8 @@
       <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>editbin /SUBSYSTEM:CONSOLE $(OUTDIR)\$(ProjectName).exe</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
