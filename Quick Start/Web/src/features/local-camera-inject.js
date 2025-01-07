@@ -71,7 +71,7 @@ const localCameraInject = (vePhoneSdkInstance) => {
       vePhoneSdkInstance.stopVideoStream();
     }
     if (isAudio) {
-      vePhoneSdkInstance.stopSendAudioStream;
+      vePhoneSdkInstance.stopSendAudioStream();
     }
   };
 
