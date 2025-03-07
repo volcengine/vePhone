@@ -445,4 +445,91 @@ public:
         (void)msg;
     }
 
+    /*
+    * @type callback
+    * @brief 键盘类型改变的回调
+    * @param [in] code 错误码 0：成功 <0：失败 1000：不允许设置
+    *        [in] type 键盘类型，详见vecommon::KeyboardType
+    */
+    virtual void onKeyboardTypeChanged(int code, vecommon::KeyboardType type) {
+        (void)code;
+        (void)type;
+    }
+
+    /*
+    * @type callback
+    * @brief 查询键盘类型的结果回调
+    * @param [in] code 错误码 0：成功 <0：失败
+    *        [in] type 键盘类型，详见vecommon::KeyboardType
+    */
+    virtual void onGetKeyboardTypeResult(int code, vecommon::KeyboardType type) {
+        (void)code;
+        (void)type;
+    }
+
+    /*
+    * @type callback
+    * @brief 用户加房回调
+    * @param [in] userId 用户ID
+    */
+    virtual void onUserJoin(const std::string& userId) {
+        (void)userId;
+    }
+
+    /*
+    * @type callback
+    * @brief 用户离房回调
+    * @param [in] userId 用户ID
+    */
+    virtual void onUserLeave(const std::string& userId) {
+        (void)userId;
+    }
+
+    /**
+    * @type callback
+    * @brief 操控权改变的回调
+    * @param [in] state 操控权状态
+    */
+    virtual void onControlStateChanged(const vecommon::ControlState& state) {
+        (void)state;
+    }
+
+    /**
+    * @type callback
+    * @brief 调用{@link PhoneSession#enableControl}的结果回调
+    * @param [in] code  错误码 0：成功 <0：失败
+    * @param [in] state 操控权状态
+    * @param [in] msg   错误信息
+    */
+    virtual void onEnableControlResult(int code, const vecommon::ControlState& state, const std::string& msg) {
+        (void)code;
+        (void)state;
+        (void)msg;
+    }
+
+    /**
+    * @type callback
+    * @brief 调用{@link PhoneSession#hasControl}的结果回调
+    * @param [in] code  错误码 0：成功 <0：失败
+    * @param [in] state 操控权状态
+    * @param [in] msg   错误信息
+    */
+    virtual void onHasControlResult(int code, const vecommon::ControlState& state, const std::string& msg) {
+        (void)code;
+        (void)state;
+        (void)msg;
+    }
+
+    /**
+    * @type callback
+    * @brief 调用{@link PhoneSession#getAllControls}的结果回调
+    * @param [in] code   错误码 0：成功 <0：失败
+    * @param [in] states 操控权状态列表
+    * @param [in] msg    错误信息
+    */
+    virtual void onAllControlsResult(int code, const std::vector<vecommon::ControlState>& states, const std::string& msg) {
+        (void)code;
+        (void)states;
+        (void)msg;
+    }
 };

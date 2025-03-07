@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "ve_type_defines.h"
 #include "ve_batch_control_listener.h"
 #include "ve_external_sink.h"
@@ -7,91 +7,124 @@ class BatchControlVideo
 {
 public:
 
-    BatchControlVideo(const vecommon::BatchControlVideoConfig& config) :_config(config) {};
+    BatchControlVideo(const vecommon::BatchControlVideoConfig& config) : _config(config) {};
     virtual ~BatchControlVideo() = default;
 
-    // ·¢ÆğĞ¡Á÷¼Ó·¿ÇëÇó
-    // - »ñÈ¡podListÓë·¿¼ä¶ÔÓ¦¹ØÏµ
-    // - »ñÈ¡¼Ó·¿¼øÈ¨ĞÅÏ¢
+    /**
+     * @type api
+     * @brief å‘èµ·BatchPodStartè¯·æ±‚ï¼ŒpodIdListç”±åˆå§‹åŒ–BatchControlVideoæ—¶ä¼ å…¥çš„configè§£æå¾—æ¥
+     */
     virtual int requestBatchPodStart() = 0;
 
-    // ¼ÓÈëËùÓĞpod·¿¼ä
-    // 1. ´´½¨ÒıÇæ
-    // 2. ¼Ó·¿
+    /**
+     * @type api
+     * @brief å¼€å§‹æ‰¹é‡æ‹‰æµ
+     */
     virtual int start() = 0;
 
-    // ÍË³öËùÓĞpod·¿¼ä²¢Ïú»ÙÒıÇæ
-    // 1. ÍË·¿
-    // 2. Ïú»ÙÒıÇæ
-    virtual int stop() = 0;
+    /**
+     * @type api
+     * @brief åœæ­¢æ‰¹é‡æ‹‰æµ
+     * @param [in] async æ˜¯å¦å¼‚æ­¥é‡Šæ”¾èµ„æº
+     */
+    virtual int stop(bool async = true) = 0;
 
-    /// <summary>
-    /// »ñÈ¡µ¥¸öÊÓÆµµÄ×´Ì¬
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²éÑ¯µÄpodId</param>
-    /// <returns></returns>
-    virtual vecommon::SessionStatus getVideoStatus(const char* pod_id) { return vecommon::SessionStatus::Idle; };
+    /**
+     * @type api
+     * @brief è¿½åŠ é…ç½®
+     */
+    virtual void append(const vecommon::BatchControlVideoConfig& config) = 0;
 
-    /// <summary>
-    /// »ñÈ¡Ö¸¶¨podµÄÊÓÆµÅäÖÃ
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²éÑ¯µÄpodId</param>
-    /// <returns></returns>
-    virtual vecommon::ControlVideoConfig* getVideoConfig(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief å‘èµ·BatchPodStartè¯·æ±‚ï¼ŒpodIdListä½œä¸ºå‚æ•°ä¼ å…¥
+     */
+    virtual int requestBatchPodStart(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// ¶©ÔÄÊÓÆµ
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²Ù×÷µÄpodId</param>
-    virtual int subscribe(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief å¼€å§‹æ‰¹é‡æ‹‰æµï¼ŒpodIdListä½œä¸ºå‚æ•°ä¼ å…¥
+     */
+    virtual int start(std::vector<std::string>& podIdList) = 0;
 
+    /**
+     * @type api
+     * @brief åœæ­¢æ‰¹é‡æ‹‰æµï¼ŒpodIdListä½œä¸ºå‚æ•°ä¼ å…¥
+     */
+    virtual int stop(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// ÍË¶©ÊÓÆµ
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²Ù×÷µÄpodId</param>
-    virtual int unsubscribe(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief é‡è¯•æ‹‰æµï¼Œé’ˆå¯¹è°ƒç”¨startåæœªæˆåŠŸæ‹‰æµçš„podï¼Œå¯å°è¯•é‡æ–°æ‹‰æµ
+     */
+    virtual int restart(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// »ñÈ¡µ¥¸öÊÓÆµ¶©ÔÄ×´Ì¬
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²éÑ¯µÄpodId</param>
-    /// <returns></returns>
-    virtual bool isSubscribed(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief æ‰¹é‡æ‹‰æµçš„Podä¸­æ˜¯å¦åŒ…å«æŸä¸ªPod
+     */
+    virtual bool contains(const char* podId) = 0;
 
-    /// <summary>
-    /// »ñÈ¡µ¥¸öÊÓÆµ×Ô¶¯¶©ÔÄ×´Ì¬
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²éÑ¯µÄpodId</param>
-    /// <returns>true-×Ô¶¯¶©ÔÄ£»false-ÊÖ¶¯¶©ÔÄ</returns>
-    virtual bool isAutoSubscribe(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief è·å–å•ä¸ªè§†é¢‘çš„çŠ¶æ€
+     */
+    virtual vecommon::SessionStatus getVideoStatus(const char* podId) { return vecommon::SessionStatus::Idle; };
 
-    /// <summary>
-    /// ¸üĞÂµ¥¸öÊÓÆµµÄäÖÈ¾»­²¼
-    /// </summary>
-    /// <param name="pod_id">Ö¸¶¨Òª²Ù×÷µÄpodId</param>
-    /// <param name="canvas">äÖÈ¾´°¿Ú</param>
-    virtual int updateCanvas(const char* pod_id, void* canvas) = 0;
+    /**
+     * @type api
+     * @brief è·å–æŒ‡å®špodçš„è§†é¢‘é…ç½®
+     */
+    virtual vecommon::ControlVideoConfig* getVideoConfig(const char* podId) = 0;
 
-    /// <summary>
-    /// ÉèÖÃÍâ²¿äÖÈ¾Æ÷
-    /// </summary>
-    /// <param name="pod_id"></param>
-    /// <param name="externalSink"></param>
-    virtual int setExternalSink(const char* pod_id, VeExternalSink* externalSink) = 0;
+    /**
+     * @type api
+     * @brief è®¢é˜…è§†é¢‘æµ
+     */
+    virtual int subscribe(const char* podId) = 0;
 
-    /// <summary>
-    /// »ñÈ¡Íâ²¿äÖÈ¾Æ÷
-    /// </summary>
-    /// <param name="pod_id"></param>
-    /// <returns></returns>
-    virtual VeExternalSink* getExternalSink(const char* pod_id) = 0;
+    /**
+     * @type api
+     * @brief é€€è®¢è§†é¢‘æµ
+     */
+    virtual int unsubscribe(const char* podId) = 0;
 
-    /// <summary>
-    /// ÉèÖÃÈº¿ØÊÂ¼ş»Øµ÷
-    /// </summary>
-    /// <param name="listener"></param>
+    /**
+     * @type api
+     * @brief è·å–å•ä¸ªè§†é¢‘æµçš„è®¢é˜…çŠ¶æ€
+     */
+    virtual bool isSubscribed(const char* podId) = 0;
+
+    /**
+     * @type api
+     * @brief è·å–å•ä¸ªè§†é¢‘æµçš„è‡ªåŠ¨è®¢é˜…çŠ¶æ€
+     */
+    virtual bool isAutoSubscribe(const char* podId) = 0;
+
+    /**
+     * @type api
+     * @brief æ›´æ–°å•ä¸ªè§†é¢‘æµçš„æ¸²æŸ“ç”»å¸ƒ
+     */
+    virtual int updateCanvas(const char* podId, void* canvas) = 0;
+
+    /**
+     * @type api
+     * @brief è®¾ç½®å¤–éƒ¨æ¸²æŸ“å™¨
+     */
+    virtual int setExternalSink(const char* podId, VeExternalSink* externalSink) = 0;
+
+    /**
+     * @type api
+     * @brief è·å–å¤–éƒ¨æ¸²æŸ“å™¨
+     */
+    virtual VeExternalSink* getExternalSink(const char* podId) = 0;
+
+    /**
+     * @type api
+     * @brief è®¾ç½®å›è°ƒç›‘å¬å™¨
+     */
     virtual void setBatchControlListener(BatchControlListener* listener) = 0;
+
 
 protected:
     const vecommon::BatchControlVideoConfig& _config;

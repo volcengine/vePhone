@@ -181,10 +181,25 @@ public:
 
     /**
      * @type api
+     * @brief 发送输入法事件, 用于群控场景
+     * @param [in] data，参考{@link #ImeCompositionData}
+     * @param [in] podId, 指定发送的PodId
+     */
+    virtual void sendImeComposition(const vecommon::ImeCompositionData& data, const char* podId) = 0;
+
+    /**
+     * @type api
      * @brief 发送文本覆盖云端文本框内容
      * @param [in] data，参考{@link #ImeCompositionData}
      */
     virtual void sendEditTextInput(const char* txt) = 0;
+
+    /**
+     * @type api
+     * @brief 发送快捷键消息
+     * @param [in] hotKey，参考{@link #HotKey}
+     */
+    virtual void sendHotKeyMessage(const vecommon::HotKey hotKey) = 0;
 
     /**
      * @type api
@@ -343,6 +358,45 @@ public:
     * @return 0：调用成功，<0：调用失败
     */
     virtual int getVideoInjectionState() = 0;
+
+    /*
+    * @type api
+    * @brief 设置键盘类型
+    * @param type 键盘类型，详见vecommon::KeyboardType
+    * @return 0：调用成功，<0：调用失败
+    */
+    virtual int setKeyboardType(const vecommon::KeyboardType type) = 0;
+
+    /*
+    * @type api
+    * @brief 查询键盘类型
+    * @return 0：调用成功，<0：调用失败
+    */
+    virtual int getKeyboardType() = 0;
+
+    /*
+    * @type api
+    * @brief 设置指定用户对云手机的操控权
+    * @param userId 用户ID
+    * @param enable 是否具有操控权
+    * @return 0：调用成功，<0：调用失败
+    */
+    virtual int enableControl(const std::string& userId, bool enable) = 0;
+
+    /*
+    * @type api
+    * @brief 查询指定用户对云手机的操控权
+    * @param userId 用户ID
+    * @return 0：调用成功，<0：调用失败
+    */
+    virtual int hasControl(const std::string& userId) = 0;
+
+    /*
+    * @type api
+    * @brief 查询所有用户对云手机的操控权
+    * @return 0：调用成功，<0：调用失败
+    */
+    virtual int getAllControls() = 0;
 
     /**
      * @type api

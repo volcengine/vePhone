@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "ve_type_defines.h"
 
@@ -25,8 +25,8 @@ class IEventSyncListener {
 public:
 	/*
 	* @type callback
-	* @brief Èº¿Ø¹ı³ÌÖĞ·¢Éú´íÎóµÄ»Øµ÷
-	* @param [in] code ´íÎóÂë
+	* @brief ç¾¤æ§è¿‡ç¨‹ä¸­å‘ç”Ÿé”™è¯¯çš„å›è°ƒ
+	* @param [in] code é”™è¯¯ç 
 	*		      -1 -- LIST_POD_REQUEST_FAILED
 	*			  -2 -- LIST_POD_PARSE_RESPONSE_FAILED
 	*			  -3 -- POD_IMAGE_NOT_SUPPORT
@@ -34,24 +34,32 @@ public:
 	*			  -5 -- EVENT_SYNC_PARSE_RESPONSE_FAILED
 	*			  -6 -- EMPTY_RTC_APP_ID
 	*			  -7 -- INVALID_ROOM_INFO
+	*			  -8 -- EVENT_SYNC_TIMEOUT
 	*			else -- MASTER_JOIN_ROOM_FAILED
-	* @param [in] msg ´íÎóĞÅÏ¢
+	* @param [in] msg é”™è¯¯ä¿¡æ¯
 	*/
 	virtual void onEventSyncError(int code, const char* msg) {
 	}
 
 	/*
 	* @type callback
-	* @brief Ö÷¿Ø(¼´SDK)¼Ó·¿³É¹¦µÄ»Øµ÷
+	* @brief å¼€å¯ç¾¤æ§æˆåŠŸçš„å›è°ƒ
+	*/
+	virtual void onEventSyncSuccess() {
+	}
+
+	/*
+	* @type callback
+	* @brief ä¸»æ§(å³SDK)åŠ æˆ¿æˆåŠŸçš„å›è°ƒ
 	*/
 	virtual void onMasterJoinRoomSuccess() {
 	}
 
 	/*
 	* @type callback
-	* @brief ±»¿ØÔÆ»ú¼Ó·¿µÄ»Øµ÷
-	* @param [in] userId ¼Ó·¿ÓÃ»§Id
-	* @param [in] roomId ·¿¼äId
+	* @brief è¢«æ§äº‘æœºåŠ æˆ¿çš„å›è°ƒ
+	* @param [in] userId åŠ æˆ¿ç”¨æˆ·Id
+	* @param [in] roomId æˆ¿é—´Id
 	*/
 	virtual void onContorlledUserJoined(const char* userId, const char* roomId) {
 		(void)userId;
@@ -60,9 +68,9 @@ public:
 
 	/*
 	* @type callback
-	* @brief ±»¿ØÔÆ»úÀë·¿µÄ»Øµ÷
-	* @param [in] userId ¼Ó·¿ÓÃ»§Id
-	* @param [in] roomId ·¿¼äId
+	* @brief è¢«æ§äº‘æœºç¦»æˆ¿çš„å›è°ƒ
+	* @param [in] userId åŠ æˆ¿ç”¨æˆ·Id
+	* @param [in] roomId æˆ¿é—´Id
 	*/
 	virtual void onContorlledUserLeave(const char* userId, const char* roomId) {
 		(void)userId;

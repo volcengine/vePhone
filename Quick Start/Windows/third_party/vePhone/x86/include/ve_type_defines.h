@@ -9,6 +9,12 @@ namespace vecommon {
 #pragma pack(push)
 #pragma pack(1)
 
+    enum class VideoRenderMode {
+        COVER = 1,         // 等比缩放，拉流画面短边撑满窗口，长边裁切
+        FIT = 2,           // 等比缩放，居中展示完整拉流画面
+        FILL = 3,          // 非等比缩放，拉伸模式，拉流画面无论长边短边均撑满窗口
+    };
+
     enum class VideoRotation {
         R0 = 0,            // 顺时针旋转 0 度
         R90 = 90,           // 顺时针旋转 90 度
@@ -173,8 +179,25 @@ namespace vecommon {
         START = 1   // 开始音频注入
     };
 
+    enum class KeyboardType {
+        POD = 0,    // 使用云端键盘
+        LOCAL = 1   // 使用本地键盘
+    };
+
+    enum class HotKey {
+        CTRL_C = 0,   // 复制
+        CTRL_X = 1,   // 剪切
+        CTRL_A = 2    // 全选
+    };
+
     enum class Feature {
         WALLPAPER = 0 // 壁纸流
+    };
+
+    enum class BCVAPI {
+        BATCH_POD_START = 0,
+        START = 1,
+        STOP = 2,
     };
 
     typedef struct _SessionConfig {
@@ -204,11 +227,14 @@ namespace vecommon {
         const char* planId{ nullptr };                  // 火山侧套餐 ID
         bool        enableScreenLock{ false };          // 是否锁定屏幕横竖屏显示
         bool        enableLocalKeyboard{ true };        // 是否开启本地键盘输入
-        bool        reset{ true };
+        bool        reset{ false };                     // 退出后，是否还原Pod
         bool        muteAudio{ false };                 // 是否默认关闭音频拉流，群控场景下建议关闭
         StreamType  streamType{ StreamType::BOTH };   // 加房时自动订阅流的类型
+        VideoRenderMode  renderMode{ VideoRenderMode::FIT }; // 视频的渲染模式
         float       latitude{ 0.00F };                  // 模拟定位纬度
         float       longitude{ 0.00F };                 // 模拟定位经度
+        int remoteWindowWidth{ -1 };                    // Pod推流有效宽度
+        int remoteWindowHeight{ -1 };                   // Pod推流有效高度
         RotationMode rotationMode{ RotationMode::AUTO_ROTATION };   // 旋转模式
         int         waitTime{ 10 };                     // 云端实例加房后等待SDK加房的时间，单位：秒，默认10秒，最短10秒，最长72小时
     } PhoneSessionConfig;
@@ -234,6 +260,7 @@ namespace vecommon {
         const char* userId{ nullptr };                  // 用户ID，注：需要和SessionConfig或者BatchPodStart请求中传入的userId保持一致
         std::vector<std::string> controlledPodIdList;   // 被控云机ID列表
         bool enableForce{ true };                       // 是否强制开指令同步任务
+        bool enableMulti{ false };                      // 是否支持加入多个群控房间
         const char* softwareVersion{ nullptr };         // 支持切换主控的镜像版本，可以通过ListPod获取
         const char* debugConfig{ nullptr };             // debug配置
     } EventSyncConfig;
@@ -398,7 +425,7 @@ namespace vecommon {
 
     typedef struct _ControlVideoConfig {
         void* canvas{ nullptr };                        // 拉流后显示画面的画布，Windows 平台下传窗口句柄（HWND）
-        const char* podId{ nullptr };                   // pod ID
+        std::string podId;                   // pod ID
         bool autoSubscribe{ true };                     // 是否自动订阅
     } ControlVideoConfig;
 
@@ -415,11 +442,8 @@ namespace vecommon {
         const char* debugConfig{ nullptr };             // debug配置
         bool externalRender{ false };                   // 是否需要外部渲染
         FrameFormat externalRenderFormat{ FrameFormat::ARGB };             // 外部渲染视频帧格式
-        int32_t         width{ 0 };                     // 视频帧宽（像素）
-        int32_t         height{ 0 };                    // 视频帧高（像素）
         int         videoStreamProfileId{ 0 };          // 视频流清晰度 ID
         int         waitTime{ 10 };                     // 云端实例加房后等待SDK加房的时间，单位：秒，默认10秒，最短10秒，最长72小时
-        const char* appId{ nullptr };
         int autoRecycleTime{ 0 };
     } BatchControlVideoConfig;
 
@@ -440,6 +464,11 @@ namespace vecommon {
         std::string token;
         int roomSize;
     } EventSyncRoomInfo;
+
+    typedef struct tagControlState {
+        std::string userId;     // 目标用户ID
+        bool enable{ false };   // 目标用户是否具有操控权
+    } ControlState;
 
 #pragma pack(pop)
 

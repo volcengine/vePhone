@@ -1,21 +1,21 @@
-#include "ve_qk_demo.h"
+ï»¿#include "ve_qk_demo.h"
 
 
-const WCHAR* largeWindowClass = L"LargeWindowClass";  // ´ó´°¿ÚÀàÃû
-const int PREVIEW_WND_PROFILE_ID = 9514; // Ô¤ÀÀ´°ÇåÎú¶È
-const int HIGH_FPS_LARGE_WND_NUM = 20; // ¸ßÖ¡ÂÊ´ó´°ÊıÁ¿
-const int HIGH_FPS_LARGE_WND_PROFILE_ID = 15307; // ¸ßÖ¡ÂÊ´ó´°ÇåÎú¶È
-const int LOW_FPS_LARGE_WND_PROFILE_ID = 15703; // µÍÖ¡ÂÊ´ó´°ÇåÎú¶È
+const WCHAR* largeWindowClass = L"LargeWindowClass";  // å¤§çª—å£ç±»å
+const int PREVIEW_WND_PROFILE_ID = 9514; // é¢„è§ˆçª—æ¸…æ™°åº¦
+const int HIGH_FPS_LARGE_WND_NUM = 20; // é«˜å¸§ç‡å¤§çª—æ•°é‡
+const int HIGH_FPS_LARGE_WND_PROFILE_ID = 15307; // é«˜å¸§ç‡å¤§çª—æ¸…æ™°åº¦
+const int LOW_FPS_LARGE_WND_PROFILE_ID = 15703; // ä½å¸§ç‡å¤§çª—æ¸…æ™°åº¦
 
-// »ñÈ¡Ã¿¸ö´ó´°¿Ú¶ÔÓ¦µÄsession
+// è·å–æ¯ä¸ªå¤§çª—å£å¯¹åº”çš„session
 static PhoneSession* getSession(HWND hWnd) {
     return reinterpret_cast<PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 }
 
-// Îª´ó´°¿Ú×¢²áÔ­Ê¼ÊäÈëÉè±¸£¬ÓÃÓÚ½ÓÊÕWM_INPUTÏûÏ¢
+// ä¸ºå¤§çª—å£æ³¨å†ŒåŸå§‹è¾“å…¥è®¾å¤‡ï¼Œç”¨äºæ¥æ”¶WM_INPUTæ¶ˆæ¯
 static void registerInputDevices(HWND win) {
     RAWINPUTDEVICE raw_input_device{};
-    raw_input_device.usUsagePage = HID_USAGE_PAGE_GENERIC;   // Éè±¸Àà
+    raw_input_device.usUsagePage = HID_USAGE_PAGE_GENERIC;   // è®¾å¤‡ç±»
     raw_input_device.usUsage = 0;
     raw_input_device.dwFlags = RIDEV_PAGEONLY;
     raw_input_device.hwndTarget = win;
@@ -24,7 +24,7 @@ static void registerInputDevices(HWND win) {
     }
 }
 
-// ´´½¨´ó´°¿Ú
+// åˆ›å»ºå¤§çª—å£
 static HWND createLargeWindow(std::shared_ptr<QkDemo> demo, const char* podId) {
     const wchar_t* title = AnsiToUnicode(podId);
     HWND win = CreateWindowEx(0, largeWindowClass, title, WS_OVERLAPPEDWINDOW, 100, 100,
@@ -44,7 +44,7 @@ static HWND createLargeWindow(std::shared_ptr<QkDemo> demo, const char* podId) {
     return win;
 }
 
-// ´ó´°¿ÚµÄÏûÏ¢´¦Àíº¯Êı
+// å¤§çª—å£çš„æ¶ˆæ¯å¤„ç†å‡½æ•°
 static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     PhoneSession* curSession = reinterpret_cast<PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     switch (message) {
@@ -153,7 +153,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
-        // TODO: ÔÚ´Ë´¦Ìí¼ÓÊ¹ÓÃ hdc µÄÈÎºÎ»æÍ¼´úÂë
+        // TODO: åœ¨æ­¤å¤„æ·»åŠ ä½¿ç”¨ hdc çš„ä»»ä½•ç»˜å›¾ä»£ç 
         EndPaint(hWnd, &ps);
         break;
     }
@@ -165,7 +165,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
         if (session) {
             session->stop();
         }
-        // ¹Øµô´ó´°ºó£¬½«mapÖĞ¶ÔÓ¦µÄĞÅÏ¢Çå³ı
+        // å…³æ‰å¤§çª—åï¼Œå°†mapä¸­å¯¹åº”çš„ä¿¡æ¯æ¸…é™¤
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
             demo->_podIdToLargeWnd.erase(demo->_sessionToPodId[session]);
             demo->_sessionToPodId.erase(session);
@@ -180,7 +180,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     return 0;
 }
 
-// Ô¤ÀÀ´°¿ÚµÄÏûÏ¢´¦Àíº¯Êı
+// é¢„è§ˆçª—å£çš„æ¶ˆæ¯å¤„ç†å‡½æ•°
 static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     const char* pod_id = reinterpret_cast<const char*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     std::shared_ptr<QkDemo> demo = getDemo();
@@ -215,7 +215,7 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
             config.basicConfig.token = demo->_token.c_str();
             config.roundId = demo->_sessionRoundId.c_str();
             config.basicConfig.autoRecycleTime = 7200;
-            // ¶ÔÓÚ´ò¿ªµÄÇ°20¸ö´ó´°£¬Ê¹ÓÃ¸ßÖ¡ÂÊ£»Ö®ºó´ò¿ªµÄ´ó´°Ê¹ÓÃµÍÖ¡ÂÊ¡£ÒÔ´ËÀ´½µµÍÉè±¸¹¦ºÄ¡£
+            // å¯¹äºæ‰“å¼€çš„å‰20ä¸ªå¤§çª—ï¼Œä½¿ç”¨é«˜å¸§ç‡ï¼›ä¹‹åæ‰“å¼€çš„å¤§çª—ä½¿ç”¨ä½å¸§ç‡ã€‚ä»¥æ­¤æ¥é™ä½è®¾å¤‡åŠŸè€—ã€‚
             if (demo->_sessionToPodId.size() <= HIGH_FPS_LARGE_WND_NUM) {
                 config.basicConfig.videoStreamProfileId = HIGH_FPS_LARGE_WND_PROFILE_ID;
             }
@@ -293,13 +293,13 @@ QkDemo::QkDemo(int cmd, HWND mainWnd, HINSTANCE instance) :
 
     RegisterClassExW(&wcChild);
 
-    readConfigIni(); // ´ÓÅäÖÃÎÄ¼şÖĞ¶ÁÈ¡¼øÈ¨ĞÅÏ¢
+    readConfigIni(); // ä»é…ç½®æ–‡ä»¶ä¸­è¯»å–é‰´æƒä¿¡æ¯
 
-    initCloudRenderX(); // ³õÊ¼»¯VePhoneSDK
+    initCloudRenderX(); // åˆå§‹åŒ–VePhoneSDK
 }
 
 /* 
-* »ğÉ½¼øÈ¨ĞÅÏ¢´ÓÎÄ¼şÖĞ¶ÁÈ¡£¬ÎÄ¼şÎ»ÖÃ¹¤³Ì¸ùÄ¿Â¼£¬ÎÄ¼şÄÚÈİĞÎÈç£º
+* ç«å±±é‰´æƒä¿¡æ¯ä»æ–‡ä»¶ä¸­è¯»å–ï¼Œæ–‡ä»¶ä½ç½®å·¥ç¨‹æ ¹ç›®å½•ï¼Œæ–‡ä»¶å†…å®¹å½¢å¦‚ï¼š
 * ak:your_ak
 * sk:your_sk
 * token:your_token
@@ -456,8 +456,8 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7395806755290471207");
-    _podIdList.push_back("7402082407144266522");
+    _podIdList.push_back("7431485845745883941");
+    _podIdList.push_back("7431485741177674546");
 
     _bcvUserId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
     _bcvRoundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
@@ -472,8 +472,6 @@ void QkDemo::initBcvConfig() {
     _bcvConfig.productId = _productId.c_str();
     _bcvConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
     _bcvConfig.externalRender = true;
-    _bcvConfig.width = CHILD_WIDTH;
-    _bcvConfig.height = CHILD_HEIGHT;
     _bcvConfig.autoRecycleTime = 7200;
 
     _bcvConfig.videoConfigs.clear();
@@ -517,7 +515,7 @@ void QkDemo::stop() {
         _batchControlVideo->stop();
     }
 
-    // Í£Ö¹À­Á÷ºó£¬½«´°¿ÚÖÃ»Ò
+    // åœæ­¢æ‹‰æµåï¼Œå°†çª—å£ç½®ç°
     for (int i = 0; i < _preWndList.size(); i++) {
         HWND win = _preWndList[i];
         RECT clientRect;
