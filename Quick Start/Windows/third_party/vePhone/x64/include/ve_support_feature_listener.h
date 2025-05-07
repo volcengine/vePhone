@@ -1,7 +1,11 @@
 ﻿#pragma once
+#include "ve_type_defines.h"
 
+
+namespace vecommon {
 
 class ISupportFeatureListener {
+
 public:
 	/*
 	* @type callback
@@ -17,7 +21,8 @@ public:
 	*			  -5 -- EMPTY_SOFTWARE_VERSION
 	* @param [in] msg 错误信息
 	*/
-	virtual void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {
-	}
+	virtual void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {}
 
 };
+
+} // namespace vecommon

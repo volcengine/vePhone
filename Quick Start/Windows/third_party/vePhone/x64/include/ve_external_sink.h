@@ -1,13 +1,17 @@
 ﻿#pragma once
- 
 #include <stdint.h>
+
+
+namespace vecommon {
 
 /**
  * @type type
  * @brief 视频帧回调信息
  */
 class VeExtVideoFrame {
+
 public:
+
     ~VeExtVideoFrame() = default;
 
     /**
@@ -55,22 +59,23 @@ public:
     
 };
 
+
 /**
- * @type api
- * @brief 外部渲染器
- * 
+ * @locale zh
+ * @type callback
+ * @brief 外部渲染器类
  */
 class VeExternalSink {
 public:
 
     /**
-     * @type callback
      * @brief 视频帧回调
-     * @param [out] video_frame 视频帧结构类，参看 VeExtVideoFrame{@link #VeExtVideoFrame}
-     * @return 返回值暂未使用
+     * @param videoFrame 视频帧实例
      */
     virtual void onFrame(VeExtVideoFrame* videoFrame) {
         (void)videoFrame;
     }
 
 };
+
+} // namespace vecommon

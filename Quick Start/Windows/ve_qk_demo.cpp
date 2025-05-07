@@ -8,8 +8,8 @@ const int HIGH_FPS_LARGE_WND_PROFILE_ID = 15307; // 高帧率大窗清晰度
 const int LOW_FPS_LARGE_WND_PROFILE_ID = 15703; // 低帧率大窗清晰度
 
 // 获取每个大窗口对应的session
-static PhoneSession* getSession(HWND hWnd) {
-    return reinterpret_cast<PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+static vecommon::PhoneSession* getSession(HWND hWnd) {
+    return reinterpret_cast<vecommon::PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 }
 
 // 为大窗口注册原始输入设备，用于接收WM_INPUT消息
@@ -46,12 +46,12 @@ static HWND createLargeWindow(std::shared_ptr<QkDemo> demo, const char* podId) {
 
 // 大窗口的消息处理函数
 static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    PhoneSession* curSession = reinterpret_cast<PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    vecommon::PhoneSession* curSession = reinterpret_cast<vecommon::PhoneSession*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     switch (message) {
     case WM_SETFOCUS:
     {
         registerInputDevices(hWnd);
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
         if (session && demo) {
             demo->updateValidArea(hWnd);
@@ -68,7 +68,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     }
     case WM_LBUTTONDOWN:
     {
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
         if (session && demo && demo->_focusedSession != session) {
             demo->updateValidArea(hWnd);
@@ -80,7 +80,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     case WM_MOVE:
     case WM_SIZE:
     {
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
         if (session && demo) {
             demo->updateValidArea(hWnd);
@@ -125,7 +125,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     case WM_KEYUP:
     case WM_SYSKEYUP:
     {
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
         if (session && demo && !demo->_isMenuShow) {
             ProcessWmKeyAction(session, hWnd, message, wParam, lParam);
@@ -134,7 +134,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     }
     case WM_COMMAND:
     {
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
         std::string podId;
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
@@ -159,7 +159,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
     }
     case WM_DESTROY:
     {
-        PhoneSession* session = getSession(hWnd);
+        vecommon::PhoneSession* session = getSession(hWnd);
         std::shared_ptr<QkDemo> demo = getDemo();
 
         if (session) {
@@ -238,7 +238,7 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
         demo->_podIdToLargeWnd[pod_id] = win;
 
         QkSessionListener* listener = new QkSessionListener(pod_id, config, win);
-        PhoneSession* session = demo->_renderX->createPhoneSession(config, listener);
+        vecommon::PhoneSession* session = demo->_renderX->createPhoneSession(config, listener);
         listener->setSession(session);
         session->start();
         demo->_sessionToPodId[session] = pod_id;
@@ -425,8 +425,8 @@ void QkDemo::onWarning(const char* pod_id, int code, const char* msg) {
     vePrint("QkDemo::onWarning podId:{} code:{} msg:{}", pod_id, code, msg);
 }
 
-void QkDemo::onEventSyncError(int code, const char* msg) {
-    vePrint("QkDemo::onEventSyncError code:{} msg:{}", code, msg);
+void QkDemo::onEventSyncError(int code, const char* msg, const char* userId) {
+    vePrint("QkDemo::onEventSyncError code:{} msg:{} userId:{}", code, msg, userId);
 }
 
 void QkDemo::onMasterJoinRoomSuccess() {
@@ -447,7 +447,7 @@ void QkDemo::onSupportFeatureResult(vecommon::Feature feature, int code, const c
 
 void QkDemo::initCloudRenderX() {
     _renderX = vecommon::CreateVeCloudRenderX();
-    _renderX->prepare();
+    _renderX->prepare(_accountId);
     _renderX->setDebug(true, ".\\qk_demo_logs");
 }
 
@@ -456,8 +456,8 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7431485845745883941");
-    _podIdList.push_back("7431485741177674546");
+    _podIdList.push_back("7493823438495898379");
+    _podIdList.push_back("7493823620365015817");
 
     _bcvUserId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
     _bcvRoundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());

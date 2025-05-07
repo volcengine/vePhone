@@ -1,6 +1,6 @@
-#pragma once
+ï»¿#pragma once
 #include "pch.h"
-#include "verender_cloudx.h"
+#include "ve_render_cloudx.h"
 
 
 static const int CHILD_WIDTH = 36;
@@ -11,9 +11,9 @@ static const int PLAY_WIND_WIDTH = 240;
 static const int PLAY_WIND_HEIGHT = 424;
 
 
-class QkExternalSink : public VeExternalSink {
+class QkExternalSink : public vecommon::VeExternalSink {
 public:
-	void onFrame(VeExtVideoFrame* frame) override;
+	void onFrame(vecommon::VeExtVideoFrame* frame) override;
 	void setCanvas(HWND win);
 
 private:
@@ -21,7 +21,7 @@ private:
 };
 
 
-class QkSessionListener : public ISessionListener {
+class QkSessionListener : public vecommon::ISessionListener {
 public:
 	QkSessionListener(const char* podId, vecommon::PhoneSessionConfig config, HWND hwnd)
 		:_podId(podId), _config(config), _hwnd(hwnd), _session(nullptr) {
@@ -44,13 +44,13 @@ public:
 	void onScreenShot(int result, const char* savePath, const char* downloadUrl) override;
 	void onNavBarStatus(int status, int reason) override;
 
-	void setSession(PhoneSession* session);
+	void setSession(vecommon::PhoneSession* session);
 	void rotateScreen(vecommon::RotateDegree degree, bool withPod);
-	void resizeWindow(bool shouldLocalLandscape); // ¼ÆËã²¢¸üĞÂĞı×ªºóµÄ´°¿Ú´óĞ¡ shouldLocalLandscape--±¾µØ´°¿ÚÊÇ·ñÓ¦Ğı×ªÎªºáÆÁ
+	void resizeWindow(bool shouldLocalLandscape); // è®¡ç®—å¹¶æ›´æ–°æ—‹è½¬åçš„çª—å£å¤§å° shouldLocalLandscape--æœ¬åœ°çª—å£æ˜¯å¦åº”æ—‹è½¬ä¸ºæ¨ªå±
 
 private:
 	const char* _podId = nullptr;
-	PhoneSession* _session = nullptr;
+	vecommon::PhoneSession* _session = nullptr;
 	vecommon::PhoneSessionConfig _config;
 	HWND _hwnd;
 	vecommon::RotateDegree _rotationLocalDegree = vecommon::RotateDegree::DEGREE_0;

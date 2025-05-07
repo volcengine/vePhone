@@ -1,9 +1,9 @@
-#include "ve_qk_class.h"
+ï»¿#include "ve_qk_class.h"
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
 
 
-void QkExternalSink::onFrame(VeExtVideoFrame* frame) {
+void QkExternalSink::onFrame(vecommon::VeExtVideoFrame* frame) {
     if (!frame) {
         return;
     }
@@ -59,13 +59,13 @@ void QkSessionListener::onPodJoined(const char* podUserId) {
 void QkSessionListener::onRemoteRotation(int rotation) {
     vePrint("QkSessionListener::onRemoteRotation podId:{} rotation:{}", _podId, rotation);
 
-    // Èç¹ûrotation_modeÎªportrait£¬²»´¦ÀíĞı×ªÊÂ¼ş
+    // å¦‚æœrotation_modeä¸ºportraitï¼Œä¸å¤„ç†æ—‹è½¬äº‹ä»¶
     if (&_config && _config.rotationMode == vecommon::RotationMode::PORTRAIT) {
         return;
     }
 
     if (_rotationLocalDegree != vecommon::RotateDegree::DEGREE_0) {
-        // »ØÍËäÖÈ¾Ğı×ª½Ç¶È
+        // å›é€€æ¸²æŸ“æ—‹è½¬è§’åº¦
         rotateScreen(vecommon::RotateDegree::DEGREE_0, false);
     }
 
@@ -105,7 +105,7 @@ void QkSessionListener::onNavBarStatus(int status, int reason) {
     vePrint("QkSessionListener::onNavBarStatus podId:{} status:{} reason:{}", _podId, status, reason);
 }
 
-void QkSessionListener::setSession(PhoneSession* session) {
+void QkSessionListener::setSession(vecommon::PhoneSession* session) {
     _session = session;
 }
 
@@ -127,31 +127,31 @@ void QkSessionListener::rotateScreen(vecommon::RotateDegree degree, bool withPod
     }
     else {
         if (degree == vecommon::RotateDegree::DEGREE_270
-            || degree == vecommon::RotateDegree::DEGREE_90) { // ±¾µØĞı×ª»­²¼
-            if (_isLocalLandscape && _isRemoteLandscape) { // ±¾µØºáÆÁ£¬Ô¶¶ËºáÆÁ
+            || degree == vecommon::RotateDegree::DEGREE_90) { // æœ¬åœ°æ—‹è½¬ç”»å¸ƒ
+            if (_isLocalLandscape && _isRemoteLandscape) { // æœ¬åœ°æ¨ªå±ï¼Œè¿œç«¯æ¨ªå±
                 resizeWindow(_isLocalLandscape = false);
             }
-            else if (!_isLocalLandscape && _isRemoteLandscape) { // ±¾µØÊúÆÁ£¬Ô¶¶ËºáÆÁ
+            else if (!_isLocalLandscape && _isRemoteLandscape) { // æœ¬åœ°ç«–å±ï¼Œè¿œç«¯æ¨ªå±
                 resizeWindow(_isLocalLandscape = false);
             }
-            else if (_isLocalLandscape && !_isRemoteLandscape) { // ±¾µØºáÆÁ£¬Ô¶¶ËÊúÆÁ
+            else if (_isLocalLandscape && !_isRemoteLandscape) { // æœ¬åœ°æ¨ªå±ï¼Œè¿œç«¯ç«–å±
                 resizeWindow(_isLocalLandscape = true);
             }
-            else if (!_isLocalLandscape && !_isRemoteLandscape) { // ±¾µØÊúÆÁ£¬Ô¶¶ËÊúÆÁ
+            else if (!_isLocalLandscape && !_isRemoteLandscape) { // æœ¬åœ°ç«–å±ï¼Œè¿œç«¯ç«–å±
                 resizeWindow(_isLocalLandscape = true);
             }
         }
         else {
-            if (_isLocalLandscape && _isRemoteLandscape) { // ±¾µØºáÆÁ£¬Ô¶¶ËºáÆÁ
+            if (_isLocalLandscape && _isRemoteLandscape) { // æœ¬åœ°æ¨ªå±ï¼Œè¿œç«¯æ¨ªå±
                 resizeWindow(_isLocalLandscape = true);
             }
-            else if (!_isLocalLandscape && _isRemoteLandscape) { // ±¾µØÊúÆÁ£¬Ô¶¶ËºáÆÁ
+            else if (!_isLocalLandscape && _isRemoteLandscape) { // æœ¬åœ°ç«–å±ï¼Œè¿œç«¯æ¨ªå±
                 resizeWindow(_isLocalLandscape = true);
             }
-            else if (_isLocalLandscape && !_isRemoteLandscape) { // ±¾µØºáÆÁ£¬Ô¶¶ËÊúÆÁ
+            else if (_isLocalLandscape && !_isRemoteLandscape) { // æœ¬åœ°æ¨ªå±ï¼Œè¿œç«¯ç«–å±
                 resizeWindow(_isLocalLandscape = false);
             }
-            else if (!_isLocalLandscape && !_isRemoteLandscape) { // ±¾µØÊúÆÁ£¬Ô¶¶ËÊúÆÁ
+            else if (!_isLocalLandscape && !_isRemoteLandscape) { // æœ¬åœ°ç«–å±ï¼Œè¿œç«¯ç«–å±
                 resizeWindow(_isLocalLandscape = false);
             }
         }
@@ -159,7 +159,7 @@ void QkSessionListener::rotateScreen(vecommon::RotateDegree degree, bool withPod
 }
 
 void QkSessionListener::resizeWindow(bool shouldLocalLandscape) {
-    // 1. ¼ÆËãĞı×ªºóµÄ´°¿Ú¿í¸ß
+    // 1. è®¡ç®—æ—‹è½¬åçš„çª—å£å®½é«˜
     int resizedWidth, resizedHeight;
     if (shouldLocalLandscape) {
         resizedWidth = PLAY_WIND_HEIGHT;
@@ -170,11 +170,11 @@ void QkSessionListener::resizeWindow(bool shouldLocalLandscape) {
         resizedHeight = PLAY_WIND_HEIGHT;
     }
 
-    // 2. ¼ÓÉÏ²Ëµ¥À¸ºó£¬µ÷Õû´°¿Ú¿í¸ß
+    // 2. åŠ ä¸Šèœå•æ åï¼Œè°ƒæ•´çª—å£å®½é«˜
     RECT adjustedWindow{ 0, 0, resizedWidth, resizedHeight };
     AdjustWindowRect(&adjustedWindow, WS_OVERLAPPEDWINDOW, true);
 
-    // 3. ¼ÓÉÏ²Ëµ¥À¸ºó£¬¼ÆËãĞı×ªºóµÄ´°¿Ú¿í¸ß
+    // 3. åŠ ä¸Šèœå•æ åï¼Œè®¡ç®—æ—‹è½¬åçš„çª—å£å®½é«˜
     int width = adjustedWindow.right - adjustedWindow.left;
     int height = adjustedWindow.bottom - adjustedWindow.top;
     int newWidth, newHeight;
@@ -187,7 +187,7 @@ void QkSessionListener::resizeWindow(bool shouldLocalLandscape) {
         newHeight = max(width, height);
     }
 
-    // 4. ¸üĞÂÔ­Ê¼´°¿ÚµÄ¿í¸ß
+    // 4. æ›´æ–°åŸå§‹çª—å£çš„å®½é«˜
     RECT rcWindow;
     GetWindowRect(_hwnd, &rcWindow);
     SetWindowPos(_hwnd, HWND_TOP, rcWindow.left, rcWindow.top, newWidth, newHeight, SWP_SHOWWINDOW);

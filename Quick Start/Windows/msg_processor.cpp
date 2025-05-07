@@ -1,4 +1,4 @@
-#include "msg_processor.h"
+Ôªø#include "msg_processor.h"
 
 
 static const USHORT MOUSE_WHEEL = RI_MOUSE_WHEEL;
@@ -34,7 +34,7 @@ INT_PTR CALLBACK getDialogContent(HWND dialog, UINT message, WPARAM wparam, LPAR
     return (INT_PTR)FALSE;
 }
 
-void ProcessWmInput(PhoneSession* session, RECT& validArea, HWND hWnd, UINT message, WPARAM wParam, LPARAM lparam) {
+void ProcessWmInput(vecommon::PhoneSession* session, RECT& validArea, HWND hWnd, UINT message, WPARAM wParam, LPARAM lparam) {
     if (!session) {
         return;
     }
@@ -47,7 +47,7 @@ void ProcessWmInput(PhoneSession* session, RECT& validArea, HWND hWnd, UINT mess
         lpbBuffer.reset(new BYTE[dw_size]);
         dwSize = dw_size;
     }
-    GetRawInputData((HRAWINPUT)lparam, RID_INPUT, (LPVOID)lpbBuffer.get(), (PUINT)&dwSize, (UINT)sizeof(RAWINPUTHEADER));   // µ⁄∂˛¥Œµ˜”√ªÒ»°‘≠ º ‰»Î ˝æ›£¨∂¡»ÎlpbBuffer
+    GetRawInputData((HRAWINPUT)lparam, RID_INPUT, (LPVOID)lpbBuffer.get(), (PUINT)&dwSize, (UINT)sizeof(RAWINPUTHEADER));   // Á¨¨‰∫åÊ¨°Ë∞ÉÁî®Ëé∑ÂèñÂéüÂßãËæìÂÖ•Êï∞ÊçÆÔºåËØªÂÖ•lpbBuffer
 
     RAWINPUT* raw = (RAWINPUT*)lpbBuffer.get();
     if (raw->header.dwType == RIM_TYPEMOUSE) {
@@ -60,7 +60,7 @@ void ProcessWmInput(PhoneSession* session, RECT& validArea, HWND hWnd, UINT mess
         int picture_width = validArea.right - validArea.left;
         int picture_height = validArea.bottom - validArea.top;
         if (!PtInRect(&mouse_rect, point)) {
-            // µ±π‚±Í“∆∂ØµΩª≠√ÊÕ‚ ±£¨–Ë“™∑¢ÀÕUp ¬º˛
+            // ÂΩìÂÖâÊ†áÁßªÂä®Âà∞ÁîªÈù¢Â§ñÊó∂ÔºåÈúÄË¶ÅÂèëÈÄÅUp‰∫ã‰ª∂
             if (gIsMouseMoving) {
                 vecommon::MouseKeyData key;
                 key.key = VK_LBUTTON;
@@ -76,7 +76,7 @@ void ProcessWmInput(PhoneSession* session, RECT& validArea, HWND hWnd, UINT mess
             return;
         }
 
-        // mouse move ÷ª”–∑¢ÀÕ¡ÀDown ¬º˛≤≈ø…“‘∑¢ÀÕMove ¬º˛
+        // mouse move Âè™ÊúâÂèëÈÄÅ‰∫ÜDown‰∫ã‰ª∂ÊâçÂèØ‰ª•ÂèëÈÄÅMove‰∫ã‰ª∂
         if (gIsDownEventSent && (raw->data.mouse.lLastX != 0 || raw->data.mouse.lLastY != 0)) {
             gIsMouseMoving = true;
 
@@ -131,12 +131,12 @@ void ProcessWmInput(PhoneSession* session, RECT& validArea, HWND hWnd, UINT mess
     }
 }
 
-void ProcessWmChar(PhoneSession* session, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+void ProcessWmChar(vecommon::PhoneSession* session, HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     if (!session) {
         return;
     }
 
-    // π˝¬À”––ß∞¥º¸: wparamŒ™◊÷∑˚µƒASCII¬Î£¨’‚¿Ô–Ë“™π˝¬À0-31
+    // ËøáÊª§ÊúâÊïàÊåâÈîÆ: wparam‰∏∫Â≠óÁ¨¶ÁöÑASCIIÁ†ÅÔºåËøôÈáåÈúÄË¶ÅËøáÊª§0-31
     if ((wParam >= 0 && wParam <= 31)) {
         return;
     }
@@ -146,7 +146,7 @@ void ProcessWmChar(PhoneSession* session, HWND hWnd, UINT message, WPARAM wParam
     session->sendImeComposition(data);
 }
 
-void ProcessWmKeyAction(PhoneSession* session, HWND hWnd, UINT message, WPARAM wParam, LPARAM lparam) {
+void ProcessWmKeyAction(vecommon::PhoneSession* session, HWND hWnd, UINT message, WPARAM wParam, LPARAM lparam) {
     if (!session) {
         return;
     }
@@ -155,7 +155,7 @@ void ProcessWmKeyAction(PhoneSession* session, HWND hWnd, UINT message, WPARAM w
     }
     bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
 
-    // ¥¶¿ÌCtrl+V
+    // Â§ÑÁêÜCtrl+V
     if (down && wParam == 'V' && ::GetKeyState(VK_CONTROL) < 0) {
         const std::string& str = getClipboardContent();
         vecommon::ImeCompositionData data{};
@@ -228,14 +228,14 @@ void ProcessWmKeyAction(PhoneSession* session, HWND hWnd, UINT message, WPARAM w
     }
 }
 
-void ProcessWmCmd(PhoneSession* session, std::string& podId, QkSessionListener* listener, HINSTANCE instance, HWND hWnd, WPARAM wParam, LPARAM lParam) {
+void ProcessWmCmd(vecommon::PhoneSession* session, std::string& podId, QkSessionListener* listener, HINSTANCE instance, HWND hWnd, WPARAM wParam, LPARAM lParam) {
     if (!session) {
         return;
     }
     int wmId = LOWORD(wParam);
-    // ∑÷Œˆ≤Àµ•—°‘Ò:
+    // ÂàÜÊûêËèúÂçïÈÄâÊã©:
     switch (wmId) {
-        // ≤Ÿøÿ
+        // ÊìçÊéß
     case ID_SWITCH_PROFILE_ID:
     {
         if (IDCANCEL == DialogBox(instance, MAKEINTRESOURCE(IDD_DIALOG_GETVALUE), hWnd, getDialogContent)) {
@@ -379,7 +379,7 @@ void ProcessWmCmd(PhoneSession* session, std::string& podId, QkSessionListener* 
         break;
     }
 
-    // »∫øÿ
+    // Áæ§Êéß
     case ID_SET_MASTER:
     {
         std::shared_ptr<QkDemo> demo = getDemo();
@@ -420,7 +420,7 @@ void ProcessWmCmd(PhoneSession* session, std::string& podId, QkSessionListener* 
         break;
     }
 
-    // ∆‰À˚
+    // ÂÖ∂‰ªñ
     case IDM_EXIT:
         DestroyWindow(hWnd);
         break;

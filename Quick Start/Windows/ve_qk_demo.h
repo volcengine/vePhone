@@ -1,12 +1,12 @@
-#pragma once
+ï»¿#pragma once
 #include "pch.h"
-#include "verender_cloudx.h"
+#include "ve_render_cloudx.h"
 #include "ve_qk_class.h"
 #include "msg_processor.h"
 #include <gdiplus.h>
 
 
-class QkDemo : public IEventSyncListener, BatchControlListener, ISupportFeatureListener {
+class QkDemo : public vecommon::IEventSyncListener, vecommon::BatchControlListener, vecommon::ISupportFeatureListener {
 public:
 	QkDemo(int cmd, HWND mainWnd, HINSTANCE instance);
 	~QkDemo() = default;
@@ -24,7 +24,7 @@ public:
 	void onWarning(const char* pod_id, int code, const char* msg) override;
 
 	// override: IEventSyncListener
-	void onEventSyncError(int code, const char* msg) override;
+	void onEventSyncError(int code, const char* msg, const char* userId) override;
 	void onMasterJoinRoomSuccess() override;
 	void onContorlledUserJoined(const char* userId, const char* roomId) override;
 	void onContorlledUserLeave(const char* userId, const char* roomId) override;
@@ -51,8 +51,8 @@ public:
 	Gdiplus::GdiplusStartupInput _gdiplusStartupInput;
 	ULONG_PTR _gdiplusToken;
 
-	WCHAR _szTitle[100];                  // ±êÌâÀ¸ÎÄ±¾
-	WCHAR _szWindowClass[100];            // Ö÷´°¿ÚÀàÃû
+	WCHAR _szTitle[100];                  // æ ‡é¢˜æ æ–‡æœ¬
+	WCHAR _szWindowClass[100];            // ä¸»çª—å£ç±»å
 
 	int _mainWindowHeight = 0;
 	int _mainWindowWidth = 0;
@@ -60,27 +60,27 @@ public:
 	int _lineCount = 0;
 
 	std::unordered_map<const char*, vecommon::PhoneSessionConfig> _phoneConfigs;
-	std::unordered_map<std::string, HWND> _podIdToPreWnd;  // podId->Ô¤ÀÀ´°
-	std::unordered_map<std::string, HWND> _podIdToLargeWnd; // podId->´ó´°
-	std::unordered_map<PhoneSession*, std::string> _sessionToPodId; // session->podId
-	std::unordered_map<std::string, PhoneSession*> _podIdToSession; // podId->session
-	std::unordered_map<PhoneSession*, QkSessionListener*> _sessionToListener; // session->listener
+	std::unordered_map<std::string, HWND> _podIdToPreWnd;  // podId->é¢„è§ˆçª—
+	std::unordered_map<std::string, HWND> _podIdToLargeWnd; // podId->å¤§çª—
+	std::unordered_map<vecommon::PhoneSession*, std::string> _sessionToPodId; // session->podId
+	std::unordered_map<std::string, vecommon::PhoneSession*> _podIdToSession; // podId->session
+	std::unordered_map<vecommon::PhoneSession*, QkSessionListener*> _sessionToListener; // session->listener
 
 	vecommon::VeCloudRenderX* _renderX = nullptr;
-	BatchControlVideo* _batchControlVideo = nullptr;
+	vecommon::BatchControlVideo* _batchControlVideo = nullptr;
 	std::string _eventSyncRoundId, _eventSyncUserId;
-	std::string _bcvRoundId, _bcvUserId; // _bcvUserIdºÍ_sessionUserIdĞèÒªÊ¹ÓÃ²»Í¬µÄuserIdÒÔ½øĞĞÇø·Ö
+	std::string _bcvRoundId, _bcvUserId; // _bcvUserIdå’Œ_sessionUserIdéœ€è¦ä½¿ç”¨ä¸åŒçš„userIdä»¥è¿›è¡ŒåŒºåˆ†
 	std::string _sessionRoundId, _sessionUserId;
 	std::vector<std::string> _podIdList;
 	std::vector<HWND> _preWndList;
 
 	std::string _accountId, _ak, _sk, _token, _productId;
 
-	RECT _validArea; // ÓĞĞ§ÇøÓò
-	PhoneSession* _focusedSession = nullptr; // µ±Ç°»ñÈ¡½¹µãµÄsession
+	RECT _validArea; // æœ‰æ•ˆåŒºåŸŸ
+	vecommon::PhoneSession* _focusedSession = nullptr; // å½“å‰è·å–ç„¦ç‚¹çš„session
 
-	HWND createPreviewWindow(const char* pod_id); // ´´½¨Ô¤ÀÀ´°¿Ú
-	void updateValidArea(HWND mainWnd); // ¸üĞÂÓĞĞ§ÇøÓò
+	HWND createPreviewWindow(const char* pod_id); // åˆ›å»ºé¢„è§ˆçª—å£
+	void updateValidArea(HWND mainWnd); // æ›´æ–°æœ‰æ•ˆåŒºåŸŸ
 
 private:
 	
