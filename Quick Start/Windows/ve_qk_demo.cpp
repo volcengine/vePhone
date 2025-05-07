@@ -534,16 +534,18 @@ void QkDemo::startEventSync() {
         std::vector<std::string> podIdList = _podIdList;
         _eventSyncRoundId = "event_sync_round_id_" + std::to_string(getCurrentTimeMs());
         _eventSyncUserId = "event_sync_user_id_" + std::string(_renderX->getDeviceId());
-        _eventSyncConfig.ak = _ak.c_str();
-        _eventSyncConfig.sk = _sk.c_str();
-        _eventSyncConfig.token = _token.c_str();
-        _eventSyncConfig.roundId = _eventSyncRoundId.c_str();
-        _eventSyncConfig.productId = _productId.c_str();
-        _eventSyncConfig.userId = _eventSyncUserId.c_str();
-        _eventSyncConfig.controlledPodIdList = podIdList;
-        _eventSyncConfig.enableForce = true;
-        _eventSyncConfig.softwareVersion = "3010609";
-        ret = _renderX->startEventSync(_eventSyncConfig, this);
+
+        vecommon::EventSyncConfig config;
+        config.ak = _ak.c_str();
+        config.sk = _sk.c_str();
+        config.token = _token.c_str();
+        config.roundId = _eventSyncRoundId.c_str();
+        config.productId = _productId.c_str();
+        config.userId = _eventSyncUserId.c_str();
+        config.controlledPodIdList = podIdList;
+        config.enableForce = true;
+        config.softwareVersion = "3010609";
+        ret = _renderX->startEventSync(config, this);
     }
     vePrint("QkDemo::startEventSync ret:{}", ret);
 }
@@ -559,13 +561,14 @@ void QkDemo::stopEventSync() {
 void QkDemo::checkIfSupportWallpaper() {
     bool ret = false;
     if (_renderX) {
-        _supportFeatureConfig.ak = _ak.c_str();
-        _supportFeatureConfig.sk = _sk.c_str();
-        _supportFeatureConfig.token = _token.c_str();
-        _supportFeatureConfig.productId = _productId.c_str();
-        _supportFeatureConfig.podIdList = _podIdList;
-        _supportFeatureConfig.feature = vecommon::Feature::WALLPAPER;
-        ret = _renderX->checkIfSupportFeature(_supportFeatureConfig, this);
+        vecommon::SupportFeatureConfig config;
+        config.ak = _ak.c_str();
+        config.sk = _sk.c_str();
+        config.token = _token.c_str();
+        config.productId = _productId.c_str();
+        config.podIdList = _podIdList;
+        config.feature = vecommon::Feature::WALLPAPER;
+        ret = _renderX->checkIfSupportFeature(config, this);
     }
     vePrint("QkDemo::checkIfSupportWallpaper ret:{}", ret);
 }

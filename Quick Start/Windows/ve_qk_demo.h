@@ -84,10 +84,8 @@ public:
 
 private:
 	
-	vecommon::EventSyncConfig _eventSyncConfig;
-	vecommon::PhoneSessionConfig _sessionConfig;
 	vecommon::BatchControlVideoConfig _bcvConfig;
-	vecommon::SupportFeatureConfig _supportFeatureConfig;
+
 };
 
 static std::shared_ptr<QkDemo> gDemo;
