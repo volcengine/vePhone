@@ -1,23 +1,28 @@
-#pragma once
+ï»¿#pragma once
+#include "ve_type_defines.h"
 
+
+namespace vecommon {
 
 class ISupportFeatureListener {
+
 public:
 	/*
 	* @type callback
-	* @brief ÊÇ·ñÖ§³ÖÄ³¸öÌØĞÔµÄ»Øµ÷
-	* @param [in] feature ÌØĞÔ
-	*			   0 -- ±ÚÖ½Á÷
-	* @param [in] code ´íÎóÂë
+	* @brief æ˜¯å¦æ”¯æŒæŸä¸ªç‰¹æ€§çš„å›è°ƒ
+	* @param [in] feature ç‰¹æ€§
+	*			   0 -- å£çº¸æµ
+	* @param [in] code é”™è¯¯ç 
 	*			   0 -- SUCCESS
 	*			  -1 -- LIST_POD_REQUEST_FAILED
 	*			  -2 -- LIST_POD_PARSE_RESPONSE_FAILED
 	*			  -3 -- POD_IMAGE_NOT_SUPPORT
 	*			  -4 -- GET_PREVIEW_SETTING_PARSE_RESPONSE_FAILED
 	*			  -5 -- EMPTY_SOFTWARE_VERSION
-	* @param [in] msg ´íÎóĞÅÏ¢
+	* @param [in] msg é”™è¯¯ä¿¡æ¯
 	*/
-	virtual void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {
-	}
+	virtual void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {}
 
 };
+
+} // namespace vecommon

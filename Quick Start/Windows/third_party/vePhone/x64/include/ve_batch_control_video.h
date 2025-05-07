@@ -1,101 +1,190 @@
-#pragma once
+﻿#pragma once
 #include "ve_type_defines.h"
 #include "ve_batch_control_listener.h"
 #include "ve_external_sink.h"
 
-class BatchControlVideo
-{
+
+namespace vecommon {
+
+/**
+ * @locale zh
+ * @type api
+ * @brief 批量拉流控制类
+ */
+class BatchControlVideo {
+
 public:
 
-    BatchControlVideo(const vecommon::BatchControlVideoConfig& config) :_config(config) {};
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 析构函数
+     */
     virtual ~BatchControlVideo() = default;
 
-    // ����С���ӷ�����
-    // - ��ȡpodList�뷿���Ӧ��ϵ
-    // - ��ȡ�ӷ���Ȩ��Ϣ
+    /**
+     * @locale zh
+     * @brief 更新鉴权信息，建议在requestBatchPodStart前调用
+     * @param ak 用户鉴权临时 access key
+     * @param sk 用户鉴权临时 secret key
+     * @param token 用户鉴权临时 token
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int updateAuthInfo(const char* ak, const char* sk, const char* token) = 0;
+
+    /**
+     * @locale zh
+     * @brief 发起BatchPodStart请求
+     * @return 0：调用成功，<0：调用失败
+     * @note podIdList由初始化BatchControlVideo时传入的config解析得来
+     */
     virtual int requestBatchPodStart() = 0;
 
-    // ��������pod����
-    // 1. ��������
-    // 2. �ӷ�
+    /**
+     * @locale zh
+     * @brief 开始批量拉流
+     * @return 0：调用成功，<0：调用失败
+     */
     virtual int start() = 0;
 
-    // �˳�����pod���䲢��������
-    // 1. �˷�
-    // 2. ��������
-    virtual int stop() = 0;
+    /**
+     * @locale zh
+     * @brief 停止批量拉流
+     * @param async 是否异步释放资源
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int stop(bool async = true) = 0;
 
-    /// <summary>
-    /// ��ȡ������Ƶ��״̬
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ��ѯ��podId</param>
-    /// <returns></returns>
-    virtual vecommon::SessionStatus getVideoStatus(const char* pod_id) { return vecommon::SessionStatus::Idle; };
+    /**
+     * @locale zh
+     * @brief 追加配置
+     * @param config 批量拉流控制配置信息
+     */
+    virtual void append(const vecommon::BatchControlVideoConfig& config) = 0;
 
-    /// <summary>
-    /// ��ȡָ��pod����Ƶ����
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ��ѯ��podId</param>
-    /// <returns></returns>
-    virtual vecommon::ControlVideoConfig* getVideoConfig(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 发起BatchPodStart请求，podIdList作为参数传入
+     * @param podIdList podId列表
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int requestBatchPodStart(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// ������Ƶ
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ������podId</param>
-    virtual int subscribe(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 开始批量拉流，podIdList作为参数传入
+     * @param podIdList podId列表
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int start(std::vector<std::string>& podIdList) = 0;
 
+    /**
+     * @locale zh
+     * @brief 停止批量拉流，podIdList作为参数传入
+     * @param podIdList podId列表
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int stop(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// �˶���Ƶ
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ������podId</param>
-    virtual int unsubscribe(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 重试拉流，针对调用start后未成功拉流的pod，可尝试重新拉流
+     * @param podIdList podId列表
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int restart(std::vector<std::string>& podIdList) = 0;
 
-    /// <summary>
-    /// ��ȡ������Ƶ����״̬
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ��ѯ��podId</param>
-    /// <returns></returns>
-    virtual bool isSubscribed(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 批量拉流的Pod列表中是否包含某个Pod
+     * @return true：包含，false：不包含
+     */
+    virtual bool contains(const char* podId) = 0;
 
-    /// <summary>
-    /// ��ȡ������Ƶ�Զ�����״̬
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ��ѯ��podId</param>
-    /// <returns>true-�Զ����ģ�false-�ֶ�����</returns>
-    virtual bool isAutoSubscribe(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 获取某个视频流的状态
+     * @param podId 视频流对应的云机ID
+     * @return 视频流的状态
+     */
+    virtual vecommon::SessionStatus getVideoStatus(const char* podId) { 
+        return vecommon::SessionStatus::Idle; 
+    };
 
-    /// <summary>
-    /// ���µ�����Ƶ����Ⱦ����
-    /// </summary>
-    /// <param name="pod_id">ָ��Ҫ������podId</param>
-    /// <param name="canvas">��Ⱦ����</param>
-    virtual int updateCanvas(const char* pod_id, void* canvas) = 0;
+    /**
+     * @locale zh
+     * @brief 获取某个视频流的配置
+     * @param podId 视频流对应的云机ID
+     * @return 视频流的配置
+     */
+    virtual vecommon::ControlVideoConfig* getVideoConfig(const char* podId) = 0;
 
-    /// <summary>
-    /// �����ⲿ��Ⱦ��
-    /// </summary>
-    /// <param name="pod_id"></param>
-    /// <param name="externalSink"></param>
-    virtual int setExternalSink(const char* pod_id, VeExternalSink* externalSink) = 0;
+    /**
+     * @locale zh
+     * @brief 订阅某个视频流
+     * @param podId 视频流对应的云机ID
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int subscribe(const char* podId) = 0;
 
-    /// <summary>
-    /// ��ȡ�ⲿ��Ⱦ��
-    /// </summary>
-    /// <param name="pod_id"></param>
-    /// <returns></returns>
-    virtual VeExternalSink* getExternalSink(const char* pod_id) = 0;
+    /**
+     * @locale zh
+     * @brief 退订某个视频流
+     * @param podId 视频流对应的云机ID
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int unsubscribe(const char* podId) = 0;
 
-    /// <summary>
-    /// ����Ⱥ���¼��ص�
-    /// </summary>
-    /// <param name="listener"></param>
+    /**
+     * @locale zh
+     * @brief 是否已经订阅某个视频流
+     * @param podId 视频流对应的云机ID
+     * @return true：是，false：否
+     */
+    virtual bool isSubscribed(const char* podId) = 0;
+
+    /**
+     * @locale zh
+     * @brief 某个视频流是否为自动订阅
+     * @param podId 视频流对应的云机ID
+     * @return true：是，false：否
+     */
+    virtual bool isAutoSubscribe(const char* podId) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 更新某个视频流的渲染画布
+     * @param podId 视频流对应的云机ID
+     * @param canvas 渲染画布
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int updateCanvas(const char* podId, void* canvas) = 0;
+
+    /**
+     * @locale zh
+     * @brief 设置某个视频流的外部渲染器
+     * @param podId 视频流对应的云机ID
+     * @param externalSink 外部渲染器
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int setExternalSink(const char* podId, VeExternalSink* externalSink) = 0;
+
+    /**
+     * @locale zh
+     * @brief 获取某个视频流的外部渲染器
+     * @param podId 视频流对应的云机ID
+     * @return 外部渲染器
+     */
+    virtual VeExternalSink* getExternalSink(const char* podId) = 0;
+
+    /**
+     * @locale zh
+     * @brief 设置批量拉流监听器
+     * @param listener 监听器
+     */
     virtual void setBatchControlListener(BatchControlListener* listener) = 0;
-
-protected:
-    const vecommon::BatchControlVideoConfig& _config;
-
 
 };
 
+} // namespace vecommon

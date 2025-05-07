@@ -1,14 +1,22 @@
-#pragma once
+ï»¿#pragma once
 #include <cstdint>
 
+namespace vecommon {
+
 class VeStream {
+
 public:
+
     virtual ~VeStream() = default;
 
-    // Àë¿ªÈº¿Ø·¿¼ä
+    // ç¦»å¼€ç¾¤æ§æˆ¿é—´
     virtual void leaveEventSyncRoom() = 0;
 
-    // ·¢ËÍ·¿¼äÏûÏ¢£¬ÓÃÓÚÈº¿Ø³¡¾°
+    // å‘é€æˆ¿é—´æ¶ˆæ¯ï¼Œç”¨äºç¾¤æ§åœºæ™¯
     virtual void sendRoomMessageString(const char* message) = 0;
     virtual void sendRoomMessageBinary(int size, const uint8_t* message) = 0;
+    virtual void sendUserMessageString(const char* message, const char* remoteUserId) = 0;
+    virtual void sendUserMessageBinary(int size, const uint8_t* message, const char* remoteUserId) = 0;
 };
+
+} // namespace vecommon

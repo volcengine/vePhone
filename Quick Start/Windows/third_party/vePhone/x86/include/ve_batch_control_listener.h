@@ -1,95 +1,91 @@
-#pragma once
+ï»¿#pragma once
 #include "ve_type_defines.h"
 
-class BatchControlListener
-{
+
+namespace vecommon {
+
+/**
+ * @locale zh
+ * @type callback
+ * @brief æ‰¹é‡æ‹‰æµç›‘å¬å™¨ç±»
+ */
+class BatchControlListener {
+
 public:
 
     /**
-     * @type callback
-     * @brief BatchPodStart³É¹¦
-     * @param [in] code, ×´Ì¬Âë  <br>
-     * @param [in] msg, ´íÎóĞÅÏ¢  <br>
+     * @locale zh
+     * @brief è¯·æ±‚BatchPodStartå®Œæˆçš„å›è°ƒ
+     * @param code çŠ¶æ€ç 
+     * @param msg è¯¦ç»†ä¿¡æ¯
+     * @param podInfoList æˆåŠŸæ¨æµçš„äº‘æœºåˆ—è¡¨
+     * @param podErrorList æœ‰é—®é¢˜çš„äº‘æœºåˆ—è¡¨
+     * @note è¯·æ±‚å®Œæˆåï¼Œå¯ä»¥è°ƒç”¨{@link BatchControlVideo#start()æ¥å¼€å§‹æ‰¹é‡æ‹‰æµæ“ä½œ}
      */
-    virtual void onBatchPodStartResult(int code, const char* msg, const std::vector<vecommon::PodInfo>* pod_list, const std::vector<vecommon::PodError>* pod_errors) {
-        // 1. ÇëÇó³É¹¦£¬µ÷ÓÃbcv.start½Ó¿Ú
+    virtual void onBatchPodStartResult(int code, const char* msg, const std::vector<vecommon::PodInfo>* podInfoList, 
+        const std::vector<vecommon::PodError>* podErrorList) {}
+
+    /**
+     * @locale zh
+     * @brief å¼€å§‹æ‰¹é‡æ‹‰æµæˆåŠŸçš„å›è°ƒ
+     * @param podId äº‘æœºID
+     */
+    virtual void onStartSuccess(const char* podId) {}
+
+    /**
+     * @locale zh
+     * @brief äº‘æœºåŠ æˆ¿å›è°ƒ
+     * @param podId äº‘æœºID
+     */
+    virtual void onPodJoin(const char* podId) {
+        (void)podId;
     }
 
     /**
-     * @type callback
-     * @brief start³É¹¦»Øµ÷
+     * @locale zh
+     * @brief æ”¶åˆ°é¦–å¸§è§†é¢‘æµçš„å›è°ƒ
+     * @param podId äº‘æœºID
+     * @param profileId æ¸…æ™°åº¦ID
      */
-    virtual void onStartSuccess(const char* pod_id) {
+    virtual void onFirstVideoFrameArrived(const char* podId, int profileId) {
+        (void)podId;
+        (void)profileId;
     }
 
     /**
-     * @type callback
-     * @brief Ô¶¶ËÓÃ»§¼Ó·¿»Øµ÷
-     *        - ¸ù¾İ¶ÔÓ¦µÄpod´°¿ÚÊÇ·ñ¶ÔÓÃ»§¿É¼û£¬À´¾ö¶¨ÊÇ·ñ½øĞĞ¶©ÔÄ²Ù×÷
-     *        - Warning: ¿ÉÄÜ»áÔö¼ÓÊ×Ö¡ºÄÊ±
-     * @param [in] pod_id£¬¶Ô¶ËpodId  <br>
+     * @locale zh
+     * @brief è§†é¢‘æµåœæ­¢çš„å›è°ƒ
+     * @param podId äº‘æœºID
      */
-    virtual void onPodJoin(const char* pod_id) {
-        (void)pod_id;
+    virtual void onStop(const char* podId) {
+        (void)podId;
     }
 
     /**
-     * @type callback
-     * @brief Æô¶¯³É¹¦
-     * @param [in] pod_id, ¶Ô¶ËpodId  <br>
-     * @param [in] video_stream_profile, ÇåÎú¶ÈµµÎ»  <br>
+     * @locale zh
+     * @brief é”™è¯¯å›è°ƒ
+     * @param podId äº‘æœºID
+     * @param code é”™è¯¯ç 
+     * @param msg é”™è¯¯ä¿¡æ¯
      */
-    virtual void onFirstVideoFrameArrived(const char* pod_id, int video_stream_profile) {
-        (void)pod_id;
-        (void)video_stream_profile;
-    }
-
-    /**
-     * @type callback
-     * @brief ÔÆÊÖ»úÍ£Ö¹»Øµ÷
-     * @param [in] pod_id, ¶Ô¶ËpodId  <br>
-     */
-    virtual void onStop(const char* pod_id) {
-        (void)pod_id;
-    }
-
-
-    /**
-     * @type callback
-     * @brief SDKÄÚ²¿²úÉúµÄ´íÎó»Øµ÷
-     * @param [in] user_id, Ô¶¶ËÓÃ»§ID  <br>
-     * @param [in] code£¬²Î¿¼¿ª·¢ÕßÎÄµµ
-     * @param [in] msg£¬´íÎóĞÅÏ¢
-     */
-    virtual void onError(const char* pod_id, int code, const char* msg) {
-        (void)pod_id;
+    virtual void onError(const char* podId, int code, const char* msg) {
+        (void)podId;
         (void)code;
         (void)msg;
     }
 
     /**
-     * @type callback
-     * @brief SDKÄÚ²¿²úÉúµÄ¾¯¸æ»Øµ÷
-     * @param [in] user_id, Ô¶¶ËÓÃ»§ID  <br>
-     * @param [in] code£¬²Î¿¼¿ª·¢ÕßÎÄµµ
-     * @param [in] msg£¬´íÎóĞÅÏ¢
+     * @locale zh
+     * @brief è­¦å‘Šå›è°ƒ
+     * @param podId äº‘æœºID
+     * @param code è­¦å‘Šç 
+     * @param msg è­¦å‘Šä¿¡æ¯
      */
-    virtual void onWarning(const char* pod_id, int code, const char* msg) {
-        (void)pod_id;
+    virtual void onWarning(const char* podId, int code, const char* msg) {
+        (void)podId;
         (void)code;
     }
 
-
-    ///**
-    // * @type callback
-    // * @brief ÔÆ¶ËpodÆÁÄ»Ğı×ª
-    // * @param [in] rotation, ÊúÆÁ: 0»ò180£¬ºáÆÁ: 90»ò270
-    // * @note µ÷ÓÃ{@link vephone_engine#rotateScreen(vecommon::RotateDegree degree)}³É¹¦ºó»á»Øµ÷£¬     <br>
-    // *          +   ´ËÊ±À­Á÷äÖÈ¾·½ÏòÒÑ¾­¸Ä±ä£¬¿ÉÒÔÍ¨¹ı´Ë»Øµ÷¶ÔÈİÆ÷²¼¾Ö¡¢´óĞ¡¡¢·½ÏòµÈ½øĞĞ¸Ä±ä     <br>
-    // *
-    // */
-    //virtual void onRemoteRotation(const char* pod_id, int rotation) {
-    //    (void)pod_id;
-    //    (void)rotation;
-    //}
 };
+
+} // namespace vecommon
