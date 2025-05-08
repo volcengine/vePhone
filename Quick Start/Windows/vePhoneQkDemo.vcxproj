@@ -87,20 +87,26 @@
     <OutDir>$(ProjectDir)build\$(PlatformShortName)-$(Configuration)\bin\</OutDir>
     <IntDir>$(ProjectDir)build\$(PlatformShortName)-$(Configuration)\obj\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <VcpkgManifestInstall>false</VcpkgManifestInstall>
+    <VcpkgAutoLink>false</VcpkgAutoLink>
+    <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include;$(ProjectDir)third_party\fmt\$(PlatformShortName)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib;$(ProjectDir)third_party\fmt\$(PlatformShortName)\lib\$(ConfigurationName)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -116,15 +122,15 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include;$(ProjectDir)third_party\fmt\$(PlatformShortName)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib;$(ProjectDir)third_party\fmt\$(PlatformShortName)\lib\$(ConfigurationName)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -135,16 +141,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include;$(ProjectDir)third_party\fmt\$(PlatformShortName)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib;$(ProjectDir)third_party\fmt\$(PlatformShortName)\lib\$(ConfigurationName)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -163,7 +169,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\include;$(ProjectDir)third_party\fmt\$(PlatformShortName)\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -173,8 +179,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\vePhone\$(PlatformShortName)\lib;$(ProjectDir)third_party\fmt\$(PlatformShortName)\lib\$(ConfigurationName)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vePhoneEngine.lib;winhttp.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
