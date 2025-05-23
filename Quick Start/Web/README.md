@@ -42,13 +42,17 @@ git clone https://github.com/volcengine/vePhone.git
 cd vePhone/Quick Start/Web
 ```
 
-3. 安装依赖
+3. 前往[云手机火山官网文档中心](!https://www.volcengine.com/docs/6394/1274174)下载 sdk 最新版本，将 sdk 文件重命名为 `vephone-sdk.min.js` 放到 `src/libs` 目录下。
+注：如果点击上面链接没有看到下载 sdk 文件的位置，请确保登录火山账号，且账号已经加白云手机
+
+
+4. 安装依赖
 
 ```bash
 npm install
 ```
 
-4. 在 src 目录的`.env`文件，填写启动云手机需要的配置，配置如下：
+5. 在 src 目录的`.env`文件，填写启动云手机需要的配置，配置如下：
 
 ```bash
 # init config
