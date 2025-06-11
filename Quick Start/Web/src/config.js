@@ -5,7 +5,7 @@ import { isPC } from './utils.js';
 console.log('is pc', isPC);
 
 export const initConfig = {
-  userId: 'vephone-github-web-quick-start', // 自定义客户端用户 ID，用于区分用户
+  userId: 'vephone-github-web-quick-start', // 客户端 userId。** 请保证每个用户的 userId 都是唯一的。例如：`${userName}_${uuid()}` **
   accountId: import.meta.env.VEPHONE_ACCOUNT_ID, // 火山引擎用户账号，可通过火山引擎官网页面右上角 用户 > 账号管理 > 主账号信息 获取
   isPC,
 };
