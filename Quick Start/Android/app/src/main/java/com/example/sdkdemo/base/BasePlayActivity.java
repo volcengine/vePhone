@@ -5,10 +5,13 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.sdkdemo.R;
@@ -33,7 +36,6 @@ public class BasePlayActivity extends AppCompatActivity implements IPlayerListen
         TAG = getClass().getSimpleName();
     }
     private long lastBackPress;
-
 
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
@@ -97,6 +99,7 @@ public class BasePlayActivity extends AppCompatActivity implements IPlayerListen
     @Override
     public void onError(int code, String msg) {
         Log.e(TAG, "[onError] code: " + code + ", msg: " + msg);
+        toggleLoadingUI(false);
         showTipDialog("启动拉流失败，错误原因：\n" + MessageFormat.format("code:{0}\nmsg:{1}", String.valueOf(code), msg));
     }
 
@@ -173,6 +176,7 @@ public class BasePlayActivity extends AppCompatActivity implements IPlayerListen
     @Override
     public void onFirstRemoteVideoFrame(String uid) {
         Log.d(TAG, "[onFirstRemoteVideoFrame] uid: " + uid);
+        toggleLoadingUI(false);
     }
 
     /**
@@ -323,5 +327,14 @@ public class BasePlayActivity extends AppCompatActivity implements IPlayerListen
                     }
                 })
                 .show();
+    }
+
+    private View loadingUI;
+
+    private void toggleLoadingUI(boolean visible) {
+        if (loadingUI == null) {
+            loadingUI = findViewById(R.id.progress_bar);
+        }
+        loadingUI.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 }
