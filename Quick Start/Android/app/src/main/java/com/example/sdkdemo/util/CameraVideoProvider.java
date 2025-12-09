@@ -1,4 +1,4 @@
-package com.example.sdkdemo.common;
+package com.example.sdkdemo.util;
 
 import android.Manifest;
 import android.content.Context;

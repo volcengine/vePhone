@@ -1,5 +1,7 @@
 package com.example.sdkdemo.base
 
+import android.app.AlertDialog
+import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -40,5 +42,15 @@ abstract class BaseSampleActivity : AppCompatActivity() {
         intent.putExtra("uri", getString(R.string.official_website_url))
         startActivity(intent)
 //        WebViewActivity.start(getString(R.string.official_website_url), this)
+    }
+
+    protected fun showTipDialog(message: String) {
+        AlertDialog.Builder(this)
+            .setCancelable(true)
+            .setTitle("提示")
+            .setMessage(message)
+            .setPositiveButton("OK"
+            ) { dialog, which -> dialog?.dismiss() }
+            .show()
     }
 }

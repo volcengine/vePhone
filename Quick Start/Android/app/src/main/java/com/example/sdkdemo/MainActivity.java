@@ -21,12 +21,16 @@ import com.example.sdkdemo.feature.SensorActivity;
 import com.example.sdkdemo.feature.TouchEventServiceActivity;
 import com.example.sdkdemo.feature.UserServiceActivity;
 import com.example.sdkdemo.feature.VideoRenderModeManagerActivity;
+import com.example.sdkdemo.util.SdkUtil;
 
 public class MainActivity extends BaseListActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!SdkUtil.checkHasConfigAccountIdInManifest()) {
+            showTipDialog(getString(R.string.tip_missing_account_id));
+        }
     }
 
     @Override

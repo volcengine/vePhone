@@ -22,11 +22,11 @@ public class InitApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        /**
+        /*
          * 目前仅支持在主进程中初始化VePhoneEngine
          */
         if (ProcessUtils.isMainProcess()) {
-            /**
+            /*
              * 请使用prepare()方法来初始化VeGameEngine，init()方法已废弃。
              */
             VePhoneEngine.getInstance().prepare(this);
@@ -45,7 +45,7 @@ public class InitApplication extends Application {
                 @Override
                 public void onPrepared() {
                     // SDK初始化是一个异步过程，在这个回调中监听初始化完成状态
-                    AcLog.d(TAG, "onPrepared :" + VePhoneEngine.getInstance().getStatus());
+                    Log.d(TAG, "onPrepared :" + VePhoneEngine.getInstance().getStatus());
                 }
             });
         }
