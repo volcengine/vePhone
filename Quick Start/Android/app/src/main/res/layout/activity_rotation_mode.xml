@@ -11,4 +11,6 @@
         android:layout_height="match_parent">
     </FrameLayout>
 
+    <include layout="@layout/include_progress_bar" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

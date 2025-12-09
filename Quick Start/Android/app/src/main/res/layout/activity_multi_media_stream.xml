@@ -15,6 +15,8 @@
         android:layout_height="0dp">
     </FrameLayout>
 
+    <include layout="@layout/include_progress_bar" />
+
     <FrameLayout
         android:id="@+id/secondary_container"
         android:background="@color/teal_200"

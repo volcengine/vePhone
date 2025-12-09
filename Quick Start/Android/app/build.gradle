@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 32
     buildToolsVersion "30.0.3"
 
     defaultConfig {
@@ -44,9 +44,10 @@ dependencies {
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
-    // todo: 从Maven仓库获取sdk最新版本
-    implementation 'com.volcengine.vephone:vephone:1.30.0'
-    // 或者依赖离线包
+    // todo: 从火山云手机官网获取sdk最新版本：https://www.volcengine.com/docs/6394/1274174?lang=zh
+    // 集成方式一：使用Maven依赖，推荐
+    implementation "com.volcengine.vephone:vephone:1.64.0"
+    // 集成方式二：依赖离线包，最新离线aar同样从火山云手机官网获取
 //    implementation files('libs/phone-lite-release.aar')
 
     // 游戏手柄

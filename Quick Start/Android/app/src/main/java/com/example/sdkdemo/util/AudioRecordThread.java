@@ -1,4 +1,4 @@
-package com.example.sdkdemo.common;
+package com.example.sdkdemo.util;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;

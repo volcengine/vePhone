@@ -1,8 +1,8 @@
 package com.example.sdkdemo.feature;
 
 
-import android.content.res.Configuration;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,22 +21,16 @@ import com.blankj.utilcode.util.ToastUtils;
 import com.example.sdkdemo.R;
 import com.example.sdkdemo.util.ScreenUtil;
 import com.example.sdkdemo.base.BasePlayActivity;
-import com.example.sdkdemo.util.AssetsUtil;
-import com.volcengine.androidcloud.common.log.AcLog;
+import com.example.sdkdemo.util.SdkUtil;
+import com.volcengine.androidcloud.common.model.RotationState;
 import com.volcengine.androidcloud.common.model.StreamStats;
 import com.volcengine.androidcloud.common.pod.Rotation;
-import com.volcengine.cloudcore.common.mode.LocalStreamStats;
 import com.volcengine.cloudcore.common.mode.VideoRenderMode;
 import com.volcengine.cloudphone.apiservice.MultiMediaStreamService;
-import com.volcengine.cloudphone.apiservice.outinterface.IPlayerListener;
-import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.cloudphone.base.VeAudioFrame;
 import com.volcengine.cloudphone.base.VeDisplay;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,14 +40,9 @@ import java.util.Map;
  * 该类用于展示与多屏取流{@link MultiMediaStreamService}相关的功能接口的使用方法
  * 该功能需要使用特殊镜像，如需接入请联系火山咨询详情。
  */
-public class MultiMediaStreamActivity extends BasePlayActivity
-        implements IPlayerListener, IStreamListener {
-
-    private final String TAG = "MultiMediaStreamActivity";
+public class MultiMediaStreamActivity extends BasePlayActivity {
 
     private FrameLayout mMainContainer, mSecondaryContainer;
-    private PhonePlayConfig mPhonePlayConfig;
-    private PhonePlayConfig.Builder mBuilder;
     private MultiMediaStreamService mMultiMediaStreamService;
     private SwitchCompat mSwShowOrHide;
     private LinearLayoutCompat mLlButtons;
@@ -71,7 +60,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
         ScreenUtil.adaptHolePhone(this);
         setContentView(R.layout.activity_multi_media_stream);
         initView();
-        initPhonePlayConfig();
+        initPlayConfigAndStartPlay();
     }
 
     @Override
@@ -97,17 +86,6 @@ public class MultiMediaStreamActivity extends BasePlayActivity
     public void finish() {
         VePhoneEngine.getInstance().stop();
         super.finish();
-    }
-
-    @Override
-    public void onConfigurationChanged(@NonNull Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        AcLog.d(TAG, "[onConfigurationChanged] newConfig: " + newConfig.orientation);
-        /**
-         * 在多屏场景下，调用{@link VePhoneEngine#rotate(int)}方法只会旋转主屏的方向，
-         * 若想旋转副屏的方向，需要调用{@link MultiMediaStreamService#rotate(String, int)}。
-         */
-        VePhoneEngine.getInstance().rotate(newConfig.orientation);
     }
 
     private void initView() {
@@ -523,37 +501,10 @@ public class MultiMediaStreamActivity extends BasePlayActivity
         });
     }
 
-    private void initPhonePlayConfig() {
-        /**
-         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-         * ak/sk/token用于用户鉴权，需要从火山官网上获取，具体步骤详见README[鉴权相关]。
-         * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-         *
-         * ak/sk/token/podId的值从assets目录下的sts.json文件中读取，该目录及文件需要自行创建。
-         * sts.json的格式形如
-         * {
-         *     "podId": "your_pod_id",
-         *     "productId": "your_product_id",
-         *     "ak": "your_ak",
-         *     "sk": "your_sk",
-         *     "token": "your_token"
-         * }
-         */
-        String ak = "", sk = "", token = "", podId = "", productId = "";  // 这里需要替换成你的 ak/sk/token/podId/productId
-        String sts = AssetsUtil.getTextFromAssets(this.getApplicationContext(), "sts.json");
-        try {
-            JSONObject stsJObj = new JSONObject(sts);
-            ak = stsJObj.getString("ak");
-            sk = stsJObj.getString("sk");
-            token = stsJObj.getString("token");
-            podId = stsJObj.getString("podId");
-            productId = stsJObj.getString("productId");
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+    private void initPlayConfigAndStartPlay() {
+        SdkUtil.PlayAuth auth = SdkUtil.getPlayAuth(this);
 
         String roundId = "roundId_123";
-        String userId = "userId_" + System.currentTimeMillis();
 
         /**
          * VeDisplay指定了取流的屏幕参数，其包含多个配置，详见{@link VeDisplay.Builder}
@@ -570,48 +521,26 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                 .videoStreamProfileId(16310)
                 .build());
 
-        mBuilder = new PhonePlayConfig.Builder();
-        mBuilder.userId(userId)
-                .ak(ak)
-                .sk(sk)
-                .token(token)
+        PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
+        builder.userId(SdkUtil.getClientUid())
+                .ak(auth.ak)
+                .sk(auth.sk)
+                .token(auth.token)
                 .container(mMainContainer)
                 .roundId(roundId)
-                .podId(podId)
+                .podId(auth.podId)
                 .videoStreamProfileId(16310)
                 .videoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_FILL)
-                .productId(productId)
+                .productId(auth.productId)
                 .enableLocalKeyboard(false)
                 .displayList(displayMap)
                 .streamListener(this);
-
-        mPhonePlayConfig = mBuilder.build();
-        VePhoneEngine.getInstance().start(mPhonePlayConfig, this);
-    }
-
-    @Override
-    public void onPlaySuccess(String roundId, int clarityId) {
-        AcLog.d(TAG, "[onPlaySuccess] roundId " + roundId + " clarityId " + clarityId);
-    }
-
-    @Override
-    public void onError(int i, String s) {
-        AcLog.e(TAG, "[onError] errorCode: " + i + ", errorMsg: " + s);
-    }
-
-    @Override
-    public void onWarning(int i, String s) {
-        AcLog.w(TAG, "[onWarning] errorCode: " + i + ", errorMsg: " + s);
-    }
-
-    @Override
-    public void onNetworkChanged(int i) {
-        AcLog.d(TAG, "[onNetworkChanged] network: " + i);
+        VePhoneEngine.getInstance().start(builder.build(), this);
     }
 
     @Override
     public void onServiceInit(@NonNull Map<String, Object> extras) {
-        AcLog.d(TAG, "[onServiceInit] extras: " + extras);
+        super.onServiceInit(extras);
         mMultiMediaStreamService = VePhoneEngine.getInstance().getMultiMediaStreamService();
         if (mMultiMediaStreamService != null) {
             /**
@@ -630,7 +559,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onAppDisplayIdChanged(String srcStreamId, String dstStreamId, String packageName) {
-                    AcLog.i(TAG, "onAppDisplayIdChanged: srcStreamId = [" + srcStreamId + "], dstStreamId = [" + dstStreamId + "], packageName = [" + packageName + "]");
+                    Log.i(TAG, "onAppDisplayIdChanged: srcStreamId = [" + srcStreamId + "], dstStreamId = [" + dstStreamId + "], packageName = [" + packageName + "]");
                     ToastUtils.showShort("onAppDisplayIdChanged: srcStreamId = [" + srcStreamId + "], dstStreamId = [" + dstStreamId + "], packageName = [" + packageName + "]");
                 }
             });
@@ -651,7 +580,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onPlaySuccess(String streamId, int videoStreamProfile, String extraInfo) {
-                    AcLog.i(TAG, "onPlaySuccess: streamId = [" + streamId + "], videoStreamProfile = [" + videoStreamProfile + "], extraInfo = [" + extraInfo + "]");
+                    Log.i(TAG, "onPlaySuccess: streamId = [" + streamId + "], videoStreamProfile = [" + videoStreamProfile + "], extraInfo = [" + extraInfo + "]");
                     ToastUtils.showShort("onPlaySuccess: streamId = [" + streamId + "], videoStreamProfile = [" + videoStreamProfile + "], extraInfo = [" + extraInfo + "]");
                 }
 
@@ -663,7 +592,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onStreamError(int code, String msg) {
-                    AcLog.i(TAG, "onStreamError: code = [" + code + "], msg = [" + msg + "]");
+                    Log.i(TAG, "onStreamError: code = [" + code + "], msg = [" + msg + "]");
                     ToastUtils.showShort("onStreamError: code = [" + code + "], msg = [" + msg + "]");
                 }
 
@@ -675,21 +604,23 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onReceivedRemoteAudioFrame(String streamId, VeAudioFrame frame) {
-                    AcLog.i(TAG, "onReceivedRemoteAudioFrame: streamId = [" + streamId + "], frame = [" + frame + "]");
+                    Log.i(TAG, "onReceivedRemoteAudioFrame: streamId = [" + streamId + "], frame = [" + frame + "]");
                 }
 
                 /**
                  * 当远端实例屏幕旋转时收到此回调，建议在该回调旋转副屏的方向
                  *
                  * @param streamId 音视频流ID
-                 * @param rotation 0、180-竖屏；270、90-横屏
+                 * @param state 0、180-竖屏；270、90-横屏
                  * @see Rotation#toRotation()
                  */
                 @Override
-                public void onRotate(String streamId, int rotation) {
-                    AcLog.i(TAG, "onRotate: streamId = [" + streamId + "], rotation = [" + rotation + "]");
+                public void onRotate(String streamId, RotationState state) {
+                    Log.i(TAG, "onRotate: streamId = [" + streamId + "], rotation = [" + state.rotation + "]");
                     if (mMultiMediaStreamService != null) {
-                        mMultiMediaStreamService.rotate(streamId, Rotation.from(rotation).orientation);
+                        if (!mMultiMediaStreamService.isMainScreen(streamId)) {
+                            mMultiMediaStreamService.rotate(streamId, Rotation.from(state.rotation).orientation);
+                        }
                     }
                 }
 
@@ -702,7 +633,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onStreamProfileChanged(String streamId, int from, int current) {
-                    AcLog.i(TAG, "onStreamProfileChanged: streamId = [" + streamId + "], from = [" + from + "], current = [" + current + "]");
+                    Log.i(TAG, "onStreamProfileChanged: streamId = [" + streamId + "], from = [" + from + "], current = [" + current + "]");
                     ToastUtils.showShort("onStreamProfileChanged: streamId = [" + streamId + "], from = [" + from + "], current = [" + current + "]");
                 }
 
@@ -714,7 +645,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onStreamStats(String streamId, StreamStats streamStats) {
-                    AcLog.i(TAG, "onStreamStats: streamId = [" + streamId + "], streamStats = [" + streamStats + "]");
+                    Log.i(TAG, "onStreamStats: streamId = [" + streamId + "], streamStats = [" + streamStats + "]");
                 }
 
                 /**
@@ -732,7 +663,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onNetworkQuality(String streamId, int quality) {
-                    AcLog.i(TAG, "onNetworkQuality: streamId = [" + streamId + "], quality = [" + quality + "]");
+                    Log.i(TAG, "onNetworkQuality: streamId = [" + streamId + "], quality = [" + quality + "]");
                 }
 
                 /**
@@ -742,7 +673,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onFirstAudioFrame(String streamId) {
-                    AcLog.i(TAG, "onFirstAudioFrame: streamId = [" + streamId + "]");
+                    Log.i(TAG, "onFirstAudioFrame: streamId = [" + streamId + "]");
                 }
 
                 /**
@@ -752,7 +683,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onFirstRemoteVideoFrame(String streamId) {
-                    AcLog.i(TAG, "onFirstRemoteVideoFrame: streamId = [" + streamId + "]");
+                    Log.i(TAG, "onFirstRemoteVideoFrame: streamId = [" + streamId + "]");
                 }
             });
 
@@ -773,7 +704,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onGetResult(int audioZone, int code, String streamId, String msg) {
-                    AcLog.i(TAG, "onGetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
+                    Log.i(TAG, "onGetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
                     ToastUtils.showShort("onGetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
                 }
 
@@ -787,7 +718,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onSetResult(int audioZone, int code, String streamId, String msg) {
-                    AcLog.i(TAG, "onSetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
+                    Log.i(TAG, "onSetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
                     ToastUtils.showShort("onSetResult: audioZone = [" + audioZone + "], code = [" + code + "], streamId = [" + streamId + "], msg = [" + msg + "]");
                 }
 
@@ -799,7 +730,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onAudioZoneChanged(int audioZone, String streamId) {
-                    AcLog.i(TAG, "onAudioZoneChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "]");
+                    Log.i(TAG, "onAudioZoneChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "]");
                     ToastUtils.showShort("onAudioZoneChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "]");
                 }
             });
@@ -822,7 +753,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onResult(@IntRange(from = 0) int audioZone, int code, String streamId, String packageName, String msg) {
-                    AcLog.i(TAG, "[onResult] audioZone: " + audioZone + ", code: " + code + ", streamId: " + streamId + ", packageName: " +packageName + ", msg: " + msg);
+                    Log.i(TAG, "[onResult] audioZone: " + audioZone + ", code: " + code + ", streamId: " + streamId + ", packageName: " +packageName + ", msg: " + msg);
                     ToastUtils.showShort("[onResult] audioZone: " + audioZone + ", code: " + code + ", streamId: " + streamId + ", packageName: " +packageName + ", msg: " + msg);
                 }
 
@@ -836,7 +767,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onAudioFocusAppChanged(@IntRange(from = 0) int audioZone, String streamId, String packageName, int eventType) {
-                    AcLog.i(TAG, "onAudioFocusAppChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "], packageName = [" + packageName + "], eventType = [" + eventType + "]");
+                    Log.i(TAG, "onAudioFocusAppChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "], packageName = [" + packageName + "], eventType = [" + eventType + "]");
                     ToastUtils.showShort("onAudioFocusAppChanged: audioZone = [" + audioZone + "], streamId = [" + streamId + "], packageName = [" + packageName + "], eventType = [" + eventType + "]");
                 }
             });
@@ -859,7 +790,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onResult(@NonNull String streamId, int code, String packageName, String msg) {
-                    AcLog.i(TAG, "onResult: streamId = [" + streamId + "], code = [" + code + "], packageName = [" + packageName + "], msg = [" + msg + "]");
+                    Log.i(TAG, "onResult: streamId = [" + streamId + "], code = [" + code + "], packageName = [" + packageName + "], msg = [" + msg + "]");
                     ToastUtils.showShort("onResult: streamId = [" + streamId + "], code = [" + code + "], packageName = [" + packageName + "], msg = [" + msg + "]");
                 }
 
@@ -871,7 +802,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onFocusedWindowAppChanged(@NonNull String streamId, @NonNull String packageName) {
-                    AcLog.i(TAG, "onFocusedWindowAppChanged: streamId = [" + streamId + "], packageName = [" + packageName + "]");
+                    Log.i(TAG, "onFocusedWindowAppChanged: streamId = [" + streamId + "], packageName = [" + packageName + "]");
                     ToastUtils.showShort("onFocusedWindowAppChanged: streamId = [" + streamId + "], packageName = [" + packageName + "]");
                 }
             });
@@ -891,7 +822,7 @@ public class MultiMediaStreamActivity extends BasePlayActivity
                  */
                 @Override
                 public void onScreenStateChanged(@NonNull String streamId, @NonNull MultiMediaStreamService.ScreenState screenState) {
-                    AcLog.i(TAG, "onScreenStateChanged: streamId = [" + streamId + "], screenState = [" + screenState + "]");
+                    Log.i(TAG, "onScreenStateChanged: streamId = [" + streamId + "], screenState = [" + screenState + "]");
                     ToastUtils.showShort("onScreenStateChanged: streamId = [" + streamId + "], screenState = [" + screenState + "]");
                 }
             });
@@ -899,73 +830,5 @@ public class MultiMediaStreamActivity extends BasePlayActivity
         }
     }
 
-    /**
-     * 即将废弃，建议使用{@link IPlayerListener#onServiceInit(Map)}
-     */
-    @Override
-    public void onServiceInit() {
-
-    }
-
-    @Override
-    public void onFirstAudioFrame(String s) {
-        AcLog.d(TAG, "[onFirstAudioFrame] audioStreamId: " + s);
-    }
-
-    @Override
-    public void onFirstRemoteVideoFrame(String s) {
-        AcLog.d(TAG, "[onFirstRemoteVideoFrame] videoStreamId: " + s);
-    }
-
-    @Override
-    public void onStreamStarted() {
-        AcLog.d(TAG, "[onStreamStarted]");
-    }
-
-    @Override
-    public void onStreamPaused() {
-        AcLog.d(TAG, "[onStreamPaused]");
-    }
-
-    @Override
-    public void onStreamResumed() {
-        AcLog.d(TAG, "[onStreamResumed]");
-    }
-
-    @Override
-    public void onStreamStats(StreamStats streamStats) {
-        AcLog.d(TAG, "[onStreamStats] streamStats: " + streamStats);
-    }
-
-    @Override
-    public void onLocalStreamStats(LocalStreamStats localStreamStats) {
-        AcLog.d(TAG, "[onLocalStreamStats] localStreamStats: " + localStreamStats);
-    }
-
-    @Override
-    public void onStreamConnectionStateChanged(int i) {
-        AcLog.d(TAG, "[onStreamConnectionStateChanged] connectionState: " + i);
-    }
-
-    @Override
-    public void onDetectDelay(long l) {
-        AcLog.d(TAG, "[onDetectDelay] detectDelay: " + l);
-    }
-
-    @Override
-    public void onRotation(int i) {
-        AcLog.d(TAG, "[onRotation] rotation: " + i);
-        setRotation(i);
-    }
-
-    @Override
-    public void onPodExit(int i, String s) {
-        AcLog.d(TAG, "[onPodExit] errorCode: " + i + ", errorMsg: " + s);
-    }
-
-    @Override
-    public void onNetworkQuality(int i) {
-        AcLog.d(TAG, "[onNetworkQuality] quality: " + i);
-    }
 
 }

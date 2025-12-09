@@ -14,6 +14,7 @@
     <string name="sendTestMessage">sendTestMessage</string>
     <string name="send_message_not_ack">send message not ack</string>
     <string name="instructions_for_use">这是一个示例代码，需要修改源码填入对应的ak，sk ，token， productId，编译后才能使用</string>
+    <string name="tip_missing_account_id">检测到未在manifest文件配置火山accountId，请到火山云手机官网获取</string>
 
     <string name="start_game">开始云游戏</string>
     <string name="start_phone">开启云手机</string>
