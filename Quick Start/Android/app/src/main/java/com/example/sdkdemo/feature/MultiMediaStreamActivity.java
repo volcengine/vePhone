@@ -32,6 +32,7 @@ import com.volcengine.cloudphone.base.VeDisplay;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -503,39 +504,43 @@ public class MultiMediaStreamActivity extends BasePlayActivity {
 
     private void initPlayConfigAndStartPlay() {
         SdkUtil.PlayAuth auth = SdkUtil.getPlayAuth(this);
+        SdkUtil.checkPlayAuth(auth,
+                p -> {
+                    /**
+                     * VeDisplay指定了取流的屏幕参数，其包含多个配置，详见{@link VeDisplay.Builder}
+                     */
+                    Map<String, VeDisplay> displayMap = new HashMap<>();
+                    displayMap.put("0-0", new VeDisplay.Builder()
+                            .container(mMainContainer) // 指定当前屏幕渲染视图的容器，必填项
+                            .mainScreen(true) // 指定当前屏幕是否为主屏，当有多个屏幕时只允许有一个主屏，非必填项
+                            .videoStreamProfileId(16310) // 指定当前屏幕的清晰度档位，非必填项
+                            .build());
+                    displayMap.put("0-1", new VeDisplay.Builder()
+                            .container(mSecondaryContainer)
+                            .mainScreen(false)
+                            .videoStreamProfileId(16310)
+                            .build());
 
-        String roundId = "roundId_123";
+                    PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
+                    builder.userId(SdkUtil.getClientUid())
+                            .ak(auth.ak)
+                            .sk(auth.sk)
+                            .token(auth.token)
+                            .container(mMainContainer)
+                            .roundId(SdkUtil.getRoundId())
+                            .podId(auth.podId)
+                            .videoStreamProfileId(16310)
+                            .videoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_FILL)
+                            .productId(auth.productId)
+                            .enableLocalKeyboard(false)
+                            .displayList(displayMap)
+                            .streamListener(this);
+                    VePhoneEngine.getInstance().start(builder.build(), this);
+                },
+                p -> {
+                    showTipDialog(MessageFormat.format(getString(R.string.invalid_phone_play_config) , p));
+                });
 
-        /**
-         * VeDisplay指定了取流的屏幕参数，其包含多个配置，详见{@link VeDisplay.Builder}
-         */
-        Map<String, VeDisplay> displayMap = new HashMap<>();
-        displayMap.put("0-0", new VeDisplay.Builder()
-                .container(mMainContainer) // 指定当前屏幕渲染视图的容器，必填项
-                .mainScreen(true) // 指定当前屏幕是否为主屏，当有多个屏幕时只允许有一个主屏，非必填项
-                .videoStreamProfileId(16310) // 指定当前屏幕的清晰度档位，非必填项
-                .build());
-        displayMap.put("0-1", new VeDisplay.Builder()
-                .container(mSecondaryContainer)
-                .mainScreen(false)
-                .videoStreamProfileId(16310)
-                .build());
-
-        PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
-        builder.userId(SdkUtil.getClientUid())
-                .ak(auth.ak)
-                .sk(auth.sk)
-                .token(auth.token)
-                .container(mMainContainer)
-                .roundId(roundId)
-                .podId(auth.podId)
-                .videoStreamProfileId(16310)
-                .videoRenderMode(VideoRenderMode.VIDEO_RENDER_MODE_FILL)
-                .productId(auth.productId)
-                .enableLocalKeyboard(false)
-                .displayList(displayMap)
-                .streamListener(this);
-        VePhoneEngine.getInstance().start(builder.build(), this);
     }
 
     @Override

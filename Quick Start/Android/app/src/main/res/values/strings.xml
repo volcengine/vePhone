@@ -187,4 +187,5 @@
 
     <string name="official_website">火山官网</string>
     <string name="official_website_url">https://www.volcengine.com/docs/6394/75735</string>
+    <string name="invalid_phone_play_config">启动参数PhonePlayConfig不合法:\n{0}\n请替换启动参数为您真实的数据</string>
 </resources>

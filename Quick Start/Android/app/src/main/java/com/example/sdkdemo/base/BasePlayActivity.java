@@ -315,7 +315,7 @@ public class BasePlayActivity extends AppCompatActivity implements IPlayerListen
     }
 
 
-    private void showTipDialog(String message) {
+    protected void showTipDialog(String message) {
         new AlertDialog.Builder(this)
                 .setCancelable(false)
                 .setTitle("提示")

@@ -18,6 +18,8 @@ import com.example.sdkdemo.util.SdkUtil;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
+import java.text.MessageFormat;
+
 /**
  * 该类用于展示主功能以外的其他功能接口
  * 其中包括从云端拉取视频流的暂停与恢复、向云端实例发送按键事件、
@@ -109,19 +111,24 @@ public class OthersActivity extends BasePlayActivity {
 
     private void initPlayConfigAndStartPlay() {
         SdkUtil.PlayAuth auth = SdkUtil.getPlayAuth(this);
-        String roundId = "roundId_123";
-        PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
-        builder.userId(SdkUtil.getClientUid())
-                .ak(auth.ak)
-                .sk(auth.sk)
-                .token(auth.token)
-                .container(mContainer)
-                .enableLocalKeyboard(true)
-                .roundId(roundId)
-                .podId(auth.podId)
-                .productId(auth.productId)
-                .streamListener(this);
-        VePhoneEngine.getInstance().start(builder.build(), this);
+        SdkUtil.checkPlayAuth(auth,
+                p -> {
+                    PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
+                    builder.userId(SdkUtil.getClientUid())
+                            .ak(auth.ak)
+                            .sk(auth.sk)
+                            .token(auth.token)
+                            .container(mContainer)
+                            .enableLocalKeyboard(true)
+                            .roundId(SdkUtil.getRoundId())
+                            .podId(auth.podId)
+                            .productId(auth.productId)
+                            .streamListener(this);
+                    VePhoneEngine.getInstance().start(builder.build(), this);
+                },
+                p -> {
+                    showTipDialog(MessageFormat.format(getString(R.string.invalid_phone_play_config) , p));
+                });
     }
 
     @Override
