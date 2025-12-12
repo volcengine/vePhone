@@ -23,6 +23,7 @@ import com.volcengine.cloudphone.apiservice.StreamProfileManager;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
+import java.text.MessageFormat;
 import java.util.Map;
 
 /**
@@ -82,19 +83,24 @@ public class ClarityServiceActivity extends BasePlayActivity {
 
     private void initPlayConfigAndStartPlay() {
         SdkUtil.PlayAuth auth = SdkUtil.getPlayAuth(this);
-        String roundId = "roundId_123";
-        PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
-        builder.userId(SdkUtil.getClientUid())
-                .ak(auth.ak)
-                .sk(auth.sk)
-                .token(auth.token)
-                .container(mContainer)
-                .enableLocalKeyboard(true)
-                .roundId(roundId)
-                .podId(auth.podId)
-                .productId(auth.productId)
-                .streamListener(this);
-        VePhoneEngine.getInstance().start(builder.build(), this);
+        SdkUtil.checkPlayAuth(auth,
+                p -> {
+                    PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
+                    builder.userId(SdkUtil.getClientUid())
+                            .ak(auth.ak)
+                            .sk(auth.sk)
+                            .token(auth.token)
+                            .container(mContainer)
+                            .enableLocalKeyboard(true)
+                            .roundId(SdkUtil.getRoundId())
+                            .podId(auth.podId)
+                            .productId(auth.productId)
+                            .streamListener(this);
+                    VePhoneEngine.getInstance().start(builder.build(), this);
+                },
+                p -> {
+                    showTipDialog(MessageFormat.format(getString(R.string.invalid_phone_play_config) , p));
+                });
     }
 
     @Override

@@ -19,6 +19,8 @@ import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 import com.volcengine.phone.PhonePlayConfig;
 import com.volcengine.phone.VePhoneEngine;
 
+import java.text.MessageFormat;
+
 
 /**
  * 该类用于展示与Rotation相关的功能接口的使用方法
@@ -86,7 +88,6 @@ public class RotationModeActivity extends BasePlayActivity {
 
     private void initPlayConfigAndStartPlay() {
         SdkUtil.PlayAuth auth = SdkUtil.getPlayAuth(this);
-        String roundId = "roundId_123";
         /*
          * rotation支持两种模式：AUTO_ROTATION 和 PORTRAIT，通过rotation()接口来设置。
          *
@@ -103,20 +104,26 @@ public class RotationModeActivity extends BasePlayActivity {
          *          {@link AppCompatActivity#onConfigurationChanged(Configuration)} 中 都无需任何操作，注释掉相关代码即可。
          *          另外，需要将AndroidManifest.xml中该Activity的方向的设置为portrait。
          */
-        PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
-        builder.userId(SdkUtil.getClientUid())
-                .ak(auth.ak)
-                .sk(auth.sk)
-                .token(auth.token)
-                .container(mContainer)
-                .roundId(roundId)
-                .podId(auth.podId)
-                .productId(auth.productId)
-                .rotation(mRotation)
-                .videoRotationMode(mVideoRotationMode)
-                .enableLocalKeyboard(false)
-                .streamListener(this);
-        VePhoneEngine.getInstance().start(builder.build(), this);
+        SdkUtil.checkPlayAuth(auth,
+                p -> {
+                    PhonePlayConfig.Builder builder = new PhonePlayConfig.Builder();
+                    builder.userId(SdkUtil.getClientUid())
+                            .ak(auth.ak)
+                            .sk(auth.sk)
+                            .token(auth.token)
+                            .container(mContainer)
+                            .roundId(SdkUtil.getRoundId())
+                            .podId(auth.podId)
+                            .productId(auth.productId)
+                            .rotation(mRotation)
+                            .videoRotationMode(mVideoRotationMode)
+                            .enableLocalKeyboard(false)
+                            .streamListener(this);
+                    VePhoneEngine.getInstance().start(builder.build(), this);
+                },
+                p -> {
+                    showTipDialog(MessageFormat.format(getString(R.string.invalid_phone_play_config) , p));
+                });
     }
 
 
