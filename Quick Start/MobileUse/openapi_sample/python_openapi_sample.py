@@ -30,14 +30,13 @@ if __name__ == '__main__':
     try:
         # 1. 创建Agent运行配置 (POST请求)
         body = volcenginesdkcore.Flatten({
-            "MaxStep": 55, # 最大运行步数
-            "Timeout": 300, # 超时时间，单位秒
             "TosBucket": tos_bucket,
             "TosEndpoint": tos_endpoint,
             "TosRegion": tos_region,
             "CallbackUrl": callback_url
         }).flat()
         
+        # 配置账号维度唯一 配置一次即可
         resp = api_instance.do_call(volcenginesdkcore.UniversalInfo(
             method="POST", action="CreateAgentRunConfig", service="ipaas", version="2023-08-01", content_type="application/json"
         ), body)
@@ -56,7 +55,6 @@ if __name__ == '__main__':
             "PodId": pod_id,
             "ProductId": product_id,
             "UserPrompt": "打开小红书",
-            "AgentRunConfigId": config_id
         }).flat()
         
         resp = api_instance.do_call(volcenginesdkcore.UniversalInfo(

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python 3.12 project scaffold managed by uv"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["volcengine-python-sdk[ark]"]
 
 [project.urls]
 homepage = ""

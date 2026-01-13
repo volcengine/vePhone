@@ -183,6 +183,46 @@ cp .env.example .env
   - 默认 `1`，即每完成 1 个用例输出一条 `PROGRESS ...`
   - 设置为 `5` 则每 5 个用例输出一次进度
 
+### 2.3 视频转 Prompt（可选）
+
+当你有一段操作录屏希望生成“可复刻的步骤提示词”，仓库提供了一个独立的 CLI（不会影响 `run` 的用例执行逻辑）：
+
+- 代码位置：`src/video_prompt/`
+- 依赖：`volcengine-python-sdk[ark]`
+- 环境变量（见 `.env.example`）：
+  - `ARK_BASE_URL` / `ARK_API_KEY` / `ARK_MODEL_ID`
+- 视频限制：参考 https://www.volcengine.com/docs/82379/1895586?lang=zh#8e3a48ed
+  - 使用 `--video-path-mode file` 直接上传视频文件时，需要模型拥有 Response API 权限
+
+支持参数（`uv run python -m src.video_prompt.run_video_prompt -h`）：
+- `--video-url <URL>`：公网可访问视频 URL（http/https）。必填（三选一）
+- `--video-path <PATH>`：本地视频文件路径。必填（三选一）
+- `--video-file-id <FILE_ID>`：已通过 Files API 上传得到的 `file_id`（直接复用）。必填（三选一）
+- `--video-path-mode {file,base64}`：仅在 `--video-path` 时生效，默认 `file`。选填
+  - `file`：直接上传视频文件
+  - `base64`：读取视频文件并转为 base64(data URL) 后上传
+- `--recording-id <ID>`：录制会话 ID，默认 `demo`。选填
+- `--fps <N>`：抽帧 FPS，默认 `2`。选填
+
+调用示例（只包含必填参数；在 `ui_test_demo/` 目录下）：
+
+- 通过 `--video-url` 上传公网视频 URL：
+```bash
+uv run python -m src.video_prompt.run_video_prompt --video-url "https://YOUR_TOS_URL"
+```
+- 通过 `--video-path` 上传本地视频文件（默认 `file` 模式）：
+```bash
+uv run python -m src.video_prompt.run_video_prompt --video-path "/abs/path/to/video.mp4"
+```
+- 通过 `--video-path` 上传本地视频文件（`base64` 模式）：
+```bash
+uv run python -m src.video_prompt.run_video_prompt --video-path "/abs/path/to/video.mp4" --video-path-mode base64
+```
+- 通过 `--video-file-id` 复用已上传视频文件：
+```bash
+uv run python -m src.video_prompt.run_video_prompt --video-file-id "file_xxx"
+```
+
 ---
 
 ## 3. 命令行用法（CLI）
