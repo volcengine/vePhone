@@ -65,12 +65,6 @@ public:
 
 	/**
 	 * @locale zh
-	 * @brief 同步操作成功的回调
-	 */
-	virtual void onEventSyncSuccess() {}
-
-	/**
-	 * @locale zh
 	 * @brief 同步操作结果的回调
 	 * @param result 同步操作结果
 	 * @param failureList 同步操作失败列表
@@ -123,6 +117,27 @@ public:
 		(void)userId;
 	}
 
+};
+
+/**
+ * @locale zh
+ * @type callback
+ * @brief 更新过期时间的监听器
+ */
+class IExpireTimeListener {
+public:
+	/**
+	 * @locale zh
+	 * @brief 更新过期时间的结果回调
+	 * @param result 结果
+	 *				0 -- 成功
+	 *			   <0 -- 失败
+	 * @param failureList 失败列表
+	 */
+	virtual void onUpdateExpireTimeOneStepResult(int result, std::vector<vecommon::ExpireTimeFailure>& failureList) {
+		(void)result;
+		(void)failureList;
+	}
 };
 
 } // namespace vecommon

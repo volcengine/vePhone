@@ -164,7 +164,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 
         if (session) {
             session->stop();
-            session->setExternalSink(nullptr);
+            session->setExternalVideoSink(nullptr);
         }
         // 关掉大窗后，将map中对应的信息清除
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
@@ -244,7 +244,7 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
         if (config.basicConfig.externalRender) {
             QkExternalSink* sink = new QkExternalSink();
             sink->setCanvas(static_cast<HWND>(win));
-            session->setExternalSink(sink);
+            session->setExternalVideoSink(sink);
         }
         session->start();
         demo->_sessionToPodId[session] = pod_id;
@@ -408,7 +408,7 @@ void QkDemo::onPodJoin(const char* pod_id) {
         if (vc) {
             QkExternalSink* sink = new QkExternalSink();
             sink->setCanvas(static_cast<HWND>(vc->canvas));
-            _batchControlVideo->setExternalSink(pod_id, sink);
+            _batchControlVideo->setExternalVideoSink(pod_id, sink);
         }
         // subscribe manually if not auto-subscribe.
         if (!isAutoSub) {

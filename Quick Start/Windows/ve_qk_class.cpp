@@ -3,7 +3,7 @@
 #pragma comment(lib, "gdiplus.lib")
 
 
-void QkExternalSink::onFrame(vecommon::VeExtVideoFrame* frame) {
+void QkExternalSink::onVideoFrame(vecommon::VeExtVideoFrame* frame) {
     if (!frame) {
         return;
     }

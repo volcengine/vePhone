@@ -78,6 +78,14 @@ public:
      */
     virtual bool startEventSync(const EventSyncConfig& config, IEventSyncListener* listener) = 0;
 
+    /**
+     * @locale zh
+     * @brief 更新云机同步任务
+     * @param config 云机同步配置信息
+     * @return true：调用成功 false：调用失败
+     */
+    virtual bool updateEventSync(const EventSyncConfig& config) = 0;
+
      /**
       * @locale zh
       * @brief 停止云机同步任务
@@ -125,6 +133,23 @@ public:
      */
     virtual void setSupportFeatureListener(ISupportFeatureListener* listener) = 0;
 
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 更新过期时长
+     * @param config 过期时长的配置信息
+     * @param listener 过期时长的监听器
+     * @return 0：调用成功 <0：调用失败
+     */
+
+    virtual int updateExpireTimeOneStep(const ExpireTimeConfig& config, IExpireTimeListener* listener) = 0;
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 设置更新过期时长的监听器
+     * @param listener 监听器
+     */
+    virtual void setExpireTimeListener(IExpireTimeListener* listener) = 0;
 };
 
 extern "C" {

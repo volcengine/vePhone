@@ -11,9 +11,9 @@ static const int PLAY_WIND_WIDTH = 240;
 static const int PLAY_WIND_HEIGHT = 424;
 
 
-class QkExternalSink : public vecommon::VeExternalSink {
+class QkExternalSink : public vecommon::VeExternalVideoSink {
 public:
-	void onFrame(vecommon::VeExtVideoFrame* frame) override;
+	void onVideoFrame(vecommon::VeExtVideoFrame* frame) override;
 	void setCanvas(HWND win);
 
 private:
