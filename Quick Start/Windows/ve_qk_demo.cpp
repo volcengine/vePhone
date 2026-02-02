@@ -164,6 +164,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 
         if (session) {
             session->stop();
+            session->setExternalSink(nullptr);
         }
         // 关掉大窗后，将map中对应的信息清除
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
@@ -225,7 +226,7 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
             config.enableLocalKeyboard = true;
             config.muteAudio = false;
             config.basicConfig.canvas = createLargeWindow(demo, pod_id);
-            config.basicConfig.externalRender = false;
+            config.basicConfig.externalRender = true; // 是否使用外部渲染
             config.basicConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
         }
 
@@ -240,6 +241,11 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
         QkSessionListener* listener = new QkSessionListener(pod_id, config, win);
         vecommon::PhoneSession* session = demo->_renderX->createPhoneSession(config, listener);
         listener->setSession(session);
+        if (config.basicConfig.externalRender) {
+            QkExternalSink* sink = new QkExternalSink();
+            sink->setCanvas(static_cast<HWND>(win));
+            session->setExternalSink(sink);
+        }
         session->start();
         demo->_sessionToPodId[session] = pod_id;
         demo->_sessionToListener[session] = listener;
@@ -456,8 +462,8 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7493823438495898379");
-    _podIdList.push_back("7493823620365015817");
+    _podIdList.push_back("7431456950547733274");
+    _podIdList.push_back("7431456950547749658");
 
     _bcvUserId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
     _bcvRoundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
