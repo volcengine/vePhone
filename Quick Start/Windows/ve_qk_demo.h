@@ -38,6 +38,10 @@ public:
 	void reqBatchPodStart();
 	void start();
 	void stop();
+	void appendBcvConfig();
+	void reqBatchPodStartPodList();
+	void startPodList();
+	void stopPodList();
 	void startEventSync();
 	void stopEventSync();
 	void checkIfSupportWallpaper();
@@ -68,10 +72,10 @@ public:
 
 	vecommon::VeCloudRenderX* _renderX = nullptr;
 	vecommon::BatchControlVideo* _batchControlVideo = nullptr;
-	std::string _eventSyncRoundId, _eventSyncUserId;
-	std::string _bcvRoundId, _bcvUserId; // _bcvUserId和_sessionUserId需要使用不同的userId以进行区分
+	//std::string _eventSyncRoundId, _eventSyncUserId;
+	//std::string _bcvRoundId, _bcvUserId; // _bcvUserId和_sessionUserId需要使用不同的userId以进行区分
 	std::string _sessionRoundId, _sessionUserId;
-	std::vector<std::string> _podIdList;
+	std::vector<std::string> _podIdList, _appendPodIdList;
 	std::vector<HWND> _preWndList;
 
 	std::string _accountId, _ak, _sk, _token, _productId;

@@ -376,6 +376,10 @@ void QkDemo::ProcessCmd(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         {ID_BCV_BATCH_POD_START, &QkDemo::reqBatchPodStart},
         {ID_BCV_START, &QkDemo::start},
         {ID_BCV_STOP, &QkDemo::stop},
+        {ID_BCV_APPEND_CONFIG, &QkDemo::appendBcvConfig},
+        {ID_BCV_BATCH_POD_START_POD_LIST, &QkDemo::reqBatchPodStartPodList},
+        {ID_BCV_START_POD_LIST, &QkDemo::startPodList},
+        {ID_BCV_STOP_POD_LIST, &QkDemo::stopPodList},
         {ID_START_EVENT_SYNC, &QkDemo::startEventSync},
         {ID_STOP_EVENT_SYNC, &QkDemo::stopEventSync},
     };
@@ -400,13 +404,11 @@ void QkDemo::onPodJoin(const char* pod_id) {
     bool isSub = _batchControlVideo == nullptr ? false : _batchControlVideo->isSubscribed(pod_id);
     if (_batchControlVideo) {
         // setup external video sink if use external render.
-        if (_bcvConfig.externalRender) {
-            auto vc = _batchControlVideo->getVideoConfig(pod_id);
-            if (vc) {
-                QkExternalSink* sink = new QkExternalSink();
-                sink->setCanvas(static_cast<HWND>(vc->canvas));
-                _batchControlVideo->setExternalSink(pod_id, sink);
-            }
+        auto vc = _batchControlVideo->getVideoConfig(pod_id);
+        if (vc) {
+            QkExternalSink* sink = new QkExternalSink();
+            sink->setCanvas(static_cast<HWND>(vc->canvas));
+            _batchControlVideo->setExternalSink(pod_id, sink);
         }
         // subscribe manually if not auto-subscribe.
         if (!isAutoSub) {
@@ -462,25 +464,23 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7431456950547733274");
     _podIdList.push_back("7431456950547749658");
 
-    _bcvUserId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
-    _bcvRoundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
-    _bcvConfig.accountId = _accountId.c_str();
-    _bcvConfig.ak = _ak.c_str();
-    _bcvConfig.sk = _sk.c_str();
-    _bcvConfig.token = _token.c_str();
-    _bcvConfig.userId = _bcvUserId.c_str();
-    _bcvConfig.roundId = _bcvRoundId.c_str();
-    _bcvConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
-    _bcvConfig.waitTime = 10;
-    _bcvConfig.productId = _productId.c_str();
-    _bcvConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
-    _bcvConfig.externalRender = true;
-    _bcvConfig.autoRecycleTime = 7200;
+    vecommon::BatchControlVideoConfig initConfig;
+    std::string userId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
+    std::string roundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
+    initConfig.ak = _ak.c_str();
+    initConfig.sk = _sk.c_str();
+    initConfig.token = _token.c_str();
+    initConfig.accountId = _accountId.c_str();
+    initConfig.productId = _productId.c_str();
+    initConfig.userId = userId.c_str();
+    initConfig.roundId = roundId.c_str();
+    initConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
+    initConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+    initConfig.externalRender = true;
 
-    _bcvConfig.videoConfigs.clear();
+    initConfig.videoConfigs.clear();
     _preWndList.clear();
     for (auto& id : _podIdList) {
         const char* podId = id.c_str();
@@ -494,18 +494,21 @@ void QkDemo::initBcvConfig() {
         config.canvas = win;
         config.podId = podId;
         config.autoSubscribe = true;
-        _bcvConfig.videoConfigs.push_back(config);
+        initConfig.videoConfigs.push_back(config);
     }
-}
 
-void QkDemo::reqBatchPodStart() {
     if (_batchControlVideo) {
         delete _batchControlVideo;
         _batchControlVideo = nullptr;
     }
     if (_renderX) {
-        _batchControlVideo = _renderX->createBatchControlVideo(_bcvConfig);
+        _batchControlVideo = _renderX->createBatchControlVideo(initConfig);
         _batchControlVideo->setBatchControlListener(this);
+    }
+}
+
+void QkDemo::reqBatchPodStart() {
+    if (_batchControlVideo) {
         _batchControlVideo->requestBatchPodStart();
     }
 }
@@ -534,21 +537,76 @@ void QkDemo::stop() {
     }
 }
 
+void QkDemo::appendBcvConfig() {
+    _podIdList.push_back("7431456950547733274");
+    _appendPodIdList.push_back("7431456950547733274");
+
+    vecommon::BatchControlVideoConfig appendConfig;
+    std::string userId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
+    std::string roundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
+    appendConfig.ak = _ak.c_str();
+    appendConfig.sk = _sk.c_str();
+    appendConfig.token = _token.c_str();
+    appendConfig.accountId = _accountId.c_str();
+    appendConfig.productId = _productId.c_str();
+    appendConfig.userId = userId.c_str();
+    appendConfig.roundId = roundId.c_str();
+    appendConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
+    appendConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+    appendConfig.externalRender = true;
+
+    appendConfig.videoConfigs.clear();
+    for (auto& id : _appendPodIdList) {
+        const char* podId = id.c_str();
+        HWND win = createPreviewWindow(podId);
+        if (win == nullptr) {
+            vePrint("CreatePreviewWindow Failed! Error:{}", GetLastError());
+            break;
+        }
+        _preWndList.push_back(win);
+        vecommon::ControlVideoConfig config;
+        config.canvas = win;
+        config.podId = podId;
+        config.autoSubscribe = true;
+        appendConfig.videoConfigs.push_back(config);
+    }
+
+    if (_batchControlVideo) {
+        _batchControlVideo->append(appendConfig);
+    }
+}
+
+void QkDemo::reqBatchPodStartPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->requestBatchPodStart(_appendPodIdList);
+    }
+}
+
+void QkDemo::startPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->start(_appendPodIdList);
+    }
+}
+
+void QkDemo::stopPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->stop(_appendPodIdList);
+    }
+}
+
 void QkDemo::startEventSync() {
     bool ret = false;
     if (_renderX) {
-        std::vector<std::string> podIdList = _podIdList;
-        _eventSyncRoundId = "event_sync_round_id_" + std::to_string(getCurrentTimeMs());
-        _eventSyncUserId = "event_sync_user_id_" + std::string(_renderX->getDeviceId());
-
         vecommon::EventSyncConfig config;
+        std::string roundId = "event_sync_round_id_" + std::to_string(getCurrentTimeMs());
+        std::string userId = "event_sync_user_id_" + std::string(_renderX->getDeviceId());
         config.ak = _ak.c_str();
         config.sk = _sk.c_str();
         config.token = _token.c_str();
-        config.roundId = _eventSyncRoundId.c_str();
         config.productId = _productId.c_str();
-        config.userId = _eventSyncUserId.c_str();
-        config.controlledPodIdList = podIdList;
+        config.roundId = roundId.c_str();
+        config.userId = userId.c_str();
+        config.controlledPodIdList = _podIdList;
         config.enableForce = true;
         config.softwareVersion = "3010609";
         ret = _renderX->startEventSync(config, this);
