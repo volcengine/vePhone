@@ -203,32 +203,30 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
             SetFocus(win);
             break;
         }
-        vecommon::PhoneSessionConfig config = demo->_phoneConfigs[pod_id];
-        if (!config.basicConfig.canvas) {
-            demo->_sessionRoundId = "session_round_id_" + std::to_string(getCurrentTimeMs());
-            demo->_sessionUserId = "session_user_id_" + std::string(demo->_renderX->getDeviceId());
-            config.basicConfig.userId = demo->_sessionUserId.c_str();
-            config.basicConfig.accountId = demo->_accountId.c_str();
-            config.podId = pod_id;
-            config.productId = demo->_productId.c_str();
-            config.basicConfig.ak = demo->_ak.c_str();
-            config.basicConfig.sk = demo->_sk.c_str();
-            config.basicConfig.token = demo->_token.c_str();
-            config.roundId = demo->_sessionRoundId.c_str();
-            config.basicConfig.autoRecycleTime = 7200;
-            // 对于打开的前20个大窗，使用高帧率；之后打开的大窗使用低帧率。以此来降低设备功耗。
-            if (demo->_sessionToPodId.size() <= HIGH_FPS_LARGE_WND_NUM) {
-                config.basicConfig.videoStreamProfileId = HIGH_FPS_LARGE_WND_PROFILE_ID;
-            }
-            else {
-                config.basicConfig.videoStreamProfileId = LOW_FPS_LARGE_WND_PROFILE_ID;
-            }
-            config.enableLocalKeyboard = true;
-            config.muteAudio = false;
-            config.basicConfig.canvas = createLargeWindow(demo, pod_id);
-            config.basicConfig.externalRender = true; // 是否使用外部渲染
-            config.basicConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+        vecommon::PhoneSessionConfig config;
+        std::string roundId = "session_round_id_" + std::to_string(getCurrentTimeMs());
+        std::string userId = "session_user_id_" + std::string(demo->_renderX->getDeviceId());
+        config.basicConfig.userId = userId.c_str();
+        config.basicConfig.accountId = demo->_accountId.c_str();
+        config.podId = pod_id;
+        config.productId = demo->_productId.c_str();
+        config.basicConfig.ak = demo->_ak.c_str();
+        config.basicConfig.sk = demo->_sk.c_str();
+        config.basicConfig.token = demo->_token.c_str();
+        config.roundId = roundId.c_str();
+        config.basicConfig.autoRecycleTime = 7200;
+        // 对于打开的前20个大窗，使用高帧率；之后打开的大窗使用低帧率。以此来降低设备功耗。
+        if (demo->_sessionToPodId.size() <= HIGH_FPS_LARGE_WND_NUM) {
+            config.basicConfig.videoStreamProfileId = HIGH_FPS_LARGE_WND_PROFILE_ID;
         }
+        else {
+            config.basicConfig.videoStreamProfileId = LOW_FPS_LARGE_WND_PROFILE_ID;
+        }
+        config.enableLocalKeyboard = true;
+        config.muteAudio = false;
+        config.basicConfig.canvas = createLargeWindow(demo, pod_id);
+        config.basicConfig.externalRender = true; // 是否使用外部渲染
+        config.basicConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
 
         HWND win = static_cast<HWND>(config.basicConfig.canvas);
         if (!win) {

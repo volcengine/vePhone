@@ -63,7 +63,6 @@ public:
 	int _lineWindowCount = 0;
 	int _lineCount = 0;
 
-	std::unordered_map<const char*, vecommon::PhoneSessionConfig> _phoneConfigs;
 	std::unordered_map<std::string, HWND> _podIdToPreWnd;  // podId->预览窗
 	std::unordered_map<std::string, HWND> _podIdToLargeWnd; // podId->大窗
 	std::unordered_map<vecommon::PhoneSession*, std::string> _sessionToPodId; // session->podId
@@ -72,9 +71,6 @@ public:
 
 	vecommon::VeCloudRenderX* _renderX = nullptr;
 	vecommon::BatchControlVideo* _batchControlVideo = nullptr;
-	//std::string _eventSyncRoundId, _eventSyncUserId;
-	//std::string _bcvRoundId, _bcvUserId; // _bcvUserId和_sessionUserId需要使用不同的userId以进行区分
-	std::string _sessionRoundId, _sessionUserId;
 	std::vector<std::string> _podIdList, _appendPodIdList;
 	std::vector<HWND> _preWndList;
 
