@@ -6,7 +6,7 @@
 #include <gdiplus.h>
 
 
-class QkDemo : public vecommon::IEventSyncListener, vecommon::BatchControlListener, vecommon::ISupportFeatureListener {
+class QkDemo : public vecommon::IEventSyncListener, vecommon::BatchControlListener {
 public:
 	QkDemo(int cmd, HWND mainWnd, HINSTANCE instance);
 	~QkDemo() = default;
@@ -29,9 +29,6 @@ public:
 	void onContorlledUserJoined(const char* userId, const char* roomId) override;
 	void onContorlledUserLeave(const char* userId, const char* roomId) override;
 
-	// override: ISupportFeatureListener
-	void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) override;
-
 	void initCloudRenderX();
 	void releaseCloudRenderX();
 	void initBcvConfig();
@@ -44,7 +41,6 @@ public:
 	void stopPodList();
 	void startEventSync();
 	void stopEventSync();
-	void checkIfSupportWallpaper();
 	void readConfigIni();
 
 	HWND _mainWindow = nullptr;

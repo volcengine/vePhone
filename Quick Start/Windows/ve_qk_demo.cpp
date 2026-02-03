@@ -447,10 +447,6 @@ void QkDemo::onContorlledUserLeave(const char* userId, const char* roomId) {
     vePrint("QkDemo::onContorlledUserLeave userId:{} roomId:{}", userId, roomId);
 }
 
-void QkDemo::onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {
-    vePrint("QkDemo::onSupportFeatureResult feature:{} code:{} msg:{}", static_cast<int>(feature), code, msg);
-}
-
 void QkDemo::initCloudRenderX() {
     _renderX = vecommon::CreateVeCloudRenderX();
     _renderX->prepare(_accountId);
@@ -618,21 +614,6 @@ void QkDemo::stopEventSync() {
         ret = _renderX->stopEventSync();
     }
     vePrint("QkDemo::stopEventSync ret:{}", ret);
-}
-
-void QkDemo::checkIfSupportWallpaper() {
-    bool ret = false;
-    if (_renderX) {
-        vecommon::SupportFeatureConfig config;
-        config.ak = _ak.c_str();
-        config.sk = _sk.c_str();
-        config.token = _token.c_str();
-        config.productId = _productId.c_str();
-        config.podIdList = _podIdList;
-        config.feature = vecommon::Feature::WALLPAPER;
-        ret = _renderX->checkIfSupportFeature(config, this);
-    }
-    vePrint("QkDemo::checkIfSupportWallpaper ret:{}", ret);
 }
 
 HWND QkDemo::createPreviewWindow(const char* pod_id) {
