@@ -31,16 +31,16 @@ public:
 
 	void initCloudRenderX();
 	void releaseCloudRenderX();
-	void initBcvConfig();
-	void reqBatchPodStart();
-	void start();
-	void stop();
-	void appendBcvConfig();
-	void reqBatchPodStartPodList();
-	void startPodList();
-	void stopPodList();
-	void startEventSync();
-	void stopEventSync();
+	void initBcvConfig(); // 初始化小流配置，并创建bcv对象
+	void reqBatchPodStart(); // 请求BatchPodStart，令云端Pod加入小流房间
+	void start(); // 开始拉小流
+	void stop(); // 停止拉小流
+	void appendBcvConfig(); // 新增小流配置，可用于客户新创建的Pod
+	void reqBatchPodStartPodList(); // 指定PodList，请求BatchPodStart
+	void startPodList(); // 指定PodList，开始拉小流
+	void stopPodList(); // 指定PodList，停止拉小流
+	void startEventSync(); // 发起群控
+	void stopEventSync(); // 停止群控
 	void readConfigIni();
 
 	HWND _mainWindow = nullptr;
