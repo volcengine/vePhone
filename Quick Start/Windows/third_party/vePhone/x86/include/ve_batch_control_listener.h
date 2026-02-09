@@ -86,6 +86,18 @@ public:
         (void)code;
     }
 
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 云机屏幕旋转的回调
+     * @param podId 云机ID
+     * @param rotation 方向 0|180：竖屏，90|270：横屏
+     */
+    virtual void onRemoteRotation(const char* podId, int rotation) {
+        (void)podId;
+        (void)rotation;
+    }
+
 };
 
 } // namespace vecommon

@@ -38,14 +38,6 @@ public:
     virtual void start() override {};
 
     /**
-     * @hidden
-     * @locale zh
-     * @brief 通过podInfo启动云手机会话
-     * @param podInfo 调用OpenAPI RequestBatchPodStart接口获取的response信息
-     */
-    virtual void start(const char* podInfo) = 0;
-
-    /**
      * @locale zh
      * @brief 停止云手机会话
      */
@@ -112,16 +104,26 @@ public:
     virtual void updateCanvas(void* canvas) = 0;
 
     /**
-     * @hidden
      * @locale zh
-     * @brief 开始发送本地摄像头数据
+     * @brief 开始发送本地音频数据
+     */
+    virtual void startSendAudioStream() = 0;
+
+    /**
+     * @locale zh
+     * @brief 停止发送本地音频数据
+     */
+    virtual void stopSendAudioStream() = 0;
+
+    /**
+     * @locale zh
+     * @brief 开始发送本地视频数据
      */
     virtual void startSendVideoStream() = 0;
 
     /**
-     * @hidden
      * @locale zh
-     * @brief 停止发送本地摄像头数据
+     * @brief 停止发送本地视频数据
      */
     virtual void stopSendVideoStream() = 0;
 
@@ -132,6 +134,14 @@ public:
      * @param id 摄像头ID
      */
     virtual void switchCamera(const vecommon::CameraId id) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 设置视频编码器配置
+     * @param config 视频编码器配置
+     */
+    virtual void setVideoEncoderConfig(const vecommon::VideoEncoderConfig& config) = 0;
 
     /**
      * @deprecated
@@ -189,7 +199,7 @@ public:
      * @param data 多点触控事件
      * @note 多点触控需要使用者保证pointId的唯一性来管理，否则达不到预期效果
      */
-    virtual void sendMulitTouch(const vecommon::MulitTouchData& data) = 0;
+    virtual void sendMultiTouch(const vecommon::MultiTouchData& data) = 0;
 
     /**
      * @locale zh
@@ -233,6 +243,14 @@ public:
      * @param clipText 剪切板内容，请保证UTF-8编码
      */
     virtual void sendClipBoardMessage(const char* clipText) = 0;
+
+    /**
+    * @locale zh
+    * @brief 发送本地剪贴板数据到云端，支持发送文本数据，用于云机同步场景
+    * @param clipText 剪切板内容，请保证UTF-8编码
+    * @param podId 指定发送的podId
+    */
+    virtual void sendClipBoardMessage(const char* clipText, const char* podId) = 0;
 
     /**
      * @locale zh
@@ -433,14 +451,29 @@ public:
      * @brief 设置外部渲染器
      * @param externalSink 外部渲染器
      */
-    virtual void setExternalSink(VeExternalSink* externalSink) = 0;
+    virtual void setExternalVideoSink(VeExternalVideoSink* externalSink) = 0;
 
     /**
+     * @deprecated
      * @locale zh
      * @brief 获取当前外部渲染器
      * @return 当前外部渲染器
      */
-    virtual VeExternalSink* getExternalSink() = 0;
+    virtual VeExternalVideoSink* getExternalVideoSink() = 0;
+
+    /**
+     * @locale zh
+     * @brief 设置音频外部渲染器
+     * @param externalSink 音频外部渲染器
+     */
+    virtual void setExternalAudioSink(VeExternalAudioSink* externalSink) = 0;
+
+    /**
+     * @locale zh
+     * @brief 获取当前音频外部渲染器
+     * @return 当前音频外部渲染器
+     */
+    virtual VeExternalAudioSink* getExternalAudioSink() = 0;
 
     /**
      * @locale zh

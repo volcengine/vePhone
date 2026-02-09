@@ -63,17 +63,50 @@ public:
 /**
  * @locale zh
  * @type callback
- * @brief 外部渲染器类
+ * @brief 视频外部渲染器类
  */
-class VeExternalSink {
+class VeExternalVideoSink {
 public:
 
     /**
      * @brief 视频帧回调
-     * @param videoFrame 视频帧实例
+     * @param frame 视频帧实例
      */
-    virtual void onFrame(VeExtVideoFrame* videoFrame) {
-        (void)videoFrame;
+    virtual void onVideoFrame(VeExtVideoFrame* frame) {
+        (void)frame;
+    }
+
+};
+
+
+/**
+ * @type type
+ * @brief 音频帧回调信息
+ */
+class VeExtAudioFrame {
+public:
+    ~VeExtAudioFrame() = default;
+
+    virtual uint8_t* getData() = 0;
+
+    virtual int getSize() const = 0;
+};
+
+
+/**
+ * @locale zh
+ * @type callback
+ * @brief 音频外部渲染器类
+ */
+class VeExternalAudioSink {
+public:
+
+    /**
+     * @brief 音频帧回调
+     * @param frame 音频帧实例
+     */
+    virtual void onAudioFrame(VeExtAudioFrame* frame) {
+        (void)frame;
     }
 
 };

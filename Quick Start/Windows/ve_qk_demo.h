@@ -6,7 +6,7 @@
 #include <gdiplus.h>
 
 
-class QkDemo : public vecommon::IEventSyncListener, vecommon::BatchControlListener, vecommon::ISupportFeatureListener {
+class QkDemo : public vecommon::IEventSyncListener, vecommon::BatchControlListener {
 public:
 	QkDemo(int cmd, HWND mainWnd, HINSTANCE instance);
 	~QkDemo() = default;
@@ -29,18 +29,18 @@ public:
 	void onContorlledUserJoined(const char* userId, const char* roomId) override;
 	void onContorlledUserLeave(const char* userId, const char* roomId) override;
 
-	// override: ISupportFeatureListener
-	void onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) override;
-
 	void initCloudRenderX();
 	void releaseCloudRenderX();
-	void initBcvConfig();
-	void reqBatchPodStart();
-	void start();
-	void stop();
-	void startEventSync();
-	void stopEventSync();
-	void checkIfSupportWallpaper();
+	void initBcvConfig(); // 初始化小流配置，并创建bcv对象
+	void reqBatchPodStart(); // 请求BatchPodStart，令云端Pod加入小流房间
+	void start(); // 开始拉小流
+	void stop(); // 停止拉小流
+	void appendBcvConfig(); // 新增小流配置，可用于客户新创建的Pod
+	void reqBatchPodStartPodList(); // 指定PodList，请求BatchPodStart
+	void startPodList(); // 指定PodList，开始拉小流
+	void stopPodList(); // 指定PodList，停止拉小流
+	void startEventSync(); // 发起群控
+	void stopEventSync(); // 停止群控
 	void readConfigIni();
 
 	HWND _mainWindow = nullptr;
@@ -59,7 +59,6 @@ public:
 	int _lineWindowCount = 0;
 	int _lineCount = 0;
 
-	std::unordered_map<const char*, vecommon::PhoneSessionConfig> _phoneConfigs;
 	std::unordered_map<std::string, HWND> _podIdToPreWnd;  // podId->预览窗
 	std::unordered_map<std::string, HWND> _podIdToLargeWnd; // podId->大窗
 	std::unordered_map<vecommon::PhoneSession*, std::string> _sessionToPodId; // session->podId
@@ -68,10 +67,7 @@ public:
 
 	vecommon::VeCloudRenderX* _renderX = nullptr;
 	vecommon::BatchControlVideo* _batchControlVideo = nullptr;
-	std::string _eventSyncRoundId, _eventSyncUserId;
-	std::string _bcvRoundId, _bcvUserId; // _bcvUserId和_sessionUserId需要使用不同的userId以进行区分
-	std::string _sessionRoundId, _sessionUserId;
-	std::vector<std::string> _podIdList;
+	std::vector<std::string> _podIdList, _appendPodIdList;
 	std::vector<HWND> _preWndList;
 
 	std::string _accountId, _ak, _sk, _token, _productId;

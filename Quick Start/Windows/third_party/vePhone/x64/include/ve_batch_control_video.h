@@ -23,6 +23,42 @@ public:
     virtual ~BatchControlVideo() = default;
 
     /**
+     * @hidden
+     * @locale zh
+     * @brief 更新拉流token
+     * @param podId 视频流对应的云机ID
+     * @param token 新的拉流token
+     */
+    virtual void updateToken(const std::string& podId, const std::string& token) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 获取roomId
+     * @param podId 视频流对应的云机ID
+     * @return podId对应的roomId
+     */
+    virtual const std::string& getRoomId(const std::string& podId) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 获取streamProvider
+     * @param podId 视频流对应的云机ID
+     * @return podId对应的streamProvider
+     */
+    virtual const std::string& getStreamProvider(const std::string& podId) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 获取reserveId
+     * @param podId 视频流对应的云机ID
+     * @return podId对应的reserveId
+     */
+    virtual const std::string& getReserveId(const std::string& podId) = 0;
+
+    /**
      * @locale zh
      * @brief 更新鉴权信息，建议在requestBatchPodStart前调用
      * @param ak 用户鉴权临时 access key
@@ -38,7 +74,7 @@ public:
      * @return 0：调用成功，<0：调用失败
      * @note podIdList由初始化BatchControlVideo时传入的config解析得来
      */
-    virtual int requestBatchPodStart() = 0;
+    virtual int requestBatchPodStart(const char* sessionId = nullptr) = 0;
 
     /**
      * @locale zh
@@ -68,7 +104,7 @@ public:
      * @param podIdList podId列表
      * @return 0：调用成功，<0：调用失败
      */
-    virtual int requestBatchPodStart(std::vector<std::string>& podIdList) = 0;
+    virtual int requestBatchPodStart(std::vector<std::string>& podIdList, const char* sessionId = nullptr) = 0;
 
     /**
      * @locale zh
@@ -168,7 +204,7 @@ public:
      * @param externalSink 外部渲染器
      * @return 0：调用成功，<0：调用失败
      */
-    virtual int setExternalSink(const char* podId, VeExternalSink* externalSink) = 0;
+    virtual int setExternalVideoSink(const char* podId, VeExternalVideoSink* externalSink) = 0;
 
     /**
      * @locale zh
@@ -176,7 +212,17 @@ public:
      * @param podId 视频流对应的云机ID
      * @return 外部渲染器
      */
-    virtual VeExternalSink* getExternalSink(const char* podId) = 0;
+    virtual VeExternalVideoSink* getExternalVideoSink(const char* podId) = 0;
+
+    /**
+     * @hidden
+     * @locale zh
+     * @brief 设置某个视频流的清晰度档位
+     * @param podId 视频流对应的云机ID
+     * @param profileId 清晰度档位ID
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int setVideoStreamProfileId(const char* podId, int profileId) = 0;
 
     /**
      * @locale zh
@@ -184,6 +230,60 @@ public:
      * @param listener 监听器
      */
     virtual void setBatchControlListener(BatchControlListener* listener) = 0;
+
+    /**
+     * @locale zh
+     * @brief 向某个视频流发送键盘按键事件
+     * @param keyCode 键盘按键
+     *          - 3：HOME 主页
+     *          - 4：BACK 返回
+     *          - 82：MENU 菜单
+     *          - 187：APP_SWITCH 最近任务
+     * @note 参考Android KeyCode {https://developer.android.com/reference/android/view/KeyEvent}
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int sendKeyCode(const char* podId, int keyCode) = 0;
+
+    /**
+     * @locale zh
+     * @brief 向某个视频流发送键盘按键事件
+     * @param keyCode
+     *          - 3：HOME 主页
+     *          - 4：BACK 返回
+     *          - 82：MENU 菜单
+     *          - 187：APP_SWITCH 最近任务
+     * @param down 是否为按键状态
+     * @note 可以选择发送单状态(DOWN或UP)，如需模拟一些状态要求较高的按键实践，例如DELETE等，推荐使用
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int sendKeyCode(const char* podId, int keyCode, bool down) = 0;
+
+    /**
+     * @locale zh
+     * @brief 向某个视频流发送鼠标按键事件
+     * @param podId 视频流对应的云机ID
+     * @param data 鼠标按键事件
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int sendMouseKey(const char* podId, const vecommon::MouseKeyData& data) = 0;
+
+    /**
+     * @locale zh
+     * @brief 向某个视频流发送鼠标移动事件
+     * @param podId 视频流对应的云机ID
+     * @param data 鼠标移动事件
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int sendMouseMove(const char* podId, const vecommon::MouseMoveData& data) = 0;
+
+    /**
+     * @locale zh
+     * @brief 向某个视频流发送输入法事件
+     * @param podId 视频流对应的云机ID
+     * @param data 输入法事件
+     * @return 0：调用成功，<0：调用失败
+     */
+    virtual int sendImeComposition(const char* podId, const vecommon::ImeCompositionData& data) = 0;
 
 };
 

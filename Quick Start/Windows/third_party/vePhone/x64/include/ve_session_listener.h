@@ -64,6 +64,14 @@ public:
 
     /**
      * @locale zh
+     * @brief 收到首帧音频的回调
+     */
+    virtual void onFirstAudioFrame(const vecommon::AudioFrameInfo& info) {
+        (void)info;
+    }
+
+    /**
+     * @locale zh
      * @brief 收到首帧视频的回调
      * @param info 视频首帧信息
      */
@@ -81,7 +89,6 @@ public:
     }
 
     /**
-     * @hidden
      * @locale zh
      * @brief 云机请求开始发送音频的回调
      */
@@ -89,7 +96,6 @@ public:
     }
 
     /**
-     * @hidden
      * @locale zh
      * @brief 云机请求停止发送音频的回调
      */
@@ -97,15 +103,14 @@ public:
     }
 
     /**
-     * @hidden
      * @locale zh
      * @brief 云机请求开始发送视频的回调
+     * @param option 视频流请求选项
      */
-    virtual void onRemoteVideoStartRequest() {
+    virtual void onRemoteVideoStartRequest(const VideoStreamRequestOption& option) {
     }
 
     /**
-     * @hidden
      * @locale zh
      * @brief 云机请求停止发送视频的回调
      */
@@ -186,10 +191,12 @@ public:
 
     /**
      * @hidden
+     * @deprecated
      * @locale zh
      * @brief 云机消息通道状态改变回调
      * @param channelId 通道ID
      * @param state 通道状态
+     * @note 建议使用{@link onMessageChannelStateChanged(const std::string& remoteUid, const vecommon::MessageChannelState state)}
      */
     virtual void onMessageChannelStateChanged(const char* channelId, vecommon::MessageChannelState state) {
         (void)channelId;
@@ -198,10 +205,12 @@ public:
 
     /**
      * @hidden
+     * @deprecated
      * @locale zh
      * @brief 发送消息到云机的结果回调
      * @param success true：成功，false：失败
      * @param mid 消息ID
+     * @note 建议使用{@link onSendChannelMessageResult(bool success, const std::string& msgId)}
      */
     virtual void onSendMessageResult(bool success, const char* mid) {
         (void)success;
@@ -210,9 +219,11 @@ public:
 
     /**
      * @hidden
+     * @deprecated
      * @locale zh
      * @brief 收到云机字符串消息的回调
      * @param str 字符串数据
+     * @note 建议使用{@link onReceiveChannelMessage(const vecommon::ChannelMessage message)}
      */
     virtual void onStringMessageReceived(const char* str) {
         (void)str;
@@ -220,10 +231,12 @@ public:
 
     /**
      * @hidden
+     * @deprecated
      * @locale zh
      * @brief 收到云机消息的回调
      * @param data 二进制数据
      * @param len 消息长度
+     * @note 暂不支持二进制消息
      */
     virtual void onBinaryMessageReceived(const uint8_t* data, int len) {
         (void)data;
@@ -317,9 +330,11 @@ public:
     }
 
     /**
+     * @deprecated
      * @locale zh 
      * @brief 设置无操作回收时长成功的回调
      * @param time 无操作回收时长，单位：秒
+     * @note 建议使用{@link onAutoRecycleTimeChanged(const std::string& callUserId, int code, int time)}
      */
     virtual void onAutoRecycleTimeCallBack(int time) {
         (void)time;

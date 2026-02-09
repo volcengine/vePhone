@@ -164,6 +164,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 
         if (session) {
             session->stop();
+            session->setExternalVideoSink(nullptr);
         }
         // 关掉大窗后，将map中对应的信息清除
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
@@ -202,32 +203,30 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
             SetFocus(win);
             break;
         }
-        vecommon::PhoneSessionConfig config = demo->_phoneConfigs[pod_id];
-        if (!config.basicConfig.canvas) {
-            demo->_sessionRoundId = "session_round_id_" + std::to_string(getCurrentTimeMs());
-            demo->_sessionUserId = "session_user_id_" + std::string(demo->_renderX->getDeviceId());
-            config.basicConfig.userId = demo->_sessionUserId.c_str();
-            config.basicConfig.accountId = demo->_accountId.c_str();
-            config.podId = pod_id;
-            config.productId = demo->_productId.c_str();
-            config.basicConfig.ak = demo->_ak.c_str();
-            config.basicConfig.sk = demo->_sk.c_str();
-            config.basicConfig.token = demo->_token.c_str();
-            config.roundId = demo->_sessionRoundId.c_str();
-            config.basicConfig.autoRecycleTime = 7200;
-            // 对于打开的前20个大窗，使用高帧率；之后打开的大窗使用低帧率。以此来降低设备功耗。
-            if (demo->_sessionToPodId.size() <= HIGH_FPS_LARGE_WND_NUM) {
-                config.basicConfig.videoStreamProfileId = HIGH_FPS_LARGE_WND_PROFILE_ID;
-            }
-            else {
-                config.basicConfig.videoStreamProfileId = LOW_FPS_LARGE_WND_PROFILE_ID;
-            }
-            config.enableLocalKeyboard = true;
-            config.muteAudio = false;
-            config.basicConfig.canvas = createLargeWindow(demo, pod_id);
-            config.basicConfig.externalRender = false;
-            config.basicConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+        vecommon::PhoneSessionConfig config;
+        std::string roundId = "session_round_id_" + std::to_string(getCurrentTimeMs());
+        std::string userId = "session_user_id_" + std::string(demo->_renderX->getDeviceId());
+        config.basicConfig.userId = userId.c_str();
+        config.basicConfig.accountId = demo->_accountId.c_str();
+        config.podId = pod_id;
+        config.productId = demo->_productId.c_str();
+        config.basicConfig.ak = demo->_ak.c_str();
+        config.basicConfig.sk = demo->_sk.c_str();
+        config.basicConfig.token = demo->_token.c_str();
+        config.roundId = roundId.c_str();
+        config.basicConfig.autoRecycleTime = 7200;
+        // 对于打开的前20个大窗，使用高帧率；之后打开的大窗使用低帧率。以此来降低设备功耗。
+        if (demo->_sessionToPodId.size() <= HIGH_FPS_LARGE_WND_NUM) {
+            config.basicConfig.videoStreamProfileId = HIGH_FPS_LARGE_WND_PROFILE_ID;
         }
+        else {
+            config.basicConfig.videoStreamProfileId = LOW_FPS_LARGE_WND_PROFILE_ID;
+        }
+        config.enableLocalKeyboard = true;
+        config.muteAudio = false;
+        config.basicConfig.canvas = createLargeWindow(demo, pod_id);
+        config.basicConfig.externalRender = true; // 是否使用外部渲染
+        config.basicConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
 
         HWND win = static_cast<HWND>(config.basicConfig.canvas);
         if (!win) {
@@ -240,6 +239,11 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
         QkSessionListener* listener = new QkSessionListener(pod_id, config, win);
         vecommon::PhoneSession* session = demo->_renderX->createPhoneSession(config, listener);
         listener->setSession(session);
+        if (config.basicConfig.externalRender) {
+            QkExternalSink* sink = new QkExternalSink();
+            sink->setCanvas(static_cast<HWND>(win));
+            session->setExternalVideoSink(sink);
+        }
         session->start();
         demo->_sessionToPodId[session] = pod_id;
         demo->_sessionToListener[session] = listener;
@@ -370,6 +374,10 @@ void QkDemo::ProcessCmd(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         {ID_BCV_BATCH_POD_START, &QkDemo::reqBatchPodStart},
         {ID_BCV_START, &QkDemo::start},
         {ID_BCV_STOP, &QkDemo::stop},
+        {ID_BCV_APPEND_CONFIG, &QkDemo::appendBcvConfig},
+        {ID_BCV_BATCH_POD_START_POD_LIST, &QkDemo::reqBatchPodStartPodList},
+        {ID_BCV_START_POD_LIST, &QkDemo::startPodList},
+        {ID_BCV_STOP_POD_LIST, &QkDemo::stopPodList},
         {ID_START_EVENT_SYNC, &QkDemo::startEventSync},
         {ID_STOP_EVENT_SYNC, &QkDemo::stopEventSync},
     };
@@ -394,13 +402,11 @@ void QkDemo::onPodJoin(const char* pod_id) {
     bool isSub = _batchControlVideo == nullptr ? false : _batchControlVideo->isSubscribed(pod_id);
     if (_batchControlVideo) {
         // setup external video sink if use external render.
-        if (_bcvConfig.externalRender) {
-            auto vc = _batchControlVideo->getVideoConfig(pod_id);
-            if (vc) {
-                QkExternalSink* sink = new QkExternalSink();
-                sink->setCanvas(static_cast<HWND>(vc->canvas));
-                _batchControlVideo->setExternalSink(pod_id, sink);
-            }
+        auto vc = _batchControlVideo->getVideoConfig(pod_id);
+        if (vc) {
+            QkExternalSink* sink = new QkExternalSink();
+            sink->setCanvas(static_cast<HWND>(vc->canvas));
+            _batchControlVideo->setExternalVideoSink(pod_id, sink);
         }
         // subscribe manually if not auto-subscribe.
         if (!isAutoSub) {
@@ -441,10 +447,6 @@ void QkDemo::onContorlledUserLeave(const char* userId, const char* roomId) {
     vePrint("QkDemo::onContorlledUserLeave userId:{} roomId:{}", userId, roomId);
 }
 
-void QkDemo::onSupportFeatureResult(vecommon::Feature feature, int code, const char* msg) {
-    vePrint("QkDemo::onSupportFeatureResult feature:{} code:{} msg:{}", static_cast<int>(feature), code, msg);
-}
-
 void QkDemo::initCloudRenderX() {
     _renderX = vecommon::CreateVeCloudRenderX();
     _renderX->prepare(_accountId);
@@ -456,25 +458,23 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7493823438495898379");
-    _podIdList.push_back("7493823620365015817");
+    _podIdList.push_back("7431456950547749658");
 
-    _bcvUserId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
-    _bcvRoundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
-    _bcvConfig.accountId = _accountId.c_str();
-    _bcvConfig.ak = _ak.c_str();
-    _bcvConfig.sk = _sk.c_str();
-    _bcvConfig.token = _token.c_str();
-    _bcvConfig.userId = _bcvUserId.c_str();
-    _bcvConfig.roundId = _bcvRoundId.c_str();
-    _bcvConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
-    _bcvConfig.waitTime = 10;
-    _bcvConfig.productId = _productId.c_str();
-    _bcvConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
-    _bcvConfig.externalRender = true;
-    _bcvConfig.autoRecycleTime = 7200;
+    vecommon::BatchControlVideoConfig initConfig;
+    std::string userId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
+    std::string roundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
+    initConfig.ak = _ak.c_str();
+    initConfig.sk = _sk.c_str();
+    initConfig.token = _token.c_str();
+    initConfig.accountId = _accountId.c_str();
+    initConfig.productId = _productId.c_str();
+    initConfig.userId = userId.c_str();
+    initConfig.roundId = roundId.c_str();
+    initConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
+    initConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+    initConfig.externalRender = true;
 
-    _bcvConfig.videoConfigs.clear();
+    initConfig.videoConfigs.clear();
     _preWndList.clear();
     for (auto& id : _podIdList) {
         const char* podId = id.c_str();
@@ -488,18 +488,21 @@ void QkDemo::initBcvConfig() {
         config.canvas = win;
         config.podId = podId;
         config.autoSubscribe = true;
-        _bcvConfig.videoConfigs.push_back(config);
+        initConfig.videoConfigs.push_back(config);
     }
-}
 
-void QkDemo::reqBatchPodStart() {
     if (_batchControlVideo) {
         delete _batchControlVideo;
         _batchControlVideo = nullptr;
     }
     if (_renderX) {
-        _batchControlVideo = _renderX->createBatchControlVideo(_bcvConfig);
+        _batchControlVideo = _renderX->createBatchControlVideo(initConfig);
         _batchControlVideo->setBatchControlListener(this);
+    }
+}
+
+void QkDemo::reqBatchPodStart() {
+    if (_batchControlVideo) {
         _batchControlVideo->requestBatchPodStart();
     }
 }
@@ -528,21 +531,76 @@ void QkDemo::stop() {
     }
 }
 
+void QkDemo::appendBcvConfig() {
+    _podIdList.push_back("7431456950547733274");
+    _appendPodIdList.push_back("7431456950547733274");
+
+    vecommon::BatchControlVideoConfig appendConfig;
+    std::string userId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
+    std::string roundId = "bcv_round_id_" + std::to_string(getCurrentTimeMs());
+    appendConfig.ak = _ak.c_str();
+    appendConfig.sk = _sk.c_str();
+    appendConfig.token = _token.c_str();
+    appendConfig.accountId = _accountId.c_str();
+    appendConfig.productId = _productId.c_str();
+    appendConfig.userId = userId.c_str();
+    appendConfig.roundId = roundId.c_str();
+    appendConfig.videoStreamProfileId = PREVIEW_WND_PROFILE_ID;
+    appendConfig.externalRenderFormat = vecommon::FrameFormat::ARGB;
+    appendConfig.externalRender = true;
+
+    appendConfig.videoConfigs.clear();
+    for (auto& id : _appendPodIdList) {
+        const char* podId = id.c_str();
+        HWND win = createPreviewWindow(podId);
+        if (win == nullptr) {
+            vePrint("CreatePreviewWindow Failed! Error:{}", GetLastError());
+            break;
+        }
+        _preWndList.push_back(win);
+        vecommon::ControlVideoConfig config;
+        config.canvas = win;
+        config.podId = podId;
+        config.autoSubscribe = true;
+        appendConfig.videoConfigs.push_back(config);
+    }
+
+    if (_batchControlVideo) {
+        _batchControlVideo->append(appendConfig);
+    }
+}
+
+void QkDemo::reqBatchPodStartPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->requestBatchPodStart(_appendPodIdList);
+    }
+}
+
+void QkDemo::startPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->start(_appendPodIdList);
+    }
+}
+
+void QkDemo::stopPodList() {
+    if (_batchControlVideo) {
+        _batchControlVideo->stop(_appendPodIdList);
+    }
+}
+
 void QkDemo::startEventSync() {
     bool ret = false;
     if (_renderX) {
-        std::vector<std::string> podIdList = _podIdList;
-        _eventSyncRoundId = "event_sync_round_id_" + std::to_string(getCurrentTimeMs());
-        _eventSyncUserId = "event_sync_user_id_" + std::string(_renderX->getDeviceId());
-
         vecommon::EventSyncConfig config;
+        std::string roundId = "event_sync_round_id_" + std::to_string(getCurrentTimeMs());
+        std::string userId = "event_sync_user_id_" + std::string(_renderX->getDeviceId());
         config.ak = _ak.c_str();
         config.sk = _sk.c_str();
         config.token = _token.c_str();
-        config.roundId = _eventSyncRoundId.c_str();
         config.productId = _productId.c_str();
-        config.userId = _eventSyncUserId.c_str();
-        config.controlledPodIdList = podIdList;
+        config.roundId = roundId.c_str();
+        config.userId = userId.c_str();
+        config.controlledPodIdList = _podIdList;
         config.enableForce = true;
         config.softwareVersion = "3010609";
         ret = _renderX->startEventSync(config, this);
@@ -556,21 +614,6 @@ void QkDemo::stopEventSync() {
         ret = _renderX->stopEventSync();
     }
     vePrint("QkDemo::stopEventSync ret:{}", ret);
-}
-
-void QkDemo::checkIfSupportWallpaper() {
-    bool ret = false;
-    if (_renderX) {
-        vecommon::SupportFeatureConfig config;
-        config.ak = _ak.c_str();
-        config.sk = _sk.c_str();
-        config.token = _token.c_str();
-        config.productId = _productId.c_str();
-        config.podIdList = _podIdList;
-        config.feature = vecommon::Feature::WALLPAPER;
-        ret = _renderX->checkIfSupportFeature(config, this);
-    }
-    vePrint("QkDemo::checkIfSupportWallpaper ret:{}", ret);
 }
 
 HWND QkDemo::createPreviewWindow(const char* pod_id) {

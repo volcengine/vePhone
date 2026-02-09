@@ -314,6 +314,7 @@ struct PhoneSessionConfig {
     const char* planId{ nullptr };                  // 火山侧套餐 ID
     bool        enableScreenLock{ false };          // 是否锁定屏幕横竖屏显示
     bool        enableLocalKeyboard{ true };        // 是否开启本地键盘输入
+    bool        enableMouseWheel{ true };           // 是否开启鼠标滚轮
     bool        reset{ false };                     // 退出后，是否还原Pod
     bool        muteAudio{ false };                 // 是否默认关闭音频拉流，群控场景下建议关闭
     StreamType  streamType{ StreamType::BOTH };     // 加房时自动订阅流的类型
@@ -324,6 +325,7 @@ struct PhoneSessionConfig {
     int remoteWindowHeight{ -1 };                   // Pod推流有效高度
     RotationMode rotationMode{ RotationMode::AUTO_ROTATION };   // 旋转模式
     int         waitTime{ 10 };                     // 云端实例加房后等待SDK加房的时间，单位：秒，默认10秒，最短10秒，最长72小时
+    int64_t     expireTime{ 0 };                    // 拉流到期时间，单位：秒，最长48小时，取值范围[0,172800]
 };
 
 /**
@@ -347,6 +349,16 @@ struct GameSessionConfig {
 /**
  * @locale zh
  * @type keytype
+ * @brief 云机同步任务子配置项
+ */
+struct EventSyncItem {
+    std::string podId;          // 被控podId
+    int64_t expireTime{ 0 };    // 群控到期时间，单位：秒，最长48小时，取值范围[0,172800]
+};
+
+/**
+ * @locale zh
+ * @type keytype
  * @brief 云机同步任务配置
  */
 struct EventSyncConfig {
@@ -357,6 +369,8 @@ struct EventSyncConfig {
     const char* roundId{ nullptr };                 // 本次生命周期标识符
     const char* userId{ nullptr };                  // 用户ID，注：需要和SessionConfig或者BatchPodStart请求中传入的userId保持一致
     std::vector<std::string> controlledPodIdList;   // 被控云机ID列表
+    std::vector<EventSyncItem> podConfigList;       // 被控云机ID及到期时间列表，优先级高于controlledPodIdList
+    std::vector<std::string> deletePodIdList;       // 需要移除的被控云机ID列表
     bool enableForce{ true };                       // 是否强制开指令同步任务
     bool enableMulti{ false };                      // 是否支持加入多个群控房间
     const char* softwareVersion{ nullptr };         // 支持切换主控的镜像版本，可以通过ListPod获取
@@ -487,7 +501,7 @@ struct TouchArrayData {
  * @type keytype
  * @brief 多指触控消息体(优化)
  */
-struct MulitTouchData {
+struct MultiTouchData {
     int32_t x{ 0 };                    // 事件X坐标位置 左-->右 映射到 [0,65535]
     int32_t y{ 0 };                    // 事件Y坐标位置 上-->下 映射到 [0,65535]
     int32_t point_id{ -1 };            // 触摸点ID
@@ -614,6 +628,7 @@ struct ControlVideoConfig {
     void* canvas{ nullptr };                        // 拉流后显示画面的画布，Windows 平台下传窗口句柄（HWND）
     std::string podId;                              // pod ID
     bool autoSubscribe{ true };                     // 是否自动订阅
+    int64_t expireTime{ 0 };                        // 拉流到期时间，单位：秒，最长48小时，取值范围[0,172800]
 };
 
 /**
@@ -710,6 +725,84 @@ struct EventSyncFailure {
     std::string errorMsg;   // 错误信息
 };
 
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 拉流过期时间子配置项
+ */
+struct ExpireTimeItem {
+    std::string podId;                      // podId
+    int64_t expireTime{ 0 };                // 过期时间，单位：秒，最长48小时，取值范围[0,172800]
+    bool preview{ true };                   // 是否更新小流过期时间
+    bool session{ true };                   // 是否更新大流过期时间
+    bool eventSync{ true };                 // 是否更新群控过期时间
+};
+
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 拉流过期时间配置信息
+ */
+struct ExpireTimeConfig {
+    std::string ak;                         // 用户鉴权临时 access key
+    std::string sk;                         // 用户鉴权临时 secret key
+    std::string token;                      // 用户鉴权临时 token
+    std::string accountId;                  // 火山账号ID
+    std::string productId;                  // 火山业务ID
+    std::string previewUserId;              // 小流用户ID
+    std::string sessionUserId;              // 大流用户ID
+    std::string eventSyncUserId;            // 群控用户ID
+    std::vector<vecommon::ExpireTimeItem> podConfigList; // 过期时长配置列表
+    std::string debugConfig;                // debug配置
+};
+
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 更新拉流过期时间失败详细信息
+ */
+struct ExpireTimeFailure {
+    std::string podId;              // 更新失败的podId
+    bool preview{ true };           // 小流过期时间是否更新成功
+    bool session{ true };           // 大流过期时间是否更新成功
+    bool eventSync{ true };         // 群控过期时间是否更新成功
+};
+
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 视频编码器配置
+ */
+struct VideoEncoderConfig {
+    uint32_t width{ 0 };                 // 视频宽度
+    uint32_t height{ 0 };                // 视频高度
+    uint32_t frameRate{ 0 };             // 视频帧率
+    uint32_t maxKbps{ 0 };               // 最大编码码率
+    uint32_t minKbps{ 0 };               // 最小编码码率
+};
+
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 远端的视频流请求选项
+ */
+struct VideoStreamRequestOption {
+    CameraId cameraId;                        // 摄像头Id
+    int width{ -1 };                          // 推流宽度
+    int height{ -1 };                         // 推流高度
+};
+
+/**
+ * @locale zh
+ * @type keytype
+ * @brief 音频帧信息
+ */
+struct AudioFrameInfo {
+    uint32_t         sampleRate{ 0 };                     // 采样率
+    uint16_t         channels{ 0 };                       // 通道数
+    uint16_t         bitDepth{ 0 };                       // 位深
+    uint16_t         frameSize{ 0 };                      // 帧长度
+};
 
 #pragma pack(pop)
 
