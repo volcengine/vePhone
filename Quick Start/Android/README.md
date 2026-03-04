@@ -40,7 +40,7 @@ allprojects {
 
 2. 在应用模块的 build.gradle 文件中的 dependencies 中加入依赖项：
 
-```java
+```groovy
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     // 云手机 SDK
@@ -66,7 +66,7 @@ dependencies {
 
 3. 设置 Java 版本到 1.8：
 
-```java
+```groovy
 android {
     // ...
     compileOptions {
@@ -80,7 +80,7 @@ android {
 
 根据实际使用场景在 AndroidManifest.xml 文件中声明 SDK 需要的权限：
 
-```java
+```
 //网络权限，使用场景：音视频传输等
 <uses-permission android:name="android.permission.INTERNET" />
 //WiFi网络状态，使用场景：用户手机网络状态变化监听
@@ -107,7 +107,7 @@ android {
 1. 存储写入权限需动态申请。参考：https://developer.android.com/training/permissions/requesting
 2. 如果 APP 指向 Android 10 及以上（targetSdkVersion >= 29），而且并未适配 Scoped Storage，那么需要
     将AndroidManifest.xml文件中的requestLegacyExternalStorage设置为true。参考：https://developer.android.com/training/data-storage/use-cases#opt-out-scoped-storage
-```java
+```xml
 <manifest>
     <application android:requestLegacyExternalStorage="true">
     </application>
@@ -119,13 +119,13 @@ android {
 
 1. 在接入云手机 SDK 之前，需要获取火山引擎账号对应原始的 AccessKey（ak）和 SecretKey（sk），用于生成临时鉴权密钥（登录火山引擎控制台后，点击页面右上角用户信息，选择 账号 > API访问密钥）。
 
-2. 调用 “签发临时Token” 接口，获取用于鉴权的临时密钥（ak/sk/token 的获取方式请参考 [快速入门](https://www.volcengine.com/docs/6394/75735)）。
+2. 调用 “签发临时Token” 接口，获取用于鉴权的临时密钥（ak/sk/token 的获取方式请参考 [快速入门](https://www.volcengine.com/docs/6394/75735)及[获取临时密钥](https://www.volcengine.com/docs/6394/1262151?lang=zh)）。
 
 3. 获取到 ak/sk/token 之后，将其填入 [二、配置PhonePlayConfig](#二、配置PhonePlayConfig) 的对应位置。
 
 4. 除此之外，需要在 [app/src/main/AndroidManifest.xml](app/src/main/AndroidManifest.xml) 文件的 meta-data 中填入注册的火山引擎用户账号，参考以下示例：
 
-```java
+```xml
 <meta-data
     android:name="VOLC_ACCOUNT_ID"
     android:value="21000xxxxx" />
@@ -207,7 +207,7 @@ main
 
 
 其中, **sts.json** 的格式如下：
-```java
+```json
 {
     "podId": "your_pod_id",
     "productId": "your_product_id",

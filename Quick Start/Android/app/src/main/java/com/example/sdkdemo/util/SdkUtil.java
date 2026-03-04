@@ -25,27 +25,21 @@ public class SdkUtil {
 
 
     /**
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * ak/sk/token用于用户鉴权，需要从火山官网上获取，具体步骤详见README[鉴权相关]。
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * <p>ak/sk/token用于用户鉴权，获取方式详见README[鉴权相关/获取临时密钥]</p>
      *
-     * ak/sk/token/podId的值从assets目录下的sts.json文件中读取，该目录及文件需要自行创建。<p/>
-     * sts.json的格式形如下：
-     * <pre>
-     * {
-     *     "podId": "your_pod_id",
-     *     "productId": "your_product_id",
-     *     "ak": "your_ak",
-     *     "sk": "your_sk",
-     *     "token": "your_token"
-     * }
-     * </pre>
+     * - 方案验证和集成阶段：<br>
+     * 可以按文档指引，在创建具备相应权限的子账号后，在「控制台左侧导航栏」点击「新手入门」，选择存储方案后点击「生成临时鉴权密钥」
+     * 使用生成的临时ak、sk、token进行start拉流
+     * <br>
+     * - 正式技术方案阶段：<br>
+     * 业务侧服务端负责调用火山STS接口为客户端生成鉴权密钥，客户端从服务端获取到临时ak、sk、token后进行start拉流<br>
+     * <p><font color='red'>Note: manifest中的VOLC_ACCOUNT_ID信息也是鉴权的一部分，须替换为您的accountId</font></p>
+     * @docs <a href="https://www.volcengine.com/docs/6394/1262151?lang=zh">获取临时密钥（STS）</a>
      */
     public static @NonNull PlayAuth getPlayAuth(Context context) {
         PlayAuth auth = new PlayAuth();
         try {
             // TODO: 到火山云手机官网获取您的账户和资源信息进行参数替换
-            // Note: manifest中的VOLC_ACCOUNT_ID信息也须替换为您的accountId
             JSONObject stsJObj = new JSONObject(AssetsUtil.getTextFromAssets(context, "sts.json"));
             return new PlayAuth(
                     stsJObj.getString("ak"),
