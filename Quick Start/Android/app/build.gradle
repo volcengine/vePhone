@@ -45,34 +45,35 @@ android {
 }
 
 dependencies {
+    ///////////////////////////////////////////////////////////////////////////
+    // 云手机主SDK【必须】：
+    // 官网：https://www.volcengine.com/docs/6394/1274174?lang=zh
+    ///////////////////////////////////////////////////////////////////////////
+    // 集成方式一：Maven依赖，推荐
+    def sdk_version = "1.65.0"
+    implementation "com.volcengine.vephone:vephone:$sdk_version"
+    // 集成方式二：下载离线包，从火山云手机官网获取
+    /*implementation files('libs/phone-lite-release.aar')*/
 
+    ///////////////////////////////////////////////////////////////////////////
+    // 云手机游戏手柄套件【可选】
+    ///////////////////////////////////////////////////////////////////////////
+    implementation 'com.volcengine.vegame:VeGameConsole:1.0.5'
+
+
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'androidx.core:core-ktx:1.6.0'
     implementation 'androidx.appcompat:appcompat:1.3.1'
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
-
-    // todo: 从火山云手机官网获取sdk最新版本：https://www.volcengine.com/docs/6394/1274174?lang=zh
-    // 集成方式一：使用Maven依赖，推荐
-    implementation "com.volcengine.vephone:vephone:1.65.0"
-    // 集成方式二：依赖离线包，最新离线aar同样从火山云手机官网获取
-//    implementation files('libs/phone-lite-release.aar')
-
-    // 游戏手柄
-    implementation 'com.volcengine.vegame:VeGameConsole:1.0.2'
-
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-
     implementation 'com.blankj:utilcodex:1.31.0'
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.8.1'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.9.0'
+    implementation 'com.google.code.gson:gson:2.8.6'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-
-    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-    // JSON Converter
-    implementation 'com.squareup.retrofit2:converter-gson:2.8.1'
-    implementation 'com.google.code.gson:gson:2.8.6'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.9.0'
-
 }
