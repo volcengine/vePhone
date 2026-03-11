@@ -165,6 +165,7 @@ static LRESULT CALLBACK LargeWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
         if (session) {
             session->stop();
             session->setExternalVideoSink(nullptr);
+            session->setExternalAudioSink(nullptr);
         }
         // 关掉大窗后，将map中对应的信息清除
         if (demo->_sessionToPodId.find(session) != demo->_sessionToPodId.end()) {
@@ -240,9 +241,8 @@ static LRESULT CALLBACK PreviewWindowProc(HWND hWnd, UINT message, WPARAM wParam
         vecommon::PhoneSession* session = demo->_renderX->createPhoneSession(config, listener);
         listener->setSession(session);
         if (config.basicConfig.externalRender) {
-            QkExternalSink* sink = new QkExternalSink();
-            sink->setCanvas(static_cast<HWND>(win));
-            session->setExternalVideoSink(sink);
+            session->setExternalVideoSink(listener);
+            session->setExternalAudioSink(listener);
         }
         session->start();
         demo->_sessionToPodId[session] = pod_id;
@@ -331,19 +331,19 @@ void QkDemo::readConfigIni() {
     ifs.close();
 
     for (auto it = res.begin(); it != res.end(); ++it) {
-        if (std::string("ak") == it->first) {
+        if (std::string("ak_boe") == it->first) {
             _ak = it->second;
         }
-        else if (std::string("sk") == it->first) {
+        else if (std::string("sk_boe") == it->first) {
             _sk = it->second;
         }
-        else if (std::string("token") == it->first) {
+        else if (std::string("token_boe") == it->first) {
             _token = it->second;
         }
-        else if (std::string("accountId") == it->first) {
+        else if (std::string("accountId_boe") == it->first) {
             _accountId = it->second;
         }
-        else if (std::string("productId") == it->first) {
+        else if (std::string("productId_boe") == it->first) {
             _productId = it->second;
         }
     }
@@ -458,7 +458,7 @@ void QkDemo::releaseCloudRenderX() {
 }
 
 void QkDemo::initBcvConfig() {
-    _podIdList.push_back("7431456950547749658");
+    _podIdList.push_back("7605175838770387756");
 
     vecommon::BatchControlVideoConfig initConfig;
     std::string userId = "bcv_user_id_" + std::string(_renderX->getDeviceId());
