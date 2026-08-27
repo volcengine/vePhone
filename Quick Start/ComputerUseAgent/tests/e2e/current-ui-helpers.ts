@@ -7,6 +7,7 @@ export type CreatedTask = {
   execution_status: string;
   verdict: string | null;
   failure_type: string | null;
+  remote_run_id: string | null;
 };
 
 export async function csrfToken(page: Page): Promise<string> {

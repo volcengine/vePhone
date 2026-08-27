@@ -9,7 +9,11 @@ from mua_platform.cases.models import TestCase as CaseModel
 from mua_platform.tasks.models import PodLease, Task
 from mua_platform.tasks.repository import SQLiteTaskRepository
 from mua_platform.tasks.state_machine import ExecutionStatus, Verdict
-from mua_platform.tasks.worker import TaskWorker
+from mua_platform.tasks.worker import (
+    TaskWorker,
+    WorkerFailureDisposition,
+    WorkerUnavailableError,
+)
 
 
 @pytest.mark.asyncio
@@ -225,4 +229,94 @@ async def test_worker_stop_cancels_in_flight_execution():
                 await stop_task
 
     assert cancelled.is_set()
+    assert worker.is_running is False
+
+
+@pytest.mark.asyncio
+async def test_worker_drain_rejects_enqueue_and_does_not_start_queued_work():
+    processed = []
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def execute(task_id: str) -> None:
+        processed.append(task_id)
+        started.set()
+        await release.wait()
+
+    worker = TaskWorker(execute)
+    await worker.start()
+    await worker.enqueue("active")
+    await worker.enqueue("queued")
+    await asyncio.wait_for(started.wait(), timeout=0.5)
+
+    worker.begin_drain()
+    with pytest.raises(WorkerUnavailableError):
+        await worker.enqueue("late")
+    release.set()
+    await worker.stop(timeout_seconds=0.5)
+
+    assert processed == ["active"]
+    assert list(worker.queue._queue).count("queued") == 1
+
+
+@pytest.mark.asyncio
+async def test_worker_drain_timeout_cancels_without_failure_convergence():
+    started = asyncio.Event()
+    converged = []
+
+    async def execute(_task_id: str) -> None:
+        started.set()
+        await asyncio.Event().wait()
+
+    async def converge(task_id: str) -> WorkerFailureDisposition:
+        converged.append(task_id)
+        return WorkerFailureDisposition.COMPLETE
+
+    worker = TaskWorker(execute, converge_cancelled=converge)
+    await worker.start()
+    await worker.enqueue("remote-running")
+    await asyncio.wait_for(started.wait(), timeout=0.5)
+
+    await worker.stop(timeout_seconds=0.01)
+
+    assert converged == []
+    assert worker.is_running is False
+
+
+@pytest.mark.asyncio
+async def test_worker_retries_attached_task_after_execute_failure(monkeypatch):
+    monkeypatch.setattr(TaskWorker, "RETRY_DELAY_SECONDS", 0)
+    calls = []
+
+    async def execute(task_id: str) -> None:
+        calls.append(task_id)
+        if len(calls) == 1:
+            raise RuntimeError("poll failed")
+
+    async def converge(_task_id: str) -> WorkerFailureDisposition:
+        return WorkerFailureDisposition.RETRY
+
+    worker = TaskWorker(execute, converge_cancelled=converge)
+    await worker.start()
+    await worker.enqueue("attached")
+    await worker.wait_until_idle()
+    await worker.stop()
+
+    assert calls == ["attached", "attached"]
+
+
+@pytest.mark.asyncio
+async def test_worker_drain_disposition_enters_draining():
+    async def execute(_task_id: str) -> None:
+        raise RuntimeError("lease unavailable")
+
+    async def converge(_task_id: str) -> WorkerFailureDisposition:
+        return WorkerFailureDisposition.DRAIN
+
+    worker = TaskWorker(execute, converge_cancelled=converge)
+    await worker.start()
+    await worker.enqueue("attached")
+    with pytest.raises(WorkerUnavailableError):
+        await worker.wait_until_idle()
+
     assert worker.is_running is False

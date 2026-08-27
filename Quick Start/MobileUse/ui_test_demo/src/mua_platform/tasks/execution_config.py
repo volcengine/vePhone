@@ -8,10 +8,13 @@ _PUBLIC_FIELDS = (
     "thread_id",
     "product_id",
     "pod_id",
+    "device_strategy",
+    "pod_ids",
     "tos_bucket",
     "tos_endpoint",
     "tos_region",
     "timeout_seconds",
+    "device_wait_timeout_seconds",
     "use_base64_screenshot",
     "max_step",
     "callback_info",
@@ -23,6 +26,7 @@ _PUBLIC_FIELDS = (
     "max_output_tokens",
     "gps_info",
     "request_headers",
+    "device_prepare_action",
 )
 _JSON_FIELDS = frozenset({"mcp_json", "output_schema"})
 _SENSITIVE_KEY_PARTS = (
@@ -48,7 +52,9 @@ def public_execution_config(snapshot: Mapping[str, Any] | None) -> dict[str, Any
     }
     for field in _PUBLIC_FIELDS:
         value = values.get(field)
-        if field == "request_headers":
+        if field == "device_prepare_action":
+            value = value if value in {"none", "reset", "reboot"} else "none"
+        elif field == "request_headers":
             value = _header_state(value)
         elif field in _JSON_FIELDS:
             value = _sanitize_json_string(value)

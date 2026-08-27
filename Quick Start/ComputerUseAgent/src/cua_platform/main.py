@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
 from pathlib import Path
 
@@ -48,7 +48,8 @@ from cua_platform.diagnostics.mobile_use import (
 from cua_platform.diagnostics.universal import UniversalMobileUseClient
 from cua_platform.pods.gateway import PodGateway
 from cua_platform.pods.models import DiscoveredPod as _DiscoveredPod  # noqa: F401
-from cua_platform.pods.service import PodDiscoveryGateway
+from cua_platform.pods.repository import PodRepository
+from cua_platform.pods.service import PodDiscoveryGateway, PodPoolService
 from cua_platform.pods.streaming import StreamTokenGateway, VolcengineStreamTokenGateway
 from cua_platform.novnc_proxy import NoVncProxyStore
 from cua_platform.runners.base import RunRequest, RunnerAdapter
@@ -61,13 +62,16 @@ from cua_platform.settings.service import SettingsService
 from cua_platform.settings.audit import AuditEvent as _AuditEvent  # noqa: F401
 from cua_platform.settings.crypto import SettingCipher
 from cua_platform.settings.models import Setting as _Setting  # noqa: F401
+from cua_platform.tasks.pod_pool_refresh import SchedulerPodPoolRefresher
 from cua_platform.tasks.repository import SQLiteTaskRepository
 from cua_platform.tasks.scheduler import BatchScheduler
-from cua_platform.tasks.service import TaskService
-from cua_platform.tasks.state_machine import ExecutionStatus
+from cua_platform.tasks.service import AttachedLeaseUnavailable, TaskService
+from cua_platform.tasks.state_machine import ExecutionStatus, StartState
 from cua_platform.tasks.models import Task
-from cua_platform.tasks.worker import TaskWorker
+from cua_platform.tasks.worker import TaskWorker, WorkerFailureDisposition
 from cua_platform.test_plans.models import TestPlan as _TestPlan  # noqa: F401
+from cua_platform.test_plans.schedule_runner import ScheduleTrigger
+from cua_platform.test_plans.schedule_service import ScheduleService
 from cua_platform.time import Clock, SystemClock
 from cua_platform.traces.models import TaskTraceSpan as _TaskTraceSpan  # noqa: F401
 from cua_platform.traces.repository import TraceRepository
@@ -151,6 +155,7 @@ def create_app(
         raise ValueError(f"unsupported_runner_type:{task.runner_type}")
 
     resolved_runner_factory = runner_factory or default_runner_factory
+    draining = False
 
     def create_runner_for_task(task: Task, db) -> RunnerAdapter:
         config = SettingsService(
@@ -210,13 +215,51 @@ def create_app(
 
     last_scheduled_business_id: str | None = None
 
+    async def refresh_scheduler_pool(
+        business_id: str,
+        pool_id: str,
+    ) -> None:
+        with session_factory() as db:
+            config = SettingsService(
+                SettingRepository(
+                    db,
+                    setting_cipher,
+                    resolved.runner_setting_defaults(),
+                )
+            ).get_runner_config(business_id)
+            config = config.model_copy(update={"account_id": pool_id})
+            db.rollback()
+            await PodPoolService(
+                PodRepository(db),
+                resolved_pod_gateway,
+                SystemClock(),
+            ).refresh(config)
+
+    scheduler_pod_refresher = SchedulerPodPoolRefresher(
+        session_factory,
+        refresh_scheduler_pool,
+        refresh_interval=timedelta(
+            seconds=resolved.pod_pool_refresh_interval_seconds
+        ),
+        failure_retry_interval=timedelta(
+            seconds=resolved.pod_pool_refresh_failure_retry_seconds
+        ),
+    )
+
     async def schedule_batches() -> list[str]:
         nonlocal last_scheduled_business_id
+        if draining:
+            return []
+        now = SystemClock().now()
+        blocked_batch_ids = await scheduler_pod_refresher.refresh_due(now)
+        if draining:
+            return []
         with session_factory() as db:
             result = BatchScheduler(db).schedule(
-                SystemClock().now(),
+                now,
                 global_limit=resolved.task_worker_concurrency,
                 start_after_business_id=last_scheduled_business_id,
+                blocked_batch_ids=blocked_batch_ids,
             )
         last_scheduled_business_id = result.last_business_id
         worker = getattr(app.state, "task_worker", None)
@@ -225,8 +268,20 @@ def create_app(
                 await worker.enqueue(task_id)
         return result.task_ids
 
+    async def scan_due_schedules() -> None:
+        if draining:
+            return
+        now = SystemClock().now()
+        try:
+            with session_factory() as db:
+                trigger = ScheduleTrigger(db, resolved, setting_cipher)
+                trigger.trigger_due(now)
+        except Exception:
+            error_logger.exception("schedule_scan_failed")
+
     async def scheduler_loop() -> None:
         while True:
+            await scan_due_schedules()
             await schedule_batches()
             await asyncio.sleep(1)
 
@@ -244,14 +299,49 @@ def create_app(
             )
             return await service.recover_startup()
 
-    async def converge_cancelled(task_id: str) -> None:
-        with session_factory() as db:
-            repository = SQLiteTaskRepository(db)
-            task = repository.get(task_id)
-            if task is not None and task.execution_status == ExecutionStatus.QUEUED:
-                repository.finalize_preclaim_failure(task_id)
-            elif task is not None and task.execution_status == ExecutionStatus.RUNNING:
-                repository.finalize_interrupted(task_id, "runner_interrupted")
+    def drain_after_convergence_failure() -> WorkerFailureDisposition:
+        nonlocal draining
+        draining = True
+        worker = getattr(app.state, "task_worker", None)
+        if worker is not None:
+            worker.begin_drain()
+        return WorkerFailureDisposition.DRAIN
+
+    async def converge_execute_failure(
+        task_id: str,
+    ) -> WorkerFailureDisposition:
+        try:
+            with session_factory() as db:
+                repository = SQLiteTaskRepository(db)
+                task = TaskService(
+                    repository,
+                    None,
+                    execution_timeout=timedelta(
+                        seconds=resolved.task_execution_timeout_seconds
+                    ),
+                    cancel_confirm_timeout=timedelta(
+                        seconds=resolved.cancel_confirm_timeout_seconds
+                    ),
+                ).converge_worker_failure(
+                    task_id,
+                    worker_id="worker:default",
+                )
+        except AttachedLeaseUnavailable:
+            return drain_after_convergence_failure()
+        except Exception:
+            error_logger.error(
+                "task_worker_failure_convergence_failed",
+                extra={"task_id": task_id},
+            )
+            return drain_after_convergence_failure()
+        if (
+            task is not None
+            and task.execution_status == ExecutionStatus.RUNNING
+            and task.start_state == StartState.ATTACHED
+            and task.remote_run_id is not None
+        ):
+            return WorkerFailureDisposition.RETRY
+        return WorkerFailureDisposition.COMPLETE
 
     def mount_spa(lifespan_app: FastAPI) -> None:
         dist = Path("dist")
@@ -266,32 +356,49 @@ def create_app(
         def spa(path: str) -> FileResponse:
             if path in {"api", "health"} or path.startswith(("api/", "health/")):
                 raise StarletteHTTPException(status_code=404)
-            return FileResponse(index)
+            return FileResponse(
+                index,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
 
         lifespan_app.state.spa_mounted = True
 
     @asynccontextmanager
     async def lifespan(lifespan_app: FastAPI):
+        nonlocal draining
+        draining = False
         task_worker = TaskWorker(
             execute_task,
             recover_startup,
-            converge_cancelled,
+            converge_execute_failure,
             max_concurrency=resolved.task_worker_concurrency,
         )
         lifespan_app.state.task_worker = task_worker
         lifespan_app.state.schedule_batches = schedule_batches
         mount_spa(lifespan_app)
         await task_worker.start()
+        try:
+            with session_factory() as db:
+                trigger = ScheduleTrigger(db, resolved, setting_cipher)
+                trigger.trigger_due(
+                    SystemClock().now(), trigger_type="catchup"
+                )
+        except Exception:
+            error_logger.exception("schedule_startup_catchup_failed")
         scheduler_task = asyncio.create_task(scheduler_loop())
         try:
             yield
         finally:
+            draining = True
+            task_worker.begin_drain()
             scheduler_task.cancel()
             try:
-                await scheduler_task
-            except asyncio.CancelledError:
-                pass
-            await task_worker.stop()
+                with suppress(asyncio.CancelledError):
+                    await scheduler_task
+            finally:
+                await task_worker.stop(
+                    timeout_seconds=resolved.task_worker_drain_timeout_seconds,
+                )
 
     app = FastAPI(title="MUA Automation Platform", lifespan=lifespan)
     app.add_middleware(

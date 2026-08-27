@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from mua_platform.cases.schemas import TestCaseResponse
 from mua_platform.tasks.schemas import TaskExecutionConfig
@@ -71,6 +71,13 @@ class LatestPlanExecutionResponse(BaseModel):
     created_at: datetime
 
 
+class ScheduleSummaryResponse(BaseModel):
+    enabled: bool
+    cron_expr: str
+    next_run_at: datetime | None = None
+    last_run_at: datetime | None = None
+
+
 class TestPlanResponse(BaseModel):
     id: str
     name: str
@@ -81,6 +88,7 @@ class TestPlanResponse(BaseModel):
     case_count: int
     execution_count: int
     latest_execution: LatestPlanExecutionResponse | None
+    schedule: ScheduleSummaryResponse | None = None
     created_by: str
     created_at: datetime
     updated_at: datetime
@@ -139,6 +147,12 @@ class PlanReportSummary(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     duration_seconds: int | None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_steps: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_steps: int | None = None
 
 
 class PlanReportStats(BaseModel):
@@ -161,6 +175,7 @@ ReportTaskVerdict = Literal["pass", "fail", "unknown"]
 
 class PlanReportTask(BaseModel):
     task_id: str
+    remote_run_id: str | None = None
     case_id: str
     case_title: str
     case_deleted: bool = False
@@ -171,6 +186,9 @@ class PlanReportTask(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     duration_seconds: int | None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_steps: int | None = None
 
 
 class PlanReportDetail(PlanReportSummary):
@@ -198,3 +216,116 @@ class PlanReportListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class ScheduleExecutionConfig(BaseModel):
+    test_type: TestType = "regression"
+    device_strategy: Literal["automatic", "specified"] = "automatic"
+    pod_ids: list[str] = Field(default_factory=list, max_length=20)
+    concurrency: int = Field(ge=1, le=20)
+    device_wait_timeout_seconds: int | None = Field(
+        default=None, ge=1, le=86400
+    )
+    timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
+    agent_config_mode: Literal["global", "custom", "case_default"] = "global"
+    agent_options: dict | None = None
+
+
+class TestPlanScheduleCreate(BaseModel):
+    __test__ = False
+
+    cron_expr: str = Field(min_length=1, max_length=100)
+    timezone: str = Field(default="UTC", min_length=1, max_length=64)
+    execution_config: ScheduleExecutionConfig
+    enabled: bool = True
+
+    @field_validator("cron_expr")
+    @classmethod
+    def validate_cron_expr(cls, value: str) -> str:
+        from mua_platform.test_plans.scheduling import validate_cron
+
+        validate_cron(value.strip())
+        return value.strip()
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        from mua_platform.test_plans.scheduling import _zone
+
+        _zone(value)
+        return value
+
+
+class TestPlanScheduleUpdate(BaseModel):
+    __test__ = False
+
+    cron_expr: str | None = Field(default=None, min_length=1, max_length=100)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    execution_config: ScheduleExecutionConfig | None = None
+    enabled: bool | None = None
+
+    @field_validator("cron_expr")
+    @classmethod
+    def validate_cron_expr(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from mua_platform.test_plans.scheduling import validate_cron
+
+        validate_cron(value.strip())
+        return value.strip()
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from mua_platform.test_plans.scheduling import _zone
+
+        _zone(value)
+        return value
+
+
+class TestPlanScheduleResponse(BaseModel):
+    __test__ = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    test_plan_id: str
+    cron_expr: str
+    timezone: str
+    enabled: bool
+    next_run_at: datetime
+    last_run_at: datetime | None
+    last_skip_reason: str | None
+    execution_config: dict
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    schedule_id: str
+    event_type: str
+    trigger_type: str
+    scheduled_for: datetime
+    fired_at: datetime
+    plan_execution_id: str | None
+    skip_reason: str | None
+    error_message: str | None
+    created_at: datetime
+
+
+class ScheduleEventListResponse(BaseModel):
+    items: list[ScheduleEventResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class CronPreviewResponse(BaseModel):
+    next_runs: list[datetime]
+    human_description: str | None = None

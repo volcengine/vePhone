@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from cua_platform.db import Base
 from cua_platform.tasks.execution_config import public_execution_config
-from cua_platform.tasks.state_machine import ExecutionStatus, Verdict
+from cua_platform.tasks.state_machine import ExecutionStatus, StartState, Verdict
 
 
 def utc_now() -> datetime:
@@ -157,6 +157,19 @@ class Task(Base):
     result_assets: Mapped[dict] = mapped_column(JSON, default=dict)
     start_idempotency_key: Mapped[str | None] = mapped_column(
         String(255),
+        nullable=True,
+    )
+    start_state: Mapped[StartState] = mapped_column(
+        Enum(
+            StartState,
+            native_enum=False,
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=StartState.PENDING,
+        server_default=StartState.PENDING.value,
+    )
+    start_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
     )
     cancel_requested_at: Mapped[datetime | None] = mapped_column(

@@ -113,6 +113,7 @@ class MobileUseRunner:
                 "response_invalid",
                 "runner_interrupted",
                 remote.request_id,
+                start_outcome_unknown=True,
             )
         _log(
             logging.INFO,
@@ -389,7 +390,14 @@ def _runner_failure(exc: UniversalRemoteError) -> RunnerFailure:
         if exc.code in _DEVICE_ERROR_CODES
         else "runner_interrupted"
     )
-    return RunnerFailure(exc.code, failure_type, exc.request_id)
+    return RunnerFailure(
+        exc.code,
+        failure_type,
+        exc.request_id,
+        start_outcome_unknown=(
+            not exc.response_received or exc.code == "response_invalid"
+        ),
+    )
 
 
 def _task_status(payload: object, run_id: str) -> int | None:

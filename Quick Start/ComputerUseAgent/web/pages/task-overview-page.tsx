@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { CopyButton } from "../components/copy-button";
 import { RuntimeConfigSnapshot } from "../components/runtime-config-snapshot";
 import { StatusBadge } from "../components/status-badge";
-import { formatChinaDateTime, formatTaskElapsedTime } from "../utils/time";
+import { formatChinaDateTime, formatDurationSeconds, formatTaskElapsedTime } from "../utils/time";
 import type {
   RuntimeScreenshot,
   Task,
   TaskRuntimeResponse,
+  TestCase,
 } from "../api/types";
 import { mergeRuntimeThreadSteps, runtimeToolCount } from "../utils/runtime-trace";
 
@@ -106,13 +108,33 @@ type ScreenshotEntry = {
   data: RuntimeScreenshot;
 };
 
+type ScreenshotValidation = {
+  signature: string;
+  accessibleKeys: Set<string>;
+};
+
 const TERMINAL_STATUSES = ["result_ready", "cancelled"];
+const SCREENSHOT_CHECK_TIMEOUT_MS = 8000;
+
+function numericSuffix(key: string): number | null {
+  const match = key.match(/-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function compareScreenshotKeys(leftKey: string, rightKey: string) {
+  const leftSuffix = numericSuffix(leftKey);
+  const rightSuffix = numericSuffix(rightKey);
+  if (leftSuffix !== null && rightSuffix !== null && leftSuffix !== rightSuffix) {
+    return leftSuffix - rightSuffix;
+  }
+  return leftKey.localeCompare(rightKey);
+}
 
 function screenshotEntries(
   screenshots: Record<string, RuntimeScreenshot> | undefined,
 ): ScreenshotEntry[] {
   return Object.entries(screenshots ?? {})
-    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .sort(([leftKey], [rightKey]) => compareScreenshotKeys(leftKey, rightKey))
     .flatMap(([key, data]) => {
       const url = data.screenshot ?? data.original_screenshot;
       if (!url) return [];
@@ -140,6 +162,10 @@ function isTerminalStatus(status: string) {
   return TERMINAL_STATUSES.includes(status);
 }
 
+function shouldCollapseCaseContent(value: string): boolean {
+  return value.length > 240 || value.split(/\r?\n/).length > 6;
+}
+
 export function TaskOverviewPage() {
   const { taskId } = useParams();
   const [threadSteps, setThreadSteps] = useState<TaskRuntimeResponse["thread_steps"]>([]);
@@ -161,8 +187,18 @@ export function TaskOverviewPage() {
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(0);
+  const [previewScreenshotIndex, setPreviewScreenshotIndex] = useState<number | null>(null);
+  const [caseContentExpanded, setCaseContentExpanded] = useState(false);
   const [failedScreenshots, setFailedScreenshots] = useState<Set<string>>(() => new Set());
+  const [screenshotValidation, setScreenshotValidation] =
+    useState<ScreenshotValidation | null>(null);
   const loadedItem = runtime.data?.task ?? task.data ?? null;
+  const caseDetail = useQuery({
+    enabled: Boolean(loadedItem?.case_id),
+    queryKey: ["task-case-content", loadedItem?.case_id],
+    queryFn: () => api.get<TestCase>(`/cases/${loadedItem?.case_id ?? ""}`),
+    retry: false,
+  });
   const isTerminal = loadedItem ? isTerminalStatus(loadedItem.execution_status) : true;
   const result = runtime.data?.result ?? {
     summary: loadedItem?.result_summary ?? null,
@@ -171,11 +207,19 @@ export function TaskOverviewPage() {
     assets: loadedItem?.result_assets ?? {},
   };
   const resultEvidence = result.evidence ?? [];
+  const realtimeScreenshots = runtime.data?.result.assets.screenshots;
   const screenshots = useMemo(
-    () => screenshotEntries(result.assets.screenshots),
-    [result.assets.screenshots],
+    () => screenshotEntries(realtimeScreenshots),
+    [realtimeScreenshots],
   );
-  const returnedScreenshotCount = Object.keys(result.assets.screenshots ?? {}).length;
+  const screenshotSignature = useMemo(
+    () => JSON.stringify(screenshots.map((screenshot) => [screenshot.key, screenshot.url])),
+    [screenshots],
+  );
+  const screenshotCheckComplete =
+    screenshotValidation?.signature === screenshotSignature;
+  const screenshotCheckPending = screenshots.length > 0 && !screenshotCheckComplete;
+  const returnedScreenshotCount = Object.keys(realtimeScreenshots ?? {}).length;
   const files = result.assets.files ?? [];
   const usage = result.assets.usage ?? {};
   const firstThreadTask = runtime.data?.thread_groups.flatMap((group) => group.tasks)[0];
@@ -187,7 +231,12 @@ export function TaskOverviewPage() {
     ? result.assets.total_steps
     : null;
   const stepMetric = totalSteps ?? toolCount;
-  const durationText = loadedItem
+  const remoteDurationSeconds = isTerminal && typeof result.assets.duration_ms === "number"
+    ? result.assets.duration_ms / 1000
+    : null;
+  const durationText = remoteDurationSeconds !== null
+    ? formatDurationSeconds(remoteDurationSeconds)
+    : loadedItem
     ? formatTaskElapsedTime(
       loadedItem.execution_status,
       loadedItem.started_at,
@@ -196,10 +245,18 @@ export function TaskOverviewPage() {
     )
     : "-";
   const visibleScreenshots = useMemo(
-    () => screenshots.filter((shot) => !failedScreenshots.has(shot.key)),
-    [screenshots, failedScreenshots],
+    () => screenshots.filter(
+      (shot) =>
+        screenshotCheckComplete
+        && screenshotValidation.accessibleKeys.has(shot.key)
+        && !failedScreenshots.has(shot.key),
+    ),
+    [failedScreenshots, screenshotCheckComplete, screenshotValidation, screenshots],
   );
   const selectedScreenshot = visibleScreenshots[selectedScreenshotIndex] ?? null;
+  const previewScreenshot = previewScreenshotIndex === null
+    ? null
+    : visibleScreenshots[previewScreenshotIndex] ?? null;
 
   useEffect(() => {
     if (isTerminal || loadedItem?.execution_status !== "running") return;
@@ -210,6 +267,69 @@ export function TaskOverviewPage() {
   useEffect(() => {
     setThreadSteps([]);
   }, [taskId]);
+
+  useEffect(() => {
+    setCaseContentExpanded(false);
+  }, [loadedItem?.case_id]);
+
+  useEffect(() => {
+    setSelectedScreenshotIndex(0);
+    setPreviewScreenshotIndex(null);
+    setFailedScreenshots(new Set());
+    if (screenshots.length === 0) {
+      setScreenshotValidation({
+        signature: screenshotSignature,
+        accessibleKeys: new Set(),
+      });
+      return;
+    }
+
+    let active = true;
+    let remaining = screenshots.length;
+    const accessibleKeys = new Set<string>();
+    const cleanups: Array<() => void> = [];
+
+    setScreenshotValidation(null);
+    for (const screenshot of screenshots) {
+      const image = new Image();
+      let settled = false;
+      const settle = (accessible: boolean) => {
+        if (settled || !active) return;
+        settled = true;
+        if (accessible) accessibleKeys.add(screenshot.key);
+        remaining -= 1;
+        if (remaining === 0) {
+          setScreenshotValidation({
+            signature: screenshotSignature,
+            accessibleKeys: new Set(accessibleKeys),
+          });
+        }
+      };
+      const timeout = window.setTimeout(
+        () => settle(false),
+        SCREENSHOT_CHECK_TIMEOUT_MS,
+      );
+      image.onload = () => {
+        window.clearTimeout(timeout);
+        settle(true);
+      };
+      image.onerror = () => {
+        window.clearTimeout(timeout);
+        settle(false);
+      };
+      cleanups.push(() => {
+        window.clearTimeout(timeout);
+        image.onload = null;
+        image.onerror = null;
+      });
+      image.src = screenshot.url;
+    }
+
+    return () => {
+      active = false;
+      cleanups.forEach((cleanup) => cleanup());
+    };
+  }, [screenshotSignature, screenshots]);
 
   useEffect(() => {
     if (!runtime.data) return;
@@ -224,6 +344,21 @@ export function TaskOverviewPage() {
       setSelectedScreenshotIndex(Math.max(0, visibleScreenshots.length - 1));
     }
   }, [visibleScreenshots.length, selectedScreenshotIndex]);
+
+  useEffect(() => {
+    if (previewScreenshotIndex === null) return;
+    if (previewScreenshotIndex < visibleScreenshots.length) return;
+    setPreviewScreenshotIndex(null);
+  }, [previewScreenshotIndex, visibleScreenshots.length]);
+
+  useEffect(() => {
+    if (previewScreenshotIndex === null) return;
+    function closePreviewOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPreviewScreenshotIndex(null);
+    }
+    window.addEventListener("keydown", closePreviewOnEscape);
+    return () => window.removeEventListener("keydown", closePreviewOnEscape);
+  }, [previewScreenshotIndex]);
 
   if (task.isPending) return <div className="table-card"><p className="muted">加载中...</p></div>;
   const friendlyError = emptyFriendlyError(task.error);
@@ -326,12 +461,16 @@ export function TaskOverviewPage() {
           <div className="section-heading">
             <h2>执行截图</h2>
             <span className="muted small">
-              {visibleScreenshots.length > 0
+              {screenshotCheckPending
+                ? "检查中"
+                : visibleScreenshots.length > 0
                 ? `${selectedScreenshotIndex + 1} / ${visibleScreenshots.length}`
                 : "暂无图片"}
             </span>
           </div>
-          {selectedScreenshot ? (
+          {(!runtime.data && !runtime.isError) || screenshotCheckPending ? (
+            <p className="muted">正在加载执行截图...</p>
+          ) : selectedScreenshot ? (
             <div className="runtime-screenshot-viewer">
               <div className="runtime-screenshot-stage">
                 {visibleScreenshots.length > 1 && (
@@ -348,15 +487,22 @@ export function TaskOverviewPage() {
                     ‹
                   </button>
                 )}
-                <img
-                  src={selectedScreenshot.url}
-                  alt={`截图 ${selectedScreenshotIndex + 1}`}
-                  onError={() =>
-                    setFailedScreenshots((current) =>
-                      new Set(current).add(selectedScreenshot.key),
-                    )
-                  }
-                />
+                <button
+                  type="button"
+                  className="runtime-screenshot-zoom-trigger"
+                  aria-label={`放大截图 ${selectedScreenshotIndex + 1}`}
+                  onClick={() => setPreviewScreenshotIndex(selectedScreenshotIndex)}
+                >
+                  <img
+                    src={selectedScreenshot.url}
+                    alt={`截图 ${selectedScreenshotIndex + 1}`}
+                    onError={() =>
+                      setFailedScreenshots((current) =>
+                        new Set(current).add(selectedScreenshot.key),
+                      )
+                    }
+                  />
+                </button>
                 {visibleScreenshots.length > 1 && (
                   <button
                     type="button"
@@ -396,6 +542,8 @@ export function TaskOverviewPage() {
                 </div>
               )}
             </div>
+          ) : runtime.isError ? (
+            <p className="muted">截图数据不可用。</p>
           ) : returnedScreenshotCount > 0 ? (
             <p className="muted">
               已返回 {returnedScreenshotCount} 张截图，但没有可访问 URL。
@@ -420,6 +568,62 @@ export function TaskOverviewPage() {
           )}
         </section>
 
+        <section
+          className="table-card runtime-card task-overview-case"
+          aria-label="用例内容"
+        >
+          <div className="section-heading">
+            <div>
+              <h2>用例内容</h2>
+              {caseDetail.data && (
+                <p className="muted small runtime-case-meta">
+                  <span>{caseDetail.data.module ?? "未分组"}</span>
+                  <code translate="no">{caseDetail.data.id}</code>
+                </p>
+              )}
+            </div>
+            {caseDetail.data?.content_markdown?.trim() && (
+              <div className="section-actions">
+                <CopyButton
+                  value={caseDetail.data.content_markdown}
+                  label="用例内容"
+                />
+                {shouldCollapseCaseContent(caseDetail.data.content_markdown) && (
+                  <button
+                    type="button"
+                    className="text-button runtime-case-toggle"
+                    aria-expanded={caseContentExpanded}
+                    aria-label={caseContentExpanded ? "收起用例内容" : "展开用例内容"}
+                    onClick={() => setCaseContentExpanded((current) => !current)}
+                  >
+                    {caseContentExpanded ? "收起" : "展开"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {caseDetail.isLoading ? (
+            <p className="muted">正在加载用例内容...</p>
+          ) : caseDetail.isError ? (
+            <p className="muted">用例内容不可用。</p>
+          ) : caseDetail.data?.content_markdown?.trim() ? (
+            <>
+              <strong className="runtime-case-title">
+                {caseDetail.data.title}
+              </strong>
+              <pre
+                className={`runtime-case-content${
+                  caseContentExpanded ? " expanded" : ""
+                }`}
+              >
+                {caseDetail.data.content_markdown}
+              </pre>
+            </>
+          ) : (
+            <p className="muted">暂无用例内容。</p>
+          )}
+        </section>
+
         <section className="table-card runtime-card task-overview-meta">
           <div className="section-heading">
             <h2>任务信息</h2>
@@ -437,6 +641,34 @@ export function TaskOverviewPage() {
           <RuntimeConfigSnapshot config={runtime.data.execution_config} />
         )}
       </div>
+      {previewScreenshot && previewScreenshotIndex !== null && (
+        <div
+          className="modal-overlay runtime-screenshot-preview-overlay"
+          role="presentation"
+          onClick={() => setPreviewScreenshotIndex(null)}
+        >
+          <div
+            className="runtime-screenshot-preview-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`截图 ${previewScreenshotIndex + 1} 预览`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close runtime-screenshot-preview-close"
+              aria-label="关闭截图预览"
+              onClick={() => setPreviewScreenshotIndex(null)}
+            >
+              ×
+            </button>
+            <img
+              src={previewScreenshot.url}
+              alt={`截图 ${previewScreenshotIndex + 1}`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

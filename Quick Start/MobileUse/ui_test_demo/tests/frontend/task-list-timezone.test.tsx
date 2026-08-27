@@ -43,6 +43,6 @@ it("renders task creation time in UTC+8 with a stable format", async () => {
   expect(screen.getByText("耗时")).toBeVisible();
   expect(screen.getByText("操作者")).toBeVisible();
   expect(screen.getAllByText("admin")).toHaveLength(2);
-  expect(screen.getByText("03:01")).toBeVisible();
+  expect(screen.getByText("3 分 1 秒")).toBeVisible();
   expect(screen.queryByRole("button", { name: "取消任务" })).not.toBeInTheDocument();
 });

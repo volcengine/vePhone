@@ -12,10 +12,6 @@ from cua_platform.auth.models import AuthSession, User
 from cua_platform.business.models import DEFAULT_BUSINESS_ID, BusinessSpace
 from cua_platform.business.service import BusinessSpaceService
 
-SESSION_IDLE_TIMEOUT = timedelta(minutes=30)
-SESSION_ACTIVITY_REFRESH_INTERVAL = timedelta(minutes=5)
-
-
 def get_db(request: Request) -> Generator[Session]:
     with request.app.state.session_factory() as db:
         yield db
@@ -30,11 +26,17 @@ def require_session(request: Request, db: Database) -> AuthSession:
         raise api_error(401, "authentication_required", "Authentication required")
 
     now = datetime.now(UTC)
+    idle_timeout = timedelta(
+        seconds=request.app.state.settings.auth_session_idle_timeout_seconds
+    )
+    activity_refresh_interval = timedelta(
+        seconds=request.app.state.settings.auth_session_activity_refresh_seconds
+    )
     auth_session = db.scalar(
         select(AuthSession).where(
             AuthSession.id == session_id,
             AuthSession.expires_at > now,
-            AuthSession.last_seen_at > now - SESSION_IDLE_TIMEOUT,
+            AuthSession.last_seen_at > now - idle_timeout,
         )
     )
     if auth_session is None:
@@ -42,7 +44,7 @@ def require_session(request: Request, db: Database) -> AuthSession:
     last_seen_at = auth_session.last_seen_at
     if last_seen_at.tzinfo is None:
         last_seen_at = last_seen_at.replace(tzinfo=UTC)
-    if last_seen_at <= now - SESSION_ACTIVITY_REFRESH_INTERVAL:
+    if last_seen_at <= now - activity_refresh_interval:
         auth_session.last_seen_at = now
         db.commit()
     return auth_session

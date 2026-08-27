@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 from uuid import uuid4
 
@@ -27,6 +27,7 @@ from cua_platform.tasks.models import (
 from cua_platform.tasks.state_machine import (
     CANCELLABLE_STATUSES,
     ExecutionStatus,
+    StartState,
     Verdict,
     transition,
     validate_terminal_outcome,
@@ -46,6 +47,7 @@ RELEASE_REASONS = frozenset(
         "cancelled",
         "interrupted",
         "startup_cleanup",
+        "startup_requeue",
         "orphan_cleanup",
         "explicit",
     }
@@ -109,9 +111,33 @@ class TaskRepository(Protocol):
         execution_timeout: timedelta = timedelta(seconds=600),
     ) -> Task | None: ...
 
+    def mark_start_dispatching(
+        self,
+        task_id: str,
+        now: datetime,
+    ) -> Task | None: ...
+
     def save_run_handle(self, task_id: str, handle: RunHandle) -> Task: ...
 
+    def repair_start_attached(self, task_id: str) -> Task: ...
+
+    def requeue_before_dispatch(self, task_id: str) -> Task: ...
+
+    def finalize_start_outcome_unknown(
+        self,
+        task_id: str,
+        quarantine_until: datetime,
+    ) -> Task: ...
+
     def renew_lease(
+        self,
+        task_id: str,
+        worker_id: str,
+        now: datetime,
+        lease_ttl: timedelta,
+    ) -> bool: ...
+
+    def ensure_attached_lease(
         self,
         task_id: str,
         worker_id: str,
@@ -148,6 +174,12 @@ class TaskRepository(Protocol):
     def finalize_preclaim_failure(self, task_id: str) -> Task: ...
 
     def finalize_device_unavailable(self, task_id: str) -> Task: ...
+
+    def finalize_queued_failure(
+        self,
+        task_id: str,
+        failure_type: str,
+    ) -> Task: ...
 
     def reserve_batch_pod(
         self,
@@ -398,7 +430,7 @@ class SQLiteTaskRepository:
                 .values(
                     execution_status=ExecutionStatus.RUNNING,
                     started_at=now,
-                    deadline_at=now + execution_timeout,
+                    deadline_at=None,
                     version=Task.version + 1,
                 )
             )
@@ -512,16 +544,105 @@ class SQLiteTaskRepository:
 
         return None
 
+    def mark_start_dispatching(
+        self,
+        task_id: str,
+        now: datetime,
+    ) -> Task | None:
+        task = self._required(task_id)
+        changed = self.db.execute(
+            update(Task)
+            .where(
+                Task.id == task_id,
+                Task.version == task.version,
+                Task.execution_status == ExecutionStatus.RUNNING,
+                Task.start_state == StartState.PENDING,
+                Task.remote_run_id.is_(None),
+            )
+            .values(
+                start_state=StartState.DISPATCHING,
+                start_attempted_at=now,
+                version=Task.version + 1,
+            )
+        )
+        if changed.rowcount != 1:
+            self.db.rollback()
+            return None
+        self.db.commit()
+        return self._reload(task_id)
+
     def save_run_handle(self, task_id: str, handle: RunHandle) -> Task:
         try:
             task = self._required(task_id)
             if handle.task_id != task.id or handle.runner_type != task.runner_type:
                 raise ValueError(f"invalid_run_handle:{task_id}")
-            task.remote_run_id = handle.run_id
-            if handle.thread_id:
-                task.remote_thread_id = handle.thread_id
+            changed = self.db.execute(
+                update(Task)
+                .where(
+                    Task.id == task_id,
+                    Task.execution_status == ExecutionStatus.RUNNING,
+                    Task.start_state == StartState.DISPATCHING,
+                    Task.remote_run_id.is_(None),
+                )
+                .values(
+                    remote_run_id=handle.run_id,
+                    remote_thread_id=handle.thread_id or task.remote_thread_id,
+                    start_state=StartState.ATTACHED,
+                    version=Task.version + 1,
+                )
+            )
+            if changed.rowcount != 1:
+                self.db.rollback()
+                raise ValueError(f"task_start_not_dispatching:{task_id}")
             self.db.commit()
-            return task
+            return self._reload(task_id)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def repair_start_attached(self, task_id: str) -> Task:
+        task = self._required(task_id)
+        if task.remote_run_id is None:
+            raise ValueError(f"task_run_handle_missing:{task_id}")
+        task.start_state = StartState.ATTACHED
+        task.version += 1
+        self.db.commit()
+        return task
+
+    def requeue_before_dispatch(self, task_id: str) -> Task:
+        try:
+            task = self._required(task_id)
+            changed = self.db.execute(
+                update(Task)
+                .where(
+                    Task.id == task_id,
+                    Task.version == task.version,
+                    Task.execution_status == ExecutionStatus.RUNNING,
+                    Task.start_state == StartState.PENDING,
+                    Task.remote_run_id.is_(None),
+                )
+                .values(
+                    execution_status=ExecutionStatus.QUEUED,
+                    started_at=None,
+                    version=Task.version + 1,
+                )
+            )
+            if changed.rowcount != 1:
+                self.db.rollback()
+                raise ValueError(f"task_requeue_conflict:{task_id}")
+            released = self._release_lease(
+                task_id,
+                None,
+                "startup_requeue",
+            )
+            self.db.commit()
+            self._log_release_result(
+                task_id,
+                None,
+                "startup_requeue",
+                released,
+            )
+            return self._reload(task_id)
         except Exception:
             self.db.rollback()
             raise
@@ -575,6 +696,88 @@ class SQLiteTaskRepository:
                 resource_key=renewed.pod_id,
                 worker_id=worker_id,
                 lease_version=renewed.version,
+            )
+            return True
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def ensure_attached_lease(
+        self,
+        task_id: str,
+        worker_id: str,
+        now: datetime,
+        lease_ttl: timedelta,
+    ) -> bool:
+        try:
+            task = self._required(task_id)
+            if (
+                task.execution_status != ExecutionStatus.RUNNING
+                or task.start_state != StartState.ATTACHED
+                or task.remote_run_id is None
+            ):
+                self.db.rollback()
+                return False
+            resource_keys = _lease_resource_keys(task.runner_config_snapshot)
+            expected_key = resource_keys[-1]
+            lease = self.db.scalar(
+                select(PodLease).where(PodLease.task_id == task_id)
+            )
+            conflict = self.db.scalar(
+                select(PodLease).where(
+                    PodLease.pod_id.in_(resource_keys),
+                    PodLease.task_id != task_id,
+                )
+            )
+            if (
+                conflict is not None
+                or lease is not None
+                and (
+                    lease.worker_id != worker_id
+                    or lease.pod_id not in resource_keys
+                )
+            ):
+                self.db.rollback()
+                return False
+
+            expires_at = _utc_naive(now + lease_ttl)
+            if lease is None:
+                inserted = self.db.execute(
+                    sqlite_insert(PodLease)
+                    .values(
+                        pod_id=expected_key,
+                        task_id=task_id,
+                        worker_id=worker_id,
+                        expires_at=expires_at,
+                        version=1,
+                    )
+                    .on_conflict_do_nothing()
+                )
+                if inserted.rowcount != 1:
+                    self.db.rollback()
+                    return False
+                resource_key = expected_key
+                lease_version = 1
+                reason = "recreated"
+            else:
+                reason = (
+                    "renewed"
+                    if _utc_naive(lease.expires_at) > _utc_naive(now)
+                    else "recovered"
+                )
+                lease.expires_at = expires_at
+                lease.version += 1
+                resource_key = lease.pod_id
+                lease_version = lease.version
+            self.db.commit()
+            _log(
+                logging.INFO,
+                "pod_lease_ownership_ensured",
+                task_id=task_id,
+                resource_key=resource_key,
+                worker_id=worker_id,
+                lease_version=lease_version,
+                reason=reason,
             )
             return True
         except Exception:
@@ -663,6 +866,7 @@ class SQLiteTaskRepository:
             if (
                 task.execution_status == ExecutionStatus.QUEUED
                 and task.batch_id is not None
+                and task.cancel_requested_at is None
                 and self.db.scalar(
                     select(PodLease.task_id).where(PodLease.task_id == task.id)
                 )
@@ -814,6 +1018,68 @@ class SQLiteTaskRepository:
             self.db.rollback()
             raise
 
+    def finalize_start_outcome_unknown(
+        self,
+        task_id: str,
+        quarantine_until: datetime,
+    ) -> Task:
+        quarantined_lease: PodLease | None = None
+        try:
+            task = self._required(task_id)
+            if task.execution_status == ExecutionStatus.RESULT_READY:
+                return task
+            if (
+                task.execution_status != ExecutionStatus.RUNNING
+                or task.start_state != StartState.DISPATCHING
+                or task.remote_run_id is not None
+            ):
+                raise ValueError(f"task_start_outcome_known:{task_id}")
+            self._insert_event(
+                task_id,
+                RunnerEvent(
+                    sequence=self._next_event_sequence(task_id),
+                    type="task_start_outcome_unknown",
+                    payload={"failure_type": "start_outcome_unknown"},
+                ),
+            )
+            self._finish(
+                task_id,
+                ExecutionStatus.RESULT_READY,
+                Verdict.FAIL,
+                "start_outcome_unknown",
+            )
+            quarantined_lease = self.db.scalar(
+                select(PodLease).where(PodLease.task_id == task_id)
+            )
+            if quarantined_lease is not None:
+                if _utc_naive(quarantined_lease.expires_at) < _utc_naive(
+                    quarantine_until
+                ):
+                    quarantined_lease.expires_at = quarantine_until
+                quarantined_lease.version += 1
+            self.db.commit()
+            if quarantined_lease is None:
+                _log(
+                    logging.WARNING,
+                    "pod_lease_quarantine_missed",
+                    task_id=task_id,
+                    reason="lease_missing",
+                )
+            else:
+                _log(
+                    logging.WARNING,
+                    "pod_lease_quarantined",
+                    task_id=task_id,
+                    resource_key=quarantined_lease.pod_id,
+                    worker_id=quarantined_lease.worker_id,
+                    lease_version=quarantined_lease.version,
+                    quarantine_until=_as_utc(quarantined_lease.expires_at).isoformat(),
+                )
+            return self._reload(task_id)
+        except Exception:
+            self.db.rollback()
+            raise
+
     def finalize_interrupted(self, task_id: str, failure_type: str) -> Task:
         released_lease: _ReleasedLease | None = None
         try:
@@ -885,6 +1151,13 @@ class SQLiteTaskRepository:
             raise
 
     def finalize_device_unavailable(self, task_id: str) -> Task:
+        return self.finalize_queued_failure(task_id, "device_unavailable")
+
+    def finalize_queued_failure(
+        self,
+        task_id: str,
+        failure_type: str,
+    ) -> Task:
         released_lease: _ReleasedLease | None = None
         try:
             task = self._required(task_id)
@@ -897,14 +1170,14 @@ class SQLiteTaskRepository:
                 RunnerEvent(
                     sequence=self._next_event_sequence(task_id),
                     type="runner_interrupted",
-                    payload={"failure_type": "device_unavailable"},
+                    payload={"failure_type": failure_type},
                 ),
             )
             self._finish(
                 task_id,
                 ExecutionStatus.RESULT_READY,
                 Verdict.FAIL,
-                "device_unavailable",
+                failure_type,
             )
             released_lease = self._release_lease(task_id, None, "interrupted")
             self.db.commit()
@@ -1472,3 +1745,27 @@ def _canonical_json(value: Any) -> str:
 def _validate_release_reason(reason: str) -> None:
     if reason not in RELEASE_REASONS:
         raise ValueError("lease_release_reason_invalid")
+
+
+def _lease_resource_keys(snapshot: object) -> tuple[str, ...]:
+    if not isinstance(snapshot, dict):
+        raise ValueError("runner_snapshot_invalid")
+    pod_id = snapshot.get("pod_id")
+    if not isinstance(pod_id, str) or not pod_id:
+        raise ValueError("runner_snapshot_invalid")
+    product_id = snapshot.get("account_id") or snapshot.get("product_id")
+    if isinstance(product_id, str) and product_id:
+        return pod_id, f"{product_id}:{pod_id}"
+    return (pod_id,)
+
+
+def _utc_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

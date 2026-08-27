@@ -120,11 +120,13 @@ def _schedule(
     *,
     global_limit: int = 16,
     start_after_business_id: str | None = None,
+    blocked_batch_ids: set[str] | None = None,
 ) -> list[str]:
     return BatchScheduler(db).schedule(
         now,
         global_limit=global_limit,
         start_after_business_id=start_after_business_id,
+        blocked_batch_ids=blocked_batch_ids,
     ).task_ids
 
 
@@ -453,6 +455,44 @@ def test_stale_by_last_seen_starts_specified_unavailable_timer():
             assert (
                 batch.tasks[0].queue_reason
                 == "device_temporarily_unavailable"
+            )
+    finally:
+        engine.dispose()
+
+
+def test_refresh_blocked_batch_does_not_advance_device_unavailable_timer():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 7, 29, 8, 0, tzinfo=UTC)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            batch = _seed_batch(
+                db,
+                strategy="specified",
+                pod_ids=["pod-stale"],
+                concurrency=1,
+                task_count=1,
+            )
+            original_unavailable_since = now - timedelta(minutes=10)
+            batch.unavailable_since = original_unavailable_since
+            db.commit()
+
+            assert _schedule(
+                db,
+                now,
+                blocked_batch_ids={batch.id},
+            ) == []
+
+            db.refresh(batch)
+            db.refresh(batch.tasks[0])
+            assert batch.unavailable_since is not None
+            assert batch.unavailable_since.replace(
+                tzinfo=UTC
+            ) == original_unavailable_since
+            assert batch.tasks[0].execution_status == ExecutionStatus.QUEUED
+            assert (
+                batch.tasks[0].queue_reason
+                == "waiting_for_pod_pool_refresh"
             )
     finally:
         engine.dispose()

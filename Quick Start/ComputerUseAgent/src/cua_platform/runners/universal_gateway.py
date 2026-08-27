@@ -308,7 +308,7 @@ class UniversalGateway:
         run_id: str | None = None,
         trace_key: str | None = None,
     ) -> RemoteResultResponse:
-        body: dict[str, Any] = {"AgentType": "mua"}
+        body: dict[str, Any] = {"AgentType": "cua"}
         if config.product_id:
             body["ProductId"] = config.product_id
         if thread_id:
@@ -337,7 +337,7 @@ class UniversalGateway:
         run_id: str | None = None,
         trace_key: str | None = None,
     ) -> RemoteResultResponse:
-        body: dict[str, Any] = {"AgentType": "mua"}
+        body: dict[str, Any] = {"AgentType": "cua"}
         if thread_id:
             body["ThreadId"] = thread_id
         if run_id:

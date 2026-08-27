@@ -80,8 +80,7 @@ class BusinessSpaceService:
         )
         try:
             self.db.add(business)
-            self.db.commit()
-            self.db.refresh(business)
+            self.db.flush()
             return business
         except IntegrityError as exc:
             self.db.rollback()

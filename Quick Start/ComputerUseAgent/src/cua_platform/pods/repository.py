@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from cua_platform.pods.models import (
@@ -15,20 +15,12 @@ from cua_platform.pods.models import (
 )
 from cua_platform.pods.schemas import PodDetail, PodPoolItem, PodPoolSnapshot, PodSummary
 from cua_platform.tasks.models import PodLease, Task
-from cua_platform.tasks.state_machine import ExecutionStatus
 
 logger = logging.getLogger(__name__)
 
 _FRESH_WINDOW_SECONDS = 180
 _FAILURE_LIMIT = 3
 _FAILURE_COOLDOWN_SECONDS = 300
-
-_ACTIVE_TASK_STATUSES = (
-    ExecutionStatus.SCRIPT_PENDING,
-    ExecutionStatus.QUEUED,
-    ExecutionStatus.RUNNING,
-)
-
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -44,7 +36,6 @@ def _active_task_for_pod_stmt(product_id: str, pod_id: str) -> Any:
         .join(PodLease, PodLease.task_id == Task.id)
         .where(
             PodLease.pod_id.in_(_lease_keys(product_id, pod_id)),
-            Task.execution_status.in_(_ACTIVE_TASK_STATUSES),
             PodLease.expires_at > utc_now(),
         )
         .limit(1)
@@ -57,7 +48,6 @@ def _active_tasks_for_pods_stmt(lease_keys: list[str]) -> Any:
         .join(PodLease, PodLease.task_id == Task.id)
         .where(
             PodLease.pod_id.in_(lease_keys),
-            Task.execution_status.in_(_ACTIVE_TASK_STATUSES),
             PodLease.expires_at > utc_now(),
         )
     )
@@ -341,23 +331,20 @@ class PodRepository:
             seen_ids.add(item.pod_id)
             self._upsert(item, request_id, seen_at)
             changed = True
-        stale_rows = list(
-            self.db.scalars(
-                select(DiscoveredPod).where(
-                    DiscoveredPod.product_id == product_id,
-                    DiscoveredPod.discovery_state == "active",
-                    DiscoveredPod.pod_id.not_in(seen_ids),
-                )
+        missing = self.db.execute(
+            delete(DiscoveredPod)
+            .where(
+                DiscoveredPod.product_id == product_id,
+                DiscoveredPod.pod_id.not_in(seen_ids),
             )
+            .execution_options(synchronize_session=False)
         )
-        for row in stale_rows:
-            row.discovery_state = "stale"
-            self.db.add(row)
+        missing_count = missing.rowcount or 0
+        if missing_count:
             changed = True
-        if stale_rows:
             logger.warning(
                 "pod_pool_missing_pods",
-                extra={"count": len(stale_rows), "request_id": request_id},
+                extra={"count": missing_count, "request_id": request_id},
             )
         refresh = self.db.scalar(
             select(PodPoolRefresh).where(

@@ -82,6 +82,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: User }
   const queryClient = useQueryClient();
   const businessContext = useBusinessContext();
   const currentBusiness = businessContext?.currentBusiness ?? defaultBusiness();
+  const linkFor = businessContext?.businessPath ?? ((path = "/tasks") => path);
   const businessSwitcherRef = useRef<HTMLDivElement | null>(null);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -303,7 +304,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: User }
           {NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "admin").map((item) => (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={linkFor(item.to)}
               end={item.end}
               className={({ isActive }) => (isActive ? "active" : "")}
             >

@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Link,
   useBlocker,
-  useNavigate,
   useParams,
 } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   PlanExecutionCreate,
   PlanExecutionResponse,
@@ -18,9 +17,11 @@ import type {
 import {
   buildExecuteConfig,
   createExecutionConfigDraft,
+  DeviceWaitTimeoutField,
   ExecutionConfigFields,
   type ExecutionConfigDraft,
 } from "../components/execution-config-form";
+import { BusinessLink as Link } from "../components/business-link";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
 
@@ -65,7 +66,7 @@ function formatPodSelectionLimitError(
   return `已选择 ${selectedCount} 台设备，超过当前设备并发数 ${concurrency}。请减少设备数量，或提高设备并发数后再执行。`;
 }
 
-function automaticAssignablePods(pool: PodPoolResponse | undefined): PodPoolResponse["items"] {
+function automaticAssignablePods(pool: { items?: Array<{ discovery_state?: string; pod_status_code?: number; local_state?: string; task_id?: string | null }> } | undefined) {
   return (pool?.items ?? []).filter(
     (pod) =>
       pod.discovery_state === "active"
@@ -77,7 +78,7 @@ function automaticAssignablePods(pool: PodPoolResponse | undefined): PodPoolResp
 
 export function TestPlanRunPage() {
   const { planId = "" } = useParams<{ planId: string }>();
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const queryClient = useQueryClient();
   const [deviceStrategy, setDeviceStrategy] =
     useState<DeviceStrategy>("automatic");
@@ -319,6 +320,7 @@ export function TestPlanRunPage() {
       device_strategy: deviceStrategy,
       pod_ids: deviceStrategy === "specified" ? selectedPodIds : [],
       concurrency: effectiveConcurrency,
+      device_wait_timeout_seconds: executionDraft.device_wait_timeout_seconds,
       timeout_seconds: executionConfig.config.timeout_seconds,
       agent_config_mode: executionConfig.config.agent_config_mode,
       agent_options: executionConfig.config.agent_options ?? null,
@@ -449,6 +451,26 @@ export function TestPlanRunPage() {
               }}
             />
           )}
+        </section>
+
+        <section className="plan-run-section">
+          <div className="plan-section-heading">
+            <div>
+              <span className="section-kicker">调度配置</span>
+              <h2>调度配置</h2>
+            </div>
+          </div>
+          <DeviceWaitTimeoutField
+            id="plan-run-device-wait-timeout-seconds"
+            value={executionDraft.device_wait_timeout_seconds}
+            onChange={(next) =>
+              changeConfiguration(() =>
+                setExecutionDraft({
+                  ...executionDraft,
+                  device_wait_timeout_seconds: next,
+                }))}
+            disabled={runPlan.isPending}
+          />
         </section>
 
         <section className="plan-run-section">

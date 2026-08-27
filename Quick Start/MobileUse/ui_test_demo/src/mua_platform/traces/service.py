@@ -175,6 +175,10 @@ def draft_for_runner_event(
         "step_finished": "step",
         "task_finished": "result",
         "task_cancelled": "cancel",
+        "device_prepare_started": "remote_call",
+        "device_prepare_succeeded": "remote_call",
+        "device_prepare_failed": "error",
+        "task_start_outcome_unknown": "error",
         "runner_interrupted": "error",
         "runner_warning": "error",
     }.get(event.type, "lifecycle")
@@ -186,6 +190,11 @@ def draft_for_runner_event(
         else "ok"
     )
     step_index = event.payload.get("index", event.payload.get("step_index"))
+    attributes: dict[str, str | int | bool | None] = {"runner_type": runner_type}
+    for key in ("action", "pod_id", "product_id", "remote_task_id"):
+        value = event.payload.get(key)
+        if isinstance(value, str):
+            attributes[key] = value
     return TraceSpanDraft(
         stable_key=f"event.{event.sequence}",
         parent_stable_key=None,
@@ -197,7 +206,7 @@ def draft_for_runner_event(
         request_id=_safe_request_id(event.payload.get("request_id")),
         step_index=step_index if isinstance(step_index, int) else None,
         error_code=_safe_error_code(event.payload.get("error_code")),
-        attributes={"runner_type": runner_type},
+        attributes=attributes,
     )
 
 
@@ -257,13 +266,29 @@ def _historical_kind(event_type: str) -> str:
         return "result"
     if event_type == "task_cancelled":
         return "cancel"
-    if event_type in {"runner_interrupted", "runner_warning"}:
+    if event_type in {"device_prepare_started", "device_prepare_succeeded"}:
+        return "remote_call"
+    if event_type in {
+        "device_prepare_failed",
+        "task_start_outcome_unknown",
+        "runner_interrupted",
+        "runner_warning",
+    }:
         return "error"
     return "lifecycle"
 
 
 def _historical_status(event_type: str) -> str:
-    return "error" if event_type in {"runner_interrupted", "runner_warning"} else "unknown"
+    return (
+        "error"
+        if event_type in {
+            "device_prepare_failed",
+            "task_start_outcome_unknown",
+            "runner_interrupted",
+            "runner_warning",
+        }
+        else "unknown"
+    )
 
 
 def _as_utc(value: datetime) -> datetime:

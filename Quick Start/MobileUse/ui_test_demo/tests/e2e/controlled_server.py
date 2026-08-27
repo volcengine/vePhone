@@ -16,7 +16,12 @@ class ControlledRunner(MockRunner):
             or [{"index": 1, "instruction": request.content_markdown}],
             assertions=request.assertions or [],
         )
-        return await super().start(normalized, idempotency_key)
+        handle = await super().start(normalized, idempotency_key)
+        start_log = os.environ.get("E2E_RUNNER_START_LOG")
+        if start_log:
+            with Path(start_log).open("a", encoding="utf-8") as stream:
+                stream.write(f"{request.task_id} {handle.run_id}\n")
+        return handle
 
     async def poll(self, handle, after_sequence):
         hold_file = Path(os.environ["E2E_RUNNER_HOLD_FILE"])

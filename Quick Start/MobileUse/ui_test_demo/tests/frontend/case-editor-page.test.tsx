@@ -198,3 +198,91 @@ it("paginates bound test plans", async () => {
   await waitFor(() => expect(requests.at(-1)?.searchParams.get("page")).toBe("2"));
   expect(await within(section).findByText("分页计划 6")).toBeVisible();
 });
+
+it("opens the default execution config dialog immediately when enabling it", async () => {
+  server.use(
+    http.get("/api/v1/cases/case_saved", () => HttpResponse.json(savedCase())),
+    http.get("/api/v1/cases/case_saved/tasks", () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 5 })),
+    http.get("/api/v1/cases/case_saved/test-plans", () =>
+      HttpResponse.json({ total: 0, page: 1, page_size: 5, items: [] })),
+    http.get("/api/v1/cases/tags", () => HttpResponse.json({ items: [] })),
+    http.get("/api/v1/cases/modules", () => HttpResponse.json({ items: [] })),
+  );
+
+  renderApp("/cases/case_saved/edit");
+
+  expect(await screen.findByRole("heading", { name: "编辑用例" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "启用配置" }));
+
+  expect(
+    await screen.findByRole("dialog", { name: "编辑用例默认执行配置" }),
+  ).toBeVisible();
+  expect(screen.getByText("设备启动前处理")).toBeVisible();
+});
+
+it("clears optional fields in the case default execution config dialog", async () => {
+  let submitted: any = null;
+  server.use(
+    http.get("/api/v1/cases/case_saved", () =>
+      HttpResponse.json(savedCase({
+        default_agent_options: {
+          max_step: 100,
+          timeout_seconds: 120,
+          retry_limit: 3,
+          system_prompt: "custom system prompt",
+          callback_info: { url: "https://callback.example.com" },
+          output_schema: '{"type":"object"}',
+          mcp_json: '{"mcpServers":{}}',
+          max_output_tokens: 2048,
+          gps_info: "104.069673,30.545747,50,0,0,5",
+          request_headers: { "X-Env": "test" },
+        },
+      }))),
+    http.get("/api/v1/cases/case_saved/tasks", () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 5 })),
+    http.get("/api/v1/cases/case_saved/test-plans", () =>
+      HttpResponse.json({ total: 0, page: 1, page_size: 5, items: [] })),
+    http.get("/api/v1/cases/tags", () => HttpResponse.json({ items: [] })),
+    http.get("/api/v1/cases/modules", () => HttpResponse.json({ items: [] })),
+    http.put("/api/v1/cases/case_saved", async ({ request }) => {
+      expectCsrf(request);
+      submitted = await request.json();
+      return HttpResponse.json(savedCase(submitted));
+    }),
+  );
+
+  renderApp("/cases/case_saved/edit");
+
+  expect(await screen.findByRole("heading", { name: "编辑用例" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "编辑默认配置" }));
+  expect(await screen.findByRole("dialog", { name: "编辑用例默认执行配置" }))
+    .toBeVisible();
+
+  for (const label of [
+    "最大输出 Token",
+    "SystemPrompt",
+    "CallbackInfo（JSON 对象）",
+    "OutputSchema（JSON 字符串）",
+    "McpJson（JSON 字符串）",
+    "GpsInfo",
+    "请求 Header（JSON 对象）",
+  ]) {
+    await user.click(screen.getByRole("button", { name: `清除 ${label}` }));
+  }
+  await user.click(screen.getByRole("button", { name: "完成" }));
+  await user.click(screen.getByRole("button", { name: "保存" }));
+
+  await waitFor(() => expect(submitted).not.toBeNull());
+  expect(submitted?.default_agent_options).toEqual(
+    expect.not.objectContaining({
+      max_output_tokens: expect.anything(),
+      system_prompt: expect.anything(),
+      callback_info: expect.anything(),
+      output_schema: expect.anything(),
+      mcp_json: expect.anything(),
+      gps_info: expect.anything(),
+      request_headers: expect.anything(),
+    }),
+  );
+});

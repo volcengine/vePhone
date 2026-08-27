@@ -62,12 +62,14 @@ const executions: PlanReportListResponse = {
     task_batch_id: `batch_${12 - index}`,
     test_plan_id: "plan_1",
     plan_name_snapshot: plan.name,
-    report_status: index === 1 ? "failure" : "success",
-    pass_rate: index === 0 ? 94.44 : 90,
+    report_status: index === 1 ? "running" : index === 2 ? "failure" : "success",
+    pass_rate: index === 0 ? 94.44 : index === 1 ? 20 : 90,
     created_at: `2026-07-${String(29 - index).padStart(2, "0")}T12:03:00Z`,
     started_at: `2026-07-${String(29 - index).padStart(2, "0")}T12:03:00Z`,
-    finished_at: `2026-07-${String(29 - index).padStart(2, "0")}T12:04:05Z`,
-    duration_seconds: 65,
+    finished_at: index === 1
+      ? null
+      : `2026-07-${String(29 - index).padStart(2, "0")}T12:04:05Z`,
+    duration_seconds: index === 1 ? null : 65,
   })),
   total: 12,
   page: 1,
@@ -101,13 +103,13 @@ it("shows compact tags, pure pass rates, ten executions, and paginated cases", a
   expect(
     screen.getAllByText("2026-07-29 20:03:00").length,
   ).toBeGreaterThan(0);
-  expect(screen.getAllByText("01:05").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("1 分 5 秒").length).toBeGreaterThan(0);
 
   const history = screen.getByRole("table", { name: "最近十次执行" });
   expect(within(history).getAllByRole("row")).toHaveLength(11);
   expect(screen.getByRole("link", { name: "查看更多执行历史" })).toHaveAttribute(
     "href",
-    "/task-reports?test_plan_id=plan_1",
+    "/biz/biz_default/task-reports?test_plan_id=plan_1",
   );
 
   const boundCases = screen.getByRole("table", { name: "绑定测试用例" });
@@ -121,6 +123,64 @@ it("shows compact tags, pure pass rates, ten executions, and paginated cases", a
     expect(
       screen.getByRole("table", { name: "绑定测试用例" }),
     ).toBeVisible());
+});
+
+it("shows a completed execution pass-rate trend and skips running executions", async () => {
+  useDetailHandlers();
+  renderApp("/test-plans/plan_1");
+
+  const trend = await screen.findByRole("img", { name: "最近完成执行成功率趋势" });
+  const trendRegion = screen.getByRole("region", { name: "成功率趋势" });
+  expect(trend).toBeVisible();
+  expect(within(trendRegion).getByRole("heading", { name: "成功率趋势" })).toBeVisible();
+  expect(screen.getByText("已过滤 1 次进行中执行")).toBeVisible();
+  expect(screen.getByText("最新 94.44%")).toBeVisible();
+  expect(screen.getByText("平均 90.49%")).toBeVisible();
+  expect(screen.getByText("区间 90.00% - 94.44%")).toBeVisible();
+  expect(trend.querySelectorAll("circle")).toHaveLength(0);
+  const trendPath = trend.querySelector(".trend-line");
+  expect(trendPath).not.toBeNull();
+  expect(trendPath?.getAttribute("d")).toContain("C");
+  expect(trendPath?.getAttribute("d")).not.toContain(" L ");
+  const chart = within(trendRegion).getByRole("group", {
+    name: "成功率趋势图表",
+  });
+  expect(within(chart).getByText("成功率", {
+    selector: ".trend-axis-title",
+  })).toBeVisible();
+  expect(within(chart).getByText("执行时间", {
+    selector: ".trend-axis-title",
+  })).toBeVisible();
+  expect(within(chart).getByText("2026-07-20 20:03:00")).toBeVisible();
+  expect(within(chart).getByText("2026-07-24 20:03:00")).toBeVisible();
+  expect(within(chart).getByText("2026-07-29 20:03:00")).toBeVisible();
+  expect(within(chart).getByText("2026-07-21 20:03:00")).toBeVisible();
+  expect(within(chart).getByText("2026-07-27 20:03:00")).toBeVisible();
+  expect(within(chart).getByText("2026-07-26 20:03:00")).toBeVisible();
+  expect(within(chart).queryByText("2026-07-28 20:03:00")).not.toBeInTheDocument();
+  expect(within(chart).getByText("94.44%", {
+    selector: ".trend-rate-label",
+  })).toBeVisible();
+  expect(within(chart).getAllByText("90.00%", {
+    selector: ".trend-rate-label",
+  }).length).toBeGreaterThanOrEqual(1);
+  expect(
+    within(chart).queryAllByText(/^\d+\.\d{2}%$/, {
+      selector: ".trend-rate-label",
+    }),
+  ).toHaveLength(9);
+  expect(within(chart).queryByText("执行详情")).not.toBeInTheDocument();
+  await user.hover(
+    screen.getByLabelText("batch_3，2026-07-20 20:03:00，成功率 90.00%，成功"),
+  );
+  await waitFor(() => {
+    expect(within(chart).getByText("90.00%", {
+      selector: ".trend-active-value",
+    })).toBeVisible();
+  });
+  expect(screen.getByLabelText("batch_12，2026-07-29 20:03:00，成功率 94.44%，成功"))
+    .toHaveAttribute("href", "/biz/biz_default/task-reports/execution_12");
+  expect(screen.queryByLabelText(/batch_11.*20.00%/)).not.toBeInTheDocument();
 });
 
 it("restores case pagination from the URL and browser history", async () => {

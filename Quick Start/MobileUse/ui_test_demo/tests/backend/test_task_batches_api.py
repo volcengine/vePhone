@@ -109,6 +109,71 @@ def test_create_batch_persists_children_without_preallocating_pods(
         assert db.scalar(select(func.count()).select_from(PodLease)) == 0
 
 
+def test_create_batch_uses_payload_device_wait_timeout(authenticated_client):
+    _configure_runner(authenticated_client)
+    case_ids = [
+        _create_case(authenticated_client, "等待超时一"),
+        _create_case(authenticated_client, "等待超时二"),
+    ]
+    payload = _payload(case_ids)
+    payload["device_wait_timeout_seconds"] = 45
+    payload["idempotency_key"] = "batch-create-device-wait"
+
+    response = authenticated_client.post("/api/v1/task-batches", json=payload)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["device_wait_timeout_seconds"] == 45
+    runtime = authenticated_client.get(
+        f"/api/v1/tasks/{body['tasks'][0]['id']}/runtime"
+    )
+    assert runtime.status_code == 200
+    assert runtime.json()["execution_config"]["device_wait_timeout_seconds"] == 45
+    with authenticated_client.app.state.session_factory() as db:
+        batch = db.get(TaskBatch, body["id"])
+        assert batch is not None
+        assert batch.device_wait_timeout_seconds == 45
+
+
+def test_create_batch_exposes_specified_pod_ids_in_runtime_config(
+    authenticated_client,
+):
+    _configure_runner(authenticated_client)
+    case_ids = [
+        _create_case(authenticated_client, "指定设备一"),
+        _create_case(authenticated_client, "指定设备二"),
+    ]
+    payload = _payload(case_ids)
+    payload.update({
+        "device_strategy": "specified",
+        "pod_ids": ["pod-a", "pod-b"],
+        "concurrency": 2,
+        "idempotency_key": "batch-specified-pod-ids",
+    })
+
+    response = authenticated_client.post("/api/v1/task-batches", json=payload)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    runtime = authenticated_client.get(
+        f"/api/v1/tasks/{body['tasks'][0]['id']}/runtime"
+    )
+    assert runtime.status_code == 200
+    execution_config = runtime.json()["execution_config"]
+    assert execution_config["device_strategy"] == "specified"
+    assert execution_config["pod_ids"] == ["pod-a", "pod-b"]
+    assert execution_config["pod_id"] is None
+    with authenticated_client.app.state.session_factory() as db:
+        batch = db.get(TaskBatch, body["id"])
+        assert batch is not None
+        assert batch.config_snapshot["device_strategy"] == "specified"
+        assert batch.config_snapshot["pod_ids"] == ["pod-a", "pod-b"]
+        task_config = db.get(TaskRunnerConfig, body["tasks"][0]["id"])
+        assert task_config is not None
+        assert task_config.config_snapshot["device_strategy"] == "specified"
+        assert task_config.config_snapshot["pod_ids"] == ["pod-a", "pod-b"]
+
+
 def test_create_batch_is_idempotent(authenticated_client):
     _configure_runner(authenticated_client)
     case_ids = [

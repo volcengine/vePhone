@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# mua - Mobile Use Agent CLI 全局入口
+#
+# 用法:
+#   mua                     # 交互式菜单
+#   mua setup               # 配置 AK/SK (可选默认手机)
+#   mua run                 # 问答式向导运行任务
+#   mua run --prompt "..." --product-id PID --pod-id POD
+#   mua status --run-id RUN_XXX
+#   mua result / cancel / list / whoami / device / logout
+#
+# 安装: 在 skill 根目录执行 ./install.sh
+#   - 创建独立 Python 环境并装好依赖 (~/.local/share/mobile-use-agent/venv)
+#   - 软链本脚本到 ~/.local/bin/mua
+# 本脚本支持被软链接调用 (自动解析真实路径)。
+# 未安装时也可直接运行 (自动探测可用的 Python, 见下方查找逻辑)。
+
+# --- 解析脚本真实路径 (兼容软链接) ---
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SKILL_DIR="$(cd -P "$(dirname "$SOURCE")/.." >/dev/null 2>&1 && pwd)"
+
+# --- 查找可用的 Python (能 import volcenginesdkcore 的优先) ---
+# 优先级: ① install.sh 创建的独立环境 > ② 任何现成的 SDK 环境 > ③ 系统 python3
+VENV_PY="${VENV_DIR:-$HOME/.local/share/mobile-use-agent/venv}/bin/python"
+PY=""
+for candidate in \
+  "$VENV_PY" \
+  "${HOME}/.workbuddy/binaries/python/envs/default/bin/python" \
+  "$(command -v python3)" \
+  "$(command -v python)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    if "$candidate" -c "import volcenginesdkcore" >/dev/null 2>&1; then
+      PY="$candidate"
+      break
+    fi
+  fi
+done
+
+# 兜底: 找不到带 SDK 的 python, 用第一个可用的 python3
+if [ -z "$PY" ]; then
+  for candidate in "$(command -v python3)" "$(command -v python)"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+      PY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$PY" ]; then
+  echo "错误: 未找到 Python 3, 请先安装 (https://www.python.org/downloads/)" >&2
+  exit 1
+fi
+
+# SDK 缺失提示: 不往系统 Python 装包, 引导用户走独立环境
+if ! "$PY" -c "import volcenginesdkcore" >/dev/null 2>&1; then
+  echo "提示: 缺少 Python 依赖 (volcengine-python-sdk)。" >&2
+  echo "      请先运行安装脚本, 它会创建独立环境, 不会改动系统 Python:" >&2
+  echo "          cd \"$SKILL_DIR\" && ./install.sh" >&2
+  exit 1
+fi
+
+exec "$PY" "$SKILL_DIR/scripts/cli.py" "$@"

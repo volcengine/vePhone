@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, api } from "../api/client";
 import type { PodDetail, PodPoolItem, PodPoolResponse } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { CloudPhoneStreamPanel } from "../components/cloud-phone-stream-panel";
 import { PageHeader } from "../components/page-header";
 

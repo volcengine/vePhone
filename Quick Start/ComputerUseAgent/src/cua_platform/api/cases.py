@@ -507,16 +507,12 @@ async def execute_case(
         if runner_config.mode == "mobile_use"
         else None
     )
-    execution_timeout = timedelta(
-        seconds=snapshot.get(
-            "timeout_seconds",
-            request.app.state.settings.task_execution_timeout_seconds,
-        )
-    )
     task_service = TaskService(
         SQLiteTaskRepository(db),
         None,
-        execution_timeout=execution_timeout,
+        execution_timeout=timedelta(
+            seconds=request.app.state.settings.task_execution_timeout_seconds
+        ),
         cancel_confirm_timeout=timedelta(
             seconds=request.app.state.settings.cancel_confirm_timeout_seconds
         ),

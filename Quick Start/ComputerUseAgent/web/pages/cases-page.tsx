@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   CaseBatchDeleteResponse,
   CaseStats,
   CreatorListResponse,
   ModuleListResponse,
+  PodPoolResponse,
   TagListResponse,
   Task,
   TaskBatch,
@@ -15,9 +17,17 @@ import type {
   TestCase,
   TestCaseListResponse,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { ConfirmDialog } from "../components/confirm-dialog";
 import { CopyButton } from "../components/copy-button";
 import { ExecuteDialog, type ExecuteConfig } from "../components/execute-dialog";
+import {
+  buildExecuteConfig,
+  createExecutionConfigDraft,
+  DeviceWaitTimeoutField,
+  ExecutionConfigFields,
+  type ExecutionConfigDraft,
+} from "../components/execution-config-form";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
@@ -26,6 +36,16 @@ import { tagToneClass } from "../utils/tag-tone";
 import { formatChinaDate, formatChinaDateTime, parseTimestampMs } from "../utils/time";
 
 const PAGE_SIZE = 10;
+const MAX_BATCH_CONCURRENCY = 20;
+const NO_ONLINE_CUA_NODE_MESSAGE = "当前没有可用的已在线 CUA 节点，请检查设备池状态或稍后重试。";
+
+type DeviceStrategy = "automatic" | "specified";
+type BulkExecuteConfig = ExecuteConfig & {
+  device_strategy: DeviceStrategy;
+  pod_ids: string[];
+  concurrency: number;
+  device_wait_timeout_seconds: number;
+};
 
 function formatRelativeTime(value: string | null): string {
   if (!value) return "从未执行";
@@ -45,6 +65,30 @@ function formatRelativeTime(value: string | null): string {
 function passRate(c: TestCase): number {
   if (c.execution_count === 0) return 0;
   return Math.round((c.pass_count / c.execution_count) * 100);
+}
+
+function formatPodIdentity(pod: PodPoolResponse["items"][number]): string {
+  const podName = pod.pod_name?.trim();
+  return podName && podName !== pod.pod_id
+    ? `${podName} · ${pod.pod_id}`
+    : pod.pod_id;
+}
+
+function automaticAssignablePods(pool: PodPoolResponse | undefined): PodPoolResponse["items"] {
+  return (pool?.items ?? []).filter(
+    (pod) =>
+      pod.discovery_state === "active"
+      && pod.pod_status_code === 2
+      && pod.local_state === "available"
+      && !pod.task_id,
+  );
+}
+
+function formatPodSelectionLimitError(
+  selectedCount: number,
+  concurrency: number,
+): string {
+  return `已选择 ${selectedCount} 台设备，超过当前设备并发数 ${concurrency}。请减少设备数量，或提高设备并发数后再执行。`;
 }
 
 function initialPage(params: URLSearchParams): number {
@@ -146,7 +190,7 @@ function PassRateIcon() {
 }
 
 export function CasesPage() {
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const queryClient = useQueryClient();
   const [urlParams, setUrlParams] = useSearchParams();
   const [page, setPage] = useState(() => initialPage(urlParams));
@@ -247,6 +291,8 @@ export function CasesPage() {
       setDeleteDialogError(
         error instanceof ApiError && error.code === "case_has_tasks"
           ? "该用例已有执行记录，为保留任务历史暂不能删除。"
+          : error instanceof ApiError && error.code === "case_has_test_plans"
+          ? "该用例已绑定测试计划，请先从测试计划中移除后再删除。"
           : error instanceof ApiError
           ? `${error.message}，请刷新页面后重试。`
           : "删除用例失败，请刷新页面后重试。",
@@ -478,15 +524,19 @@ export function CasesPage() {
       executeCase.mutate({ caseId: selectedCaseIds[0], config });
       return;
     }
+  }
+
+  function executeSelectedBatch(config: BulkExecuteConfig) {
     executeBatch.mutate({
       name: `批量执行 ${selectedCaseIds.length} 个用例`,
       test_type: "regression",
       selection_mode: "multi_cases",
       case_ids: selectedCaseIds,
       selection_snapshot: { case_ids: selectedCaseIds },
-      device_strategy: config.pod_id ? "specified" : "automatic",
-      pod_ids: config.pod_id ? [config.pod_id] : [],
-      concurrency: Math.min(selectedCaseIds.length, Math.max(1, selectedCaseIds.length)),
+      device_strategy: config.device_strategy,
+      pod_ids: config.device_strategy === "specified" ? config.pod_ids : [],
+      concurrency: config.concurrency,
+      device_wait_timeout_seconds: config.device_wait_timeout_seconds,
       timeout_seconds: config.timeout_seconds,
       agent_config_mode: config.agent_config_mode,
       agent_options: config.agent_options,
@@ -862,15 +912,26 @@ export function CasesPage() {
               : ""
         }
       />
-      <ExecuteDialog
-        open={bulkExecuteOpen}
-        caseTitle={`${selectedCount} 个用例`}
-        onClose={() => setBulkExecuteOpen(false)}
-        onConfirm={executeSelectedCases}
-        isPending={executeBatch.isPending || executeCase.isPending}
-        allowCaseDefault={false}
-        errorMessage={actionError}
-      />
+      {selectedCount === 1 ? (
+        <ExecuteDialog
+          open={bulkExecuteOpen}
+          caseTitle={`${selectedCount} 个用例`}
+          onClose={() => setBulkExecuteOpen(false)}
+          onConfirm={executeSelectedCases}
+          isPending={executeBatch.isPending || executeCase.isPending}
+          allowCaseDefault={false}
+          errorMessage={actionError}
+        />
+      ) : (
+        <BulkExecuteDialog
+          open={bulkExecuteOpen}
+          selectedCount={selectedCount}
+          onClose={() => setBulkExecuteOpen(false)}
+          onConfirm={executeSelectedBatch}
+          isPending={executeBatch.isPending}
+          errorMessage={actionError}
+        />
+      )}
       <ConfirmDialog
         open={deleteTarget !== null}
         title="删除用例"
@@ -917,6 +978,384 @@ export function CasesPage() {
           <li>删除后用例将从用例库和测试计划候选列表中隐藏，不能再被新任务引用。</li>
         </ul>
       </ConfirmDialog>
+    </div>
+  );
+}
+
+function BulkExecuteDialog({
+  open,
+  selectedCount,
+  onClose,
+  onConfirm,
+  isPending,
+  errorMessage = "",
+}: {
+  open: boolean;
+  selectedCount: number;
+  onClose: () => void;
+  onConfirm: (config: BulkExecuteConfig) => void;
+  isPending?: boolean;
+  errorMessage?: string;
+}) {
+  const [deviceStrategy, setDeviceStrategy] =
+    useState<DeviceStrategy>("automatic");
+  const [concurrency, setConcurrency] = useState(1);
+  const [selectedPodIds, setSelectedPodIds] = useState<string[]>([]);
+  const [draft, setDraft] = useState<ExecutionConfigDraft>(
+    createExecutionConfigDraft,
+  );
+  const [formError, setFormError] = useState("");
+  const [podSearch, setPodSearch] = useState("");
+  const maxConcurrency = Math.max(
+    1,
+    Math.min(selectedCount || 1, MAX_BATCH_CONCURRENCY),
+  );
+  const pods = useQuery({
+    queryKey: ["pod-pool", "cases-bulk-execute"],
+    queryFn: () => api.post<PodPoolResponse>("/pod-pool/refresh"),
+    enabled: open,
+    refetchInterval: open && !isPending ? 3000 : false,
+  });
+  const selectablePods = useMemo(
+    () => (pods.data?.items ?? []).filter(
+      (pod) =>
+        pod.discovery_state === "active"
+        && pod.pod_status_code === 2,
+    ),
+    [pods.data],
+  );
+  const selectablePodIds = useMemo(
+    () => new Set(selectablePods.map((pod) => pod.pod_id)),
+    [selectablePods],
+  );
+  const visibleSelectablePods = useMemo(() => {
+    const keyword = podSearch.trim().toLowerCase();
+    if (!keyword) return selectablePods;
+    return selectablePods.filter((pod) =>
+      `${pod.pod_name ?? ""} ${pod.pod_id} ${pod.local_state ?? ""}`
+        .toLowerCase()
+        .includes(keyword));
+  }, [podSearch, selectablePods]);
+
+  useEffect(() => {
+    if (!open) return;
+    setDeviceStrategy("automatic");
+    setConcurrency(maxConcurrency);
+    setSelectedPodIds([]);
+    setDraft(createExecutionConfigDraft());
+    setFormError("");
+    setPodSearch("");
+  }, [maxConcurrency, open]);
+
+  useEffect(() => {
+    setConcurrency((current) => Math.max(1, Math.min(current, maxConcurrency)));
+    setSelectedPodIds((current) =>
+      current
+        .filter((podId) => selectablePodIds.has(podId))
+        .slice(0, maxConcurrency));
+  }, [maxConcurrency, selectablePodIds]);
+
+  if (!open) return null;
+
+  function selectDeviceStrategy(strategy: DeviceStrategy) {
+    if (isPending) return;
+    setDeviceStrategy(strategy);
+    setFormError("");
+    if (strategy === "automatic") {
+      setSelectedPodIds([]);
+      setPodSearch("");
+    }
+  }
+
+  function togglePod(podId: string) {
+    if (isPending || !selectablePodIds.has(podId)) return;
+    const selected = selectedPodIds.includes(podId);
+    if (!selected && selectedPodIds.length >= concurrency) {
+      setFormError(
+        formatPodSelectionLimitError(selectedPodIds.length + 1, concurrency),
+      );
+      return;
+    }
+    setSelectedPodIds((current) =>
+      current.includes(podId)
+        ? current.filter((item) => item !== podId)
+        : [...current, podId]);
+    setFormError("");
+  }
+
+  async function submit() {
+    if (isPending) return;
+    const result = buildExecuteConfig(draft);
+    setFormError(result.error);
+    if (!result.config) return;
+    if (deviceStrategy === "specified") {
+      if (pods.isError || !pods.data) {
+        setFormError("设备池刷新失败，请重新加载设备池后再提交。");
+        return;
+      }
+      if (selectedPodIds.some((podId) => !selectablePodIds.has(podId))) {
+        setFormError("设备状态已更新，请重新选择可用设备。");
+        return;
+      }
+      if (selectedPodIds.length === 0) {
+        setFormError("指定设备模式至少选择 1 台设备。");
+        return;
+      }
+      if (selectedPodIds.length > concurrency) {
+        setFormError(
+          formatPodSelectionLimitError(selectedPodIds.length, concurrency),
+        );
+        return;
+      }
+    }
+
+    let effectiveConcurrency = Math.min(concurrency, selectedCount, MAX_BATCH_CONCURRENCY);
+    if (deviceStrategy === "automatic") {
+      const refreshed = await pods.refetch();
+      if (!refreshed.data) {
+        setFormError("设备池刷新失败，请重新加载设备池后再提交。");
+        return;
+      }
+      const onlinePods = automaticAssignablePods(refreshed.data);
+      if (onlinePods.length === 0) {
+        setFormError(NO_ONLINE_CUA_NODE_MESSAGE);
+        return;
+      }
+      effectiveConcurrency = Math.min(effectiveConcurrency, onlinePods.length);
+    }
+
+    onConfirm({
+      ...result.config,
+      device_strategy: deviceStrategy,
+      pod_ids: deviceStrategy === "specified" ? selectedPodIds : [],
+      concurrency: effectiveConcurrency,
+      device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
+    });
+  }
+
+  return (
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isPending) onClose();
+      }}
+    >
+      <div
+        className="modal-panel execute-dialog-panel wide"
+        role="dialog"
+        aria-modal="true"
+        aria-label="批量执行配置"
+      >
+        <div className="modal-header">
+          <h3>批量执行配置</h3>
+          <button
+            type="button"
+            className="icon-action"
+            onClick={onClose}
+            aria-label="关闭"
+            disabled={isPending}
+          >
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          <p className="modal-case-title">
+            <PlayIcon />
+            <span>{selectedCount} 个用例</span>
+          </p>
+          <section className="plan-run-section">
+            <div className="plan-section-heading">
+              <div>
+                <span className="section-kicker">设备策略</span>
+                <h2>配置并发和设备范围</h2>
+              </div>
+            </div>
+            <div className="plan-run-device-row">
+              <div className="plan-run-strategy-grid">
+                <label className={deviceStrategy === "automatic" ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    aria-label="自动分配"
+                    name="case-bulk-device-strategy"
+                    value="automatic"
+                    checked={deviceStrategy === "automatic"}
+                    onChange={() => selectDeviceStrategy("automatic")}
+                  />
+                  <strong>自动分配</strong>
+                  <span>从当前设备池中动态分配空闲设备</span>
+                </label>
+                <label className={deviceStrategy === "specified" ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    aria-label="指定设备"
+                    name="case-bulk-device-strategy"
+                    value="specified"
+                    checked={deviceStrategy === "specified"}
+                    onChange={() => selectDeviceStrategy("specified")}
+                  />
+                  <strong>指定设备</strong>
+                  <span>仅在选中的设备范围内持续排队</span>
+                </label>
+              </div>
+              <label className="plan-run-field plan-run-concurrency">
+                <span>设备并发数</span>
+                <input
+                  name="concurrency"
+                  autoComplete="off"
+                  type="number"
+                  aria-label="设备并发数"
+                  min={1}
+                  max={maxConcurrency}
+                  value={concurrency}
+                  onChange={(event) => {
+                    const next = Math.max(
+                      1,
+                      Math.min(maxConcurrency, Number(event.target.value) || 1),
+                    );
+                    setConcurrency(next);
+                    setFormError(
+                      selectedPodIds.length > next
+                        ? formatPodSelectionLimitError(selectedPodIds.length, next)
+                        : "",
+                    );
+                  }}
+                  disabled={isPending}
+                />
+                <small>最大不超过 {maxConcurrency} 个并发任务</small>
+              </label>
+            </div>
+            {deviceStrategy === "specified" && (
+              <div className="plan-run-device-select">
+                {pods.isLoading ? (
+                  <p className="muted" role="status">正在加载设备池…</p>
+                ) : pods.isError ? (
+                  <div className="form-error" role="alert">
+                    设备池加载失败，请重新加载。
+                  </div>
+                ) : selectablePods.length === 0 ? (
+                  <div className="plan-case-empty">暂无可选设备</div>
+                ) : (
+                  <div className="plan-run-field plan-run-pod-field">
+                    <span id="case-bulk-pod-list-label">设备选择</span>
+                    <div className="plan-run-pod-panel">
+                      <div className="plan-run-pod-toolbar">
+                        <label className="plan-run-pod-search">
+                          <span className="sr-only">搜索设备</span>
+                          <input
+                            type="search"
+                            className="plan-run-pod-search-input"
+                            aria-label="搜索设备"
+                            placeholder="搜索设备 ID / 名称"
+                            value={podSearch}
+                            onChange={(event) => setPodSearch(event.target.value)}
+                            disabled={isPending}
+                          />
+                        </label>
+                        <span className="plan-run-pod-quota">
+                          {selectedPodIds.length} / {concurrency}
+                        </span>
+                      </div>
+                      <div
+                        className="plan-run-pod-list"
+                        role="group"
+                        aria-labelledby="case-bulk-pod-list-label"
+                      >
+                        {visibleSelectablePods.map((pod) => {
+                          const selected = selectedPodIds.includes(pod.pod_id);
+                          const disabled = (
+                            Boolean(isPending)
+                            || (
+                              !selected
+                              && selectedPodIds.length >= concurrency
+                            )
+                          );
+                          return (
+                            <label
+                              key={pod.pod_id}
+                              className={[
+                                "plan-run-pod-option",
+                                selected ? "selected" : "",
+                                disabled ? "disabled" : "",
+                              ].filter(Boolean).join(" ")}
+                            >
+                              <input
+                                type="checkbox"
+                                name="pod_ids"
+                                value={pod.pod_id}
+                                checked={selected}
+                                disabled={disabled}
+                                aria-label={`${pod.pod_name} ${pod.pod_id}`}
+                                onChange={() => togglePod(pod.pod_id)}
+                              />
+                              <span>
+                                <strong>{formatPodIdentity(pod)}</strong>
+                                <code translate="no">{pod.pod_id}</code>
+                              </span>
+                              <em className={pod.local_state === "available" ? "available" : "busy"}>
+                                {pod.local_state === "available" ? "可用" : "繁忙 · 将排队"}
+                              </em>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+          <section className="plan-run-section">
+            <div className="plan-section-heading">
+              <div>
+                <span className="section-kicker">调度配置</span>
+                <h2>调度配置</h2>
+              </div>
+            </div>
+            <DeviceWaitTimeoutField
+              id="case-bulk-device-wait-timeout-seconds"
+              value={draft.device_wait_timeout_seconds}
+              onChange={(next) => {
+                setDraft({
+                  ...draft,
+                  device_wait_timeout_seconds: next,
+                });
+                setFormError("");
+              }}
+              disabled={isPending}
+            />
+          </section>
+          <ExecutionConfigFields
+            value={draft}
+            onChange={(next) => {
+              setDraft(next);
+              setFormError("");
+            }}
+            disabled={Boolean(isPending)}
+            allowCaseDefault={false}
+          />
+          {formError && <p className="form-error" role="alert">{formError}</p>}
+          {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
+        </div>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onClose}
+            disabled={isPending}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => void submit()}
+            disabled={isPending}
+          >
+            <PlayIcon />
+            <span>{isPending ? "提交中…" : "开始执行"}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

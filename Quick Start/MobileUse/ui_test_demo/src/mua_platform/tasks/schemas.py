@@ -34,10 +34,13 @@ class TaskExecutionConfig(BaseModel):
     thread_id: str | None = None
     product_id: str | None = None
     pod_id: str | None = None
+    device_strategy: str | None = None
+    pod_ids: list[str] | None = None
     tos_bucket: str | None = None
     tos_endpoint: str | None = None
     tos_region: str | None = None
     timeout_seconds: int | None = None
+    device_wait_timeout_seconds: int | None = None
     use_base64_screenshot: bool | None = None
     max_step: int | None = None
     callback_info: dict[str, Any] | None = None
@@ -48,6 +51,7 @@ class TaskExecutionConfig(BaseModel):
     mcp_json: str | None = None
     max_output_tokens: int | None = None
     gps_info: str | None = None
+    device_prepare_action: Literal["none", "reset", "reboot"] = "none"
     request_headers: dict[str, Any] = Field(
         default_factory=lambda: {"configured": False, "names": []}
     )
@@ -67,6 +71,7 @@ class TaskResponse(BaseModel):
     prompt_snapshot: str | None = None
     result_summary: str | None = None
     result_evidence: list[str] = Field(default_factory=list)
+    remote_run_id: str | None = None
     remote_thread_id: str | None = None
     remote_status_code: int | None = None
     remote_step_id: str | None = None
@@ -119,6 +124,11 @@ class TaskBatchCreateRequest(BaseModel):
     device_strategy: Literal["automatic", "specified"]
     pod_ids: list[str] = Field(default_factory=list, max_length=20)
     concurrency: int = Field(ge=1, le=20)
+    device_wait_timeout_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        le=86400,
+    )
     timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
     agent_config_mode: Literal["global", "custom", "case_default"] = "global"
     agent_options: dict[str, Any] | None = None
@@ -130,7 +140,14 @@ class TaskBatchCreateRequest(BaseModel):
         cls,
         value: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
-        if value is None or "request_headers" not in value:
+        if value is None:
+            return value
+        if (
+            "device_prepare_action" in value
+            and value["device_prepare_action"] not in {"none", "reset", "reboot"}
+        ):
+            raise ValueError("device_prepare_action_invalid")
+        if "request_headers" not in value:
             return value
         try:
             value = dict(value)

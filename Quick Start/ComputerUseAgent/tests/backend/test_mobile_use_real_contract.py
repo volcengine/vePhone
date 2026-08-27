@@ -319,6 +319,7 @@ async def test_real_contract_start_and_pass_lifecycle_use_raw_fixtures():
     pending_page = await runner.poll(handle, after_sequence=1)
     terminal_page = await runner.poll(handle, after_sequence=1)
 
+    assert call.requests[0].body["Timeout"] == 120
     assert handle == RunHandle(
         "task-real-contract",
         "mobile_use",

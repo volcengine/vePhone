@@ -64,12 +64,17 @@ class RecordingRuntimeGateway:
         return SimpleNamespace(
             payload={
                 "Result": {
-                    "Tasks": [
+                    "ThreadGroups": [
                         {
-                            "RunId": run_id,
                             "ThreadId": thread_id,
-                            "Status": 2,
-                        },
+                            "Tasks": [
+                                {
+                                    "RunId": run_id,
+                                    "ThreadId": thread_id,
+                                    "Status": 2,
+                                },
+                            ],
+                        }
                     ],
                 },
             },
@@ -149,17 +154,17 @@ def test_runtime_skips_thread_detail_while_task_is_running(
     ]
 
 
-def test_runtime_current_step_only_skips_result_and_thread_queries(
+def test_runtime_keeps_mua_trace_queries_with_current_step_only_param(
     authenticated_client,
     monkeypatch,
 ):
-    case_id = _create_case(authenticated_client, "仅当前步骤轨迹")
+    case_id = _create_case(authenticated_client, "完整轨迹")
     with authenticated_client.app.state.session_factory() as db:
         task = Task(
             id="task_runtime_current_only",
             case_id=case_id,
             runner_type="mobile_use",
-            scenario="仅当前步骤轨迹",
+            scenario="完整轨迹",
             execution_status=ExecutionStatus.RUNNING,
             idempotency_key="runtime-current-only",
             request_fingerprint="{}",
@@ -184,6 +189,217 @@ def test_runtime_current_step_only_skips_result_and_thread_queries(
     assert response.status_code == 200
     body = response.json()
     assert body["current_step"]["step_id"] == "step-current"
-    assert body["thread_groups"] == []
+    assert body["thread_groups"][0]["tasks"][0]["run_id"] == "run-runtime"
     assert body["thread_steps"] == []
-    assert gateway.calls == ["ListAgentRunCurrentStep"]
+    assert gateway.calls == [
+        "ListAgentRunCurrentStep",
+        "GetAgentResult",
+        "ListAgentRunTaskByThread",
+    ]
+
+
+def test_runtime_uses_local_mock_trace_assets(authenticated_client):
+    case_id = _create_case(authenticated_client, "本地 mock 轨迹")
+    with authenticated_client.app.state.session_factory() as db:
+        task = Task(
+            id="task_mock_trace",
+            case_id=case_id,
+            runner_type="mobile_use",
+            scenario="本地 mock 轨迹",
+            execution_status=ExecutionStatus.RESULT_READY,
+            idempotency_key="mock-trace",
+            request_fingerprint="{}",
+            result_assets={
+                "current_step": {
+                    "run_id": "run-mock-trace",
+                    "thread_id": "thread-mock-trace",
+                    "status": 3,
+                    "step_id": "mock-finished",
+                    "results": [],
+                },
+                "thread_groups": [
+                    {
+                        "thread_id": "thread-mock-trace",
+                        "task_next_token": None,
+                        "tasks": [
+                            {
+                                "run_id": "run-mock-trace",
+                                "thread_id": "thread-mock-trace",
+                                "run_name": "本地 mock 轨迹",
+                                "status": 3,
+                                "pod_id": "ecs-alpha",
+                                "product_id": "prod-alpha",
+                                "created_at": "2026-08-12 11:00:00 +0800 CST",
+                                "started_at": "2026-08-12 11:00:02 +0800 CST",
+                                "updated_at": "2026-08-12 11:01:00 +0800 CST",
+                                "completed_at": "2026-08-12 11:01:00 +0800 CST",
+                                "trace_id": "trace-mock",
+                                "artifact_count": {"Screenshot": 4},
+                            }
+                        ],
+                    }
+                ],
+                "thread_steps": [
+                    {
+                        "run_id": "run-mock-trace",
+                        "thread_id": "thread-mock-trace",
+                        "status": 3,
+                        "step_id": "mock-step-1",
+                        "results": [
+                            {
+                                "Action": "observe",
+                                "Param": {"content": "观察页面是否加载"},
+                                "StepResult": {"IsSuccess": True, "Result": "页面加载完成"},
+                                "Timestamp": "2026-08-12T11:00:10+08:00",
+                            }
+                        ],
+                    }
+                ],
+            },
+            created_by="admin",
+        )
+        task.runner_config = TaskRunnerConfig(
+            config_snapshot={"pod_id": "ecs-alpha", "product_id": "prod-alpha"}
+        )
+        db.add(task)
+        db.commit()
+
+    response = authenticated_client.get("/api/v1/tasks/task_mock_trace/runtime")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["current_step"]["step_id"] == "mock-finished"
+    assert body["thread_groups"][0]["tasks"][0]["pod_id"] == "ecs-alpha"
+    assert body["thread_steps"][0]["results"][0]["Action"] == "observe"
+
+
+def test_runtime_does_not_fall_back_to_cached_screenshots(
+    authenticated_client,
+    monkeypatch,
+):
+    case_id = _create_case(authenticated_client, "实时截图优先")
+    with authenticated_client.app.state.session_factory() as db:
+        task = Task(
+            id="task_runtime_no_cached_screenshots",
+            case_id=case_id,
+            runner_type="mobile_use",
+            scenario="实时截图优先",
+            execution_status=ExecutionStatus.RESULT_READY,
+            idempotency_key="runtime-no-cached-screenshots",
+            request_fingerprint="{}",
+            remote_run_id="run-runtime",
+            remote_thread_id="thread-runtime",
+            result_assets={
+                "screenshots": {
+                    "run-runtime-0": {
+                        "screenshot": "https://example.invalid/cached.png",
+                    },
+                },
+                "files": ["/sdk_files/run-runtime/result.md"],
+            },
+            created_by="admin",
+        )
+        task.runner_config = TaskRunnerConfig(config_snapshot={})
+        db.add(task)
+        db.commit()
+
+    class ResultFailureGateway(RecordingRuntimeGateway):
+        async def get_result(self, _config, _run_id):
+            self.calls.append("GetAgentResult")
+            raise RuntimeError("remote result unavailable")
+
+    gateway = ResultFailureGateway()
+    monkeypatch.setattr(
+        "cua_platform.api.tasks.UniversalGateway",
+        lambda: gateway,
+    )
+
+    response = authenticated_client.get(
+        "/api/v1/tasks/task_runtime_no_cached_screenshots/runtime"
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["result"]["assets"]["screenshots"] == {
+        "run-runtime-0": {"screenshot": "https://example.invalid/cached.png"}
+    }
+    assert body["result"]["assets"]["files"] == ["/sdk_files/run-runtime/result.md"]
+    assert body["errors"]["result"] == "RuntimeError"
+
+
+def test_runtime_parses_top_level_thread_detail_steps(
+    authenticated_client,
+    monkeypatch,
+):
+    case_id = _create_case(authenticated_client, "终态执行步骤详情")
+    with authenticated_client.app.state.session_factory() as db:
+        task = Task(
+            id="task_runtime_thread_detail",
+            case_id=case_id,
+            runner_type="mobile_use",
+            scenario="终态执行步骤详情",
+            execution_status=ExecutionStatus.RESULT_READY,
+            idempotency_key="runtime-thread-detail",
+            request_fingerprint="{}",
+            remote_run_id="run-runtime",
+            remote_thread_id="thread-runtime",
+            created_by="admin",
+        )
+        task.runner_config = TaskRunnerConfig(config_snapshot={})
+        db.add(task)
+        db.commit()
+
+    class TopLevelThreadDetailGateway(RecordingRuntimeGateway):
+        async def detail_task_by_thread(self, _config, *, thread_id: str, run_id: str):
+            assert thread_id == "thread-runtime"
+            assert run_id == "run-runtime"
+            self.calls.append("DetailAgentRunTaskByThread")
+            return SimpleNamespace(
+                payload={
+                    "RunSteps": [
+                        {
+                            "RunId": run_id,
+                            "ThreadId": thread_id,
+                            "Status": 3,
+                            "StepId": "step-1",
+                            "Results": [
+                                {
+                                    "Action": "observe",
+                                    "Timestamp": "2026-07-28T11:35:20+08:00",
+                                },
+                            ],
+                        }
+                    ]
+                }
+            )
+
+    gateway = TopLevelThreadDetailGateway()
+    monkeypatch.setattr(
+        "cua_platform.api.tasks.UniversalGateway",
+        lambda: gateway,
+    )
+
+    response = authenticated_client.get("/api/v1/tasks/task_runtime_thread_detail/runtime")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["thread_steps"] == [
+        {
+            "run_id": "run-runtime",
+            "thread_id": "thread-runtime",
+            "status": 3,
+            "step_id": "step-1",
+            "results": [
+                {
+                    "Action": "observe",
+                    "Timestamp": "2026-07-28T11:35:20+08:00",
+                }
+            ],
+        }
+    ]
+    assert gateway.calls == [
+        "ListAgentRunCurrentStep",
+        "GetAgentResult",
+        "ListAgentRunTaskByThread",
+        "DetailAgentRunTaskByThread",
+    ]

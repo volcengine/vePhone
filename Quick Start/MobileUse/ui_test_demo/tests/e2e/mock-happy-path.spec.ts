@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -37,6 +37,7 @@ async function startControlledServer(
   dataDir: string,
   holdFile: string,
   port: number,
+  startLog?: string,
 ): Promise<TestServer> {
   const output: string[] = [];
   const child = spawn(
@@ -61,6 +62,8 @@ async function startControlledServer(
         APP_SECRET_KEY: "e2e-controlled-secret-key-at-least-32-bytes",
         APP_DATA_DIR: dataDir,
         E2E_RUNNER_HOLD_FILE: holdFile,
+        TASK_WORKER_DRAIN_TIMEOUT_SECONDS: "1",
+        ...(startLog ? { E2E_RUNNER_START_LOG: startLog } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -87,6 +90,14 @@ async function startControlledServer(
   throw new Error(`controlled server did not become ready:\n${output.join("")}`);
 }
 
+async function terminateControlledServer(server: TestServer): Promise<void> {
+  const pid = server.process.pid;
+  if (pid && server.process.exitCode === null) {
+    process.kill(-pid, "SIGTERM");
+    await once(server.process, "exit");
+  }
+}
+
 async function stopControlledServer(server: TestServer): Promise<void> {
   const pid = server.process.pid;
   if (pid && server.process.exitCode === null) {
@@ -95,7 +106,7 @@ async function stopControlledServer(server: TestServer): Promise<void> {
   }
 }
 
-async function createControlledTask(page, title: string): Promise<string> {
+async function createControlledTask(page: Page, title: string): Promise<string> {
   const origin = new URL(page.url()).origin;
   const task = await createCaseAndTask(page, {
     appUrl: origin,
@@ -104,6 +115,17 @@ async function createControlledTask(page, title: string): Promise<string> {
   });
   await page.goto(`${origin}/tasks/${task.id}`);
   return task.id;
+}
+
+async function getTaskRunId(
+  page: Page,
+  appUrl: string,
+  taskId: string,
+): Promise<string> {
+  const response = await page.request.get(`${appUrl}/api/v1/tasks/${taskId}`);
+  expect(response.status(), await response.text()).toBe(200);
+  const task = await response.json() as { remote_run_id?: string | null };
+  return task.remote_run_id ?? "";
 }
 
 test("admin verifies success, failure, and review reports", async ({ page }) => {
@@ -127,7 +149,7 @@ test("admin verifies success, failure, and review reports", async ({ page }) => 
     await page.getByLabel("用户名").fill("admin");
     await page.getByLabel("密码").fill("StrongPassword123!");
     await page.getByRole("button", { name: "创建管理员" }).click();
-    await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "执行记录" })).toBeVisible();
     await configureMockRunner(page, appUrl);
 
   async function createTask(
@@ -153,6 +175,7 @@ test("admin verifies success, failure, and review reports", async ({ page }) => 
     scenario: string,
     verdict: "pass" | "fail",
     failureType: string | null,
+    failureTypeLabel: string,
   ) {
     const current = await getTask(page, appUrl, taskId);
     expect(current).toMatchObject({
@@ -180,7 +203,7 @@ test("admin verifies success, failure, and review reports", async ({ page }) => 
     ).toBeVisible();
     await expect(
       page.getByText("失败类型", { exact: true }).locator(".."),
-    ).toContainText(failureType ?? "-");
+    ).toContainText(failureTypeLabel);
 
     const eventsResponse = await page.request.get(
       `${appUrl}/api/v1/tasks/${taskId}/events`,
@@ -192,24 +215,26 @@ test("admin verifies success, failure, and review reports", async ({ page }) => 
     expect(events.items.some((event) => event.type === "task_finished")).toBe(true);
   }
 
-  await verifyConsistentResult(successId, "success", "pass", null);
+  await verifyConsistentResult(successId, "success", "pass", null, "-");
   await verifyConsistentResult(
     failureId,
     "assertion_failure",
     "fail",
     "assertion_failed",
+    "断言失败",
   );
   await verifyConsistentResult(
     evidenceMissingId,
     "evidence_missing",
     "fail",
     "evidence_missing",
+    "证据缺失",
   );
 
   await page.reload();
   await expect(
     page.getByText("失败类型", { exact: true }).locator(".."),
-  ).toContainText("evidence_missing");
+  ).toContainText("证据缺失");
   await expect(page.getByText("成功", { exact: true })).toHaveCount(0);
 
     expect(successId).toMatch(/^task_/);
@@ -244,19 +269,21 @@ test("admin cancels active tasks and a second service resumes persisted work", a
 }) => {
   const dataDir = await mkdtemp(join(tmpdir(), "mua-loop2-e2e-"));
   const holdFile = join(dataDir, "hold-runner");
+  const startLog = join(dataDir, "runner-start.log");
   const port = await findFreePort();
   const appUrl = `http://localhost:${port}`;
   let server: TestServer | undefined;
 
   try {
     await writeFile(holdFile, "hold");
-    server = await startControlledServer(dataDir, holdFile, port);
+    await writeFile(startLog, "");
+    server = await startControlledServer(dataDir, holdFile, port, startLog);
 
     await page.goto(appUrl);
     await page.getByLabel("用户名").fill("admin");
     await page.getByLabel("密码").fill("StrongPassword123!");
     await page.getByRole("button", { name: "创建管理员" }).click();
-    await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "执行记录" })).toBeVisible();
     await configureMockRunner(page, appUrl);
 
     const runningId = await createControlledTask(page, "运行中取消");
@@ -297,14 +324,24 @@ test("admin cancels active tasks and a second service resumes persisted work", a
     await expect.poll(
       async () => (await getTask(page, appUrl, recoveryId)).execution_status,
     ).toBe("running");
+    let originalRunId = "";
+    await expect.poll(
+      async () => {
+        originalRunId = await getTaskRunId(page, appUrl, recoveryId);
+        return originalRunId;
+      },
+    ).not.toBe("");
     await expect(page.getByText("执行中", { exact: true })).toBeVisible();
 
-    await stopControlledServer(server);
+    await terminateControlledServer(server);
     server = undefined;
     await rm(holdFile);
-    server = await startControlledServer(dataDir, holdFile, port);
+    server = await startControlledServer(dataDir, holdFile, port, startLog);
 
     await page.goto(`${appUrl}/tasks/${recoveryId}`);
+    await expect.poll(
+      async () => getTaskRunId(page, appUrl, recoveryId),
+    ).toBe(originalRunId);
     await expect.poll(
       async () => (await getTask(page, appUrl, recoveryId)).execution_status,
       { timeout: 10_000 },
@@ -327,6 +364,13 @@ test("admin cancels active tasks and a second service resumes persisted work", a
         ["task_finished", "runner_interrupted", "task_cancelled"].includes(event.type),
       ),
     ).toHaveLength(1);
+    expect(events.some((event) => event.type === "runner_interrupted")).toBe(false);
+    const startLines = (await readFile(startLog, "utf8"))
+      .trim()
+      .split("\n")
+      .filter((line) => line.startsWith(`${recoveryId} `));
+    expect(startLines).toHaveLength(1);
+    expect(startLines[0]).toBe(`${recoveryId} ${originalRunId}`);
 
     await page.goto(`${appUrl}/tasks/${queuedId}`);
     await expect(page.getByText("已取消", { exact: true })).toBeVisible();

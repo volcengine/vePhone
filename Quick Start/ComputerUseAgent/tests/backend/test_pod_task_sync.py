@@ -10,10 +10,10 @@ from cua_platform.pods.models import DiscoveredPod
 from cua_platform.pods.repository import PodRepository
 from cua_platform.pods.schemas import ListPodPage, PodSummary
 from cua_platform.runners.base import PollResult, RunHandle, RunnerEvent
-from cua_platform.tasks.models import PodLease, Task
+from cua_platform.tasks.models import PodLease, Task, TaskRunnerConfig
 from cua_platform.tasks.repository import SQLiteTaskRepository
 from cua_platform.tasks.service import TaskService
-from cua_platform.tasks.state_machine import ExecutionStatus
+from cua_platform.tasks.state_machine import ExecutionStatus, StartState
 from cua_platform.time import FakeClock
 
 
@@ -32,7 +32,36 @@ class TerminalRunner:
         )
 
 
-def test_pool_snapshot_maps_queued_task_from_product_scoped_lease_key():
+def _pod_summary(pod_id: str, pod_name: str) -> PodSummary:
+    return PodSummary(
+        product_id="2103274899",
+        pod_id=pod_id,
+        pod_name=pod_name,
+        pod_status_code=2,
+        stream_status=None,
+        image_id=None,
+        image_name=None,
+        aosp_version=None,
+        display_layout_id=None,
+        dc_id=None,
+        dc_name=None,
+        isp_code=None,
+        region=None,
+        zone_id=None,
+        config_code=None,
+        config_name=None,
+        config_type=None,
+        server_type_code=None,
+        intranet_ip=None,
+        adb_address=None,
+        adb_status=None,
+        data_size=None,
+        data_size_used=None,
+        pod_created_at=None,
+    )
+
+
+def test_pool_snapshot_treats_unexpired_lease_as_authoritative():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     now = datetime.now(UTC)
@@ -91,8 +120,14 @@ def test_pool_snapshot_maps_queued_task_from_product_scoped_lease_key():
             db.commit()
 
             after_cancel = PodRepository(db).list_snapshot("product_sync", now=now)
-            assert after_cancel.items[0].local_state == "available"
-            assert after_cancel.items[0].task_id is None
+            assert after_cancel.items[0].local_state == "leased"
+            assert after_cancel.items[0].task_id == task.id
+
+            lease.expires_at = now - timedelta(seconds=1)
+            db.commit()
+            after_expiry = PodRepository(db).list_snapshot("product_sync", now=now)
+            assert after_expiry.items[0].local_state == "available"
+            assert after_expiry.items[0].task_id is None
     finally:
         engine.dispose()
 
@@ -172,6 +207,100 @@ def test_pool_snapshot_preserves_cua_node_fields():
         engine.dispose()
 
 
+def test_pod_sync_removes_nodes_missing_from_latest_cua_snapshot():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime.now(UTC)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            repository = PodRepository(db)
+            repository.sync(
+                "2103274899",
+                ListPodPage(
+                    items=(
+                        _pod_summary("i-old", "old node"),
+                        _pod_summary("i-current", "current node"),
+                    ),
+                    next_token=None,
+                    request_id="req-first",
+                ),
+                seen_at=now,
+            )
+
+            repository.sync(
+                "2103274899",
+                ListPodPage(
+                    items=(
+                        _pod_summary("i-current", "current node"),
+                    ),
+                    next_token=None,
+                    request_id="req-second",
+                ),
+                seen_at=now + timedelta(minutes=1),
+            )
+
+            snapshot = repository.list_snapshot("2103274899", now=now + timedelta(minutes=1))
+
+            assert [item.pod_id for item in snapshot.items] == ["i-current"]
+            assert repository.get("2103274899", "i-old") is None
+    finally:
+        engine.dispose()
+
+
+def test_claim_does_not_set_local_execution_deadline():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 7, 28, 3, 0, tzinfo=UTC)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            case = CaseModel(
+                id="case_timeout",
+                title="超时用例",
+                module=None,
+                content_markdown="## 执行任务\n验证超时",
+                tags=[],
+                automation_level="auto",
+                created_by="admin",
+            )
+            task = Task(
+                id="task_timeout",
+                case_id=case.id,
+                script_version_id=None,
+                prompt_snapshot=case.content_markdown,
+                runner_type="mobile_use",
+                scenario="验证超时",
+                created_by="admin",
+                execution_status=ExecutionStatus.QUEUED,
+                idempotency_key="timeout-key",
+                request_fingerprint="{}",
+                version=1,
+            )
+            config = TaskRunnerConfig(
+                task_id=task.id,
+                config_snapshot={
+                    "pod_id": "pod_timeout",
+                    "account_id": "account_timeout",
+                    "timeout_seconds": 1800,
+                },
+            )
+            db.add_all([case, task, config])
+            db.commit()
+
+            claimed = SQLiteTaskRepository(db).claim(
+                task.id,
+                "worker:default",
+                now,
+                timedelta(seconds=30),
+                execution_timeout=timedelta(seconds=600),
+            )
+
+            assert claimed is not None
+            assert claimed.deadline_at is None
+            assert claimed.runner_config_snapshot["timeout_seconds"] == 1800
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
 async def test_running_task_renews_its_pod_lease_before_remote_poll(monkeypatch):
     engine = create_engine("sqlite://")
@@ -200,7 +329,7 @@ async def test_running_task_renews_its_pod_lease_before_remote_poll(monkeypatch)
                 idempotency_key="renew-key",
                 request_fingerprint="{}",
                 remote_run_id="run_renew",
-                deadline_at=now + timedelta(minutes=10),
+                deadline_at=now - timedelta(seconds=1),
                 version=1,
             )
             lease = PodLease(
@@ -259,6 +388,7 @@ async def test_startup_recovery_takes_over_expired_running_lease():
                 execution_status=ExecutionStatus.RUNNING,
                 idempotency_key="recover-lease",
                 request_fingerprint="{}",
+                start_state=StartState.ATTACHED,
                 remote_run_id="run_recover",
                 deadline_at=now + timedelta(minutes=10),
                 version=1,

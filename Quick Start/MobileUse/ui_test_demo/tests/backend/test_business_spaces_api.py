@@ -61,6 +61,61 @@ def test_authenticated_user_can_create_update_and_archive_business_space(
     assert [item["id"] for item in listed.json()["items"]] == ["biz_default"]
 
 
+def test_create_business_space_can_atomically_save_runner_settings(authenticated_client):
+    response = authenticated_client.post(
+        "/api/v1/business-spaces",
+        json={
+            "name": "原子业务",
+            "runner_settings": {
+                "mode": "mobile_use",
+                "mobile_use": {
+                    "product_id": "product-atomic",
+                    "access_key_id": "AKLT00000000WXYZ",
+                    "secret_access_key": "secret-value",
+                    "tos_bucket": "atomic-bucket",
+                    "tos_region": "cn-beijing",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    business_id = response.json()["id"]
+    settings = authenticated_client.get(
+        "/api/v1/settings",
+        headers={"X-Business-Id": business_id},
+    )
+    assert settings.status_code == 200
+    assert settings.json()["mobile_use"]["product_id"] == "product-atomic"
+    assert settings.json()["mobile_use"]["access_key_id"]["configured"] is True
+    assert settings.json()["mobile_use"]["secret_access_key"]["configured"] is True
+
+
+def test_create_business_space_rolls_back_when_runner_settings_invalid(
+    authenticated_client,
+):
+    response = authenticated_client.post(
+        "/api/v1/business-spaces",
+        json={
+            "name": "回滚业务",
+            "runner_settings": {
+                "mode": "mobile_use",
+                "mobile_use": {
+                    "product_id": "product-rollback",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "runner_settings_incomplete"
+    listed = authenticated_client.get("/api/v1/business-spaces")
+    assert listed.status_code == 200
+    assert "回滚业务" not in {
+        item["name"] for item in listed.json()["items"]
+    }
+
+
 def test_default_business_cannot_be_archived(authenticated_client):
     response = authenticated_client.post("/api/v1/business-spaces/biz_default/archive")
 

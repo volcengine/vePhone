@@ -47,6 +47,16 @@ const EMPTY_BUSINESS_CONFIG: Record<BusinessConfigField, string> = {
   max_step: "100",
   request_headers: "",
 };
+const RESERVED_REQUEST_HEADERS = new Set([
+  "accept",
+  "authorization",
+  "content-length",
+  "content-type",
+  "host",
+  "user-agent",
+  "x-content-sha256",
+  "x-date",
+]);
 
 function parseBusinessConcurrencyLimit(value: string): number | null {
   const parsed = Number(value);
@@ -84,6 +94,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: User }
   const queryClient = useQueryClient();
   const businessContext = useBusinessContext();
   const currentBusiness = businessContext?.currentBusiness ?? defaultBusiness();
+  const linkFor = businessContext?.businessPath ?? ((path = "/tasks") => path);
   const businessSwitcherRef = useRef<HTMLDivElement | null>(null);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -207,14 +218,8 @@ export function AppShell({ children, user }: { children: ReactNode; user: User }
         name,
         description: businessDescription.trim() || null,
         task_concurrency_limit: concurrencyLimit,
+        runner_settings: settingsPayload,
       });
-      if (settingsPayload) {
-        await api.put<unknown>(
-          "/settings/runner",
-          settingsPayload,
-          { "X-Business-Id": created.id },
-        );
-      }
       resetBusinessDialog();
       setCreateDialogOpen(false);
       setBusinessMenuOpen(false);
@@ -313,7 +318,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: User }
           {NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "admin").map((item) => (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={linkFor(item.to)}
               end={item.end}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
@@ -655,6 +660,14 @@ function buildBusinessSettingsPayload(
       const parsed = JSON.parse(values.request_headers.trim());
       if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
         return "请求 Header 必须是 JSON 对象。";
+      }
+      for (const [name, headerValue] of Object.entries(parsed)) {
+        if (RESERVED_REQUEST_HEADERS.has(name.trim().toLowerCase())) {
+          return `请求 Header 包含不允许覆盖的保留字段：${name}`;
+        }
+        if (typeof headerValue !== "string") {
+          return "请求 Header 的值必须是字符串。";
+        }
       }
       mobileUse.request_headers = parsed as Record<string, string>;
     } catch {

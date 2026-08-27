@@ -1,8 +1,8 @@
 import pytest
 
-from cua_platform.runners.base import RunRequest
+from cua_platform.runners.base import RunRequest, RunnerFailure
 from cua_platform.runners.mobile_use import MobileUseRunner
-from cua_platform.runners.universal_gateway import RemoteRun
+from cua_platform.runners.universal_gateway import RemoteRun, UniversalRemoteError
 from cua_platform.settings.schemas import RunnerConfig
 
 
@@ -13,6 +13,24 @@ class CapturingGateway:
     async def start_one_step(self, _config, payload, *, trace_key=None):
         self.payloads.append(dict(payload))
         return RemoteRun("run-cua", "req-cua", "thread-cua")
+
+
+class FailingGateway:
+    def __init__(self, error: UniversalRemoteError) -> None:
+        self.error = error
+
+    async def start_one_step(self, _config, _payload, *, trace_key=None):
+        raise self.error
+
+
+class MissingRunIdGateway:
+    async def start_one_step(self, _config, _payload, *, trace_key=None):
+        raise UniversalRemoteError(
+            "response_invalid",
+            "req-missing-run-id",
+            retryable=False,
+            response_received=True,
+        )
 
 
 def cua_config() -> RunnerConfig:
@@ -86,3 +104,85 @@ async def test_cua_runner_omits_tos_fields_when_not_configured():
     assert "TosBucket" not in payload
     assert "TosEndpoint" not in payload
     assert "TosRegion" not in payload
+
+
+@pytest.mark.asyncio
+async def test_cua_runner_marks_transport_start_failure_outcome_unknown():
+    runner = MobileUseRunner(
+        cua_config(),
+        FailingGateway(
+            UniversalRemoteError(
+                "remote_timeout",
+                None,
+                retryable=True,
+                response_received=False,
+            )
+        ),  # type: ignore[arg-type]
+        request_loader=lambda _task_id: None,
+    )
+
+    with pytest.raises(RunnerFailure) as caught:
+        await runner.start(
+            RunRequest("task_1", "success", "title", "- step"),
+            idempotency_key="idem-transport",
+        )
+
+    assert caught.value.start_outcome_unknown is True
+
+
+@pytest.mark.asyncio
+async def test_cua_runner_marks_missing_run_id_outcome_unknown():
+    runner = MobileUseRunner(
+        cua_config(),
+        MissingRunIdGateway(),  # type: ignore[arg-type]
+        request_loader=lambda _task_id: None,
+    )
+
+    with pytest.raises(RunnerFailure) as caught:
+        await runner.start(
+            RunRequest("task_1", "success", "title", "- step"),
+            idempotency_key="idem-missing-run-id",
+        )
+
+    assert caught.value.start_outcome_unknown is True
+
+
+@pytest.mark.asyncio
+async def test_cua_runner_keeps_preflight_start_failure_known():
+    runner = MobileUseRunner(
+        cua_config().model_copy(update={"pod_id": None}),
+        CapturingGateway(),  # type: ignore[arg-type]
+        request_loader=lambda _task_id: None,
+    )
+
+    with pytest.raises(RunnerFailure) as caught:
+        await runner.start(
+            RunRequest("task_1", "success", "title", "- step"),
+            idempotency_key="idem-preflight",
+        )
+
+    assert caught.value.start_outcome_unknown is False
+
+
+@pytest.mark.asyncio
+async def test_cua_runner_keeps_remote_rejection_start_failure_known():
+    runner = MobileUseRunner(
+        cua_config(),
+        FailingGateway(
+            UniversalRemoteError(
+                "invalid_parameter",
+                "req-rejected",
+                retryable=False,
+                response_received=True,
+            )
+        ),  # type: ignore[arg-type]
+        request_loader=lambda _task_id: None,
+    )
+
+    with pytest.raises(RunnerFailure) as caught:
+        await runner.start(
+            RunRequest("task_1", "success", "title", "- step"),
+            idempotency_key="idem-rejected",
+        )
+
+    assert caught.value.start_outcome_unknown is False

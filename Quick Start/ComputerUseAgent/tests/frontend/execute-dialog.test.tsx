@@ -87,6 +87,8 @@ describe("ExecuteDialog", () => {
 
     await screen.findByText("Fresh Phone");
     expect(screen.queryByLabelText("执行超时时间")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("设备不可用后最大等待时间（秒）"))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "执行超时时间" }))
       .not.toBeInTheDocument();
   });

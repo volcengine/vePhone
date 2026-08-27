@@ -1,3 +1,12 @@
+import type {
+  CronPreviewResponse,
+  PlanExecutionResponse,
+  ScheduleEventListResponse,
+  TestPlanSchedule,
+  TestPlanScheduleCreate,
+  TestPlanScheduleUpdate,
+} from "./types";
+
 type ErrorEnvelope = {
   error?: {
     code?: string;
@@ -44,6 +53,11 @@ function readCookie(name: string): string | undefined {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await rawRequest(path, init);
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+}
+
+async function rawRequest(path: string, init: RequestInit = {}): Promise<Response> {
   const csrf = readCookie("csrf");
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has("Content-Type")) {
@@ -82,7 +96,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     );
   }
 
-  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+  return response;
 }
 
 export const api = {
@@ -118,5 +132,42 @@ export const api = {
   },
   delete<T>(path: string) {
     return request<T>(path, { method: "DELETE" });
+  },
+  download(path: string) {
+    return rawRequest(path);
+  },
+};
+
+export const scheduleApi = {
+  get(planId: string) {
+    return api.get<TestPlanSchedule>(`/test-plans/${planId}/schedule`);
+  },
+  create(planId: string, body: TestPlanScheduleCreate) {
+    return api.post<TestPlanSchedule>(`/test-plans/${planId}/schedule`, body);
+  },
+  update(planId: string, body: TestPlanScheduleUpdate) {
+    return api.put<TestPlanSchedule>(`/test-plans/${planId}/schedule`, body);
+  },
+  delete(planId: string) {
+    return api.delete<void>(`/test-plans/${planId}/schedule`);
+  },
+  enable(planId: string) {
+    return api.post<TestPlanSchedule>(`/test-plans/${planId}/schedule/enable`);
+  },
+  disable(planId: string) {
+    return api.post<TestPlanSchedule>(`/test-plans/${planId}/schedule/disable`);
+  },
+  run(planId: string) {
+    return api.post<PlanExecutionResponse>(`/test-plans/${planId}/schedule/run`);
+  },
+  events(planId: string, page = 1, pageSize = 20) {
+    return api.get<ScheduleEventListResponse>(
+      `/test-plans/${planId}/schedule/events?page=${page}&page_size=${pageSize}`,
+    );
+  },
+  preview(cron: string, timezone: string, count = 5) {
+    return api.get<CronPreviewResponse>(
+      `/test-plans/schedule/preview?cron=${encodeURIComponent(cron)}&timezone=${encodeURIComponent(timezone)}&count=${count}`,
+    );
   },
 };

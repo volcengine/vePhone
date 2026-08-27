@@ -1,8 +1,11 @@
-import type { AgentRuntimeOptions } from "../api/types";
+import { useEffect, useState } from "react";
+
+import type { AgentRuntimeOptions, DevicePrepareAction } from "../api/types";
 
 export type ExecuteConfig = {
   pod_id: string | null;
   timeout_seconds: number | null;
+  device_wait_timeout_seconds: number;
   agent_config_mode: "global" | "custom" | "case_default";
   agent_options?: AgentRuntimeOptions | null;
 };
@@ -28,14 +31,18 @@ export type CustomExecutionForm = {
 
 export type ExecutionConfigDraft = {
   timeout_seconds: number;
+  device_wait_timeout_seconds: number;
   customTimeout: boolean;
+  device_prepare_action: DevicePrepareAction;
   agent_config_mode: "global" | "custom" | "case_default";
   custom: CustomExecutionForm;
 };
 
 export const DEFAULT_EXECUTION_CONFIG: ExecutionConfigDraft = {
   timeout_seconds: 120,
+  device_wait_timeout_seconds: 300,
   customTimeout: false,
+  device_prepare_action: "none",
   agent_config_mode: "global",
   custom: {
     thread_id: "",
@@ -74,6 +81,98 @@ const AGENT_CONFIG_OPTIONS = [
   { value: "custom", label: "自定义本次执行配置" },
   { value: "case_default", label: "用例默认配置" },
 ] as const;
+const DEVICE_PREPARE_OPTIONS = [
+  { value: "none", label: "不处理" },
+  { value: "reset", label: "重置设备" },
+  { value: "reboot", label: "重启设备" },
+] as const;
+const CLEARABLE_CUSTOM_FIELDS = new Set<keyof CustomExecutionForm>([
+  "max_output_tokens",
+  "system_prompt",
+  "callback_info",
+  "output_schema",
+  "mcp_json",
+  "gps_info",
+  "request_headers",
+]);
+const DEVICE_WAIT_TIMEOUT_MIN = 1;
+const DEVICE_WAIT_TIMEOUT_MAX = 86400;
+
+function clampDeviceWaitTimeout(value: number): number {
+  return Math.max(
+    DEVICE_WAIT_TIMEOUT_MIN,
+    Math.min(DEVICE_WAIT_TIMEOUT_MAX, value),
+  );
+}
+
+export function DeviceWaitTimeoutField({
+  id,
+  name = "device_wait_timeout_seconds",
+  value,
+  onChange,
+  disabled = false,
+  wrapperClassName = "plan-run-field plan-run-schedule-timeout",
+  labelClassName,
+  inputClassName,
+  hintClassName,
+}: {
+  id: string;
+  name?: string;
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  wrapperClassName?: string;
+  labelClassName?: string;
+  inputClassName?: string;
+  hintClassName?: string;
+}) {
+  const [inputValue, setInputValue] = useState(String(value));
+
+  useEffect(() => {
+    setInputValue(String(value));
+  }, [value]);
+
+  function commit(raw: string) {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    onChange(clampDeviceWaitTimeout(parsed));
+  }
+
+  function resetIfEmptyOrInvalid() {
+    if (inputValue.trim() === "" || !Number.isFinite(Number(inputValue))) {
+      setInputValue(String(value));
+      return;
+    }
+    commit(inputValue);
+  }
+
+  return (
+    <label className={wrapperClassName}>
+      <span className={labelClassName}>设备不可用后最大等待时间（秒）</span>
+      <input
+        id={id}
+        name={name}
+        autoComplete="off"
+        className={inputClassName}
+        type="number"
+        aria-label="设备不可用后最大等待时间（秒）"
+        min={DEVICE_WAIT_TIMEOUT_MIN}
+        max={DEVICE_WAIT_TIMEOUT_MAX}
+        value={inputValue}
+        onChange={(event) => {
+          const next = event.target.value;
+          setInputValue(next);
+          if (next.trim() !== "") commit(next);
+        }}
+        onBlur={resetIfEmptyOrInvalid}
+        disabled={disabled}
+      />
+      <small className={hintClassName}>
+        平台会定期刷新设备状态；超过该时间且设备仍不可用时，剩余任务将失败。
+      </small>
+    </label>
+  );
+}
 
 export function createExecutionConfigDraft(): ExecutionConfigDraft {
   return {
@@ -90,6 +189,8 @@ export function createExecutionConfigDraftFromOptions(
   return {
     ...draft,
     timeout_seconds: options.timeout_seconds ?? draft.timeout_seconds,
+    device_prepare_action: options.device_prepare_action
+      ?? draft.device_prepare_action,
     agent_config_mode: "custom",
     custom: {
       ...draft.custom,
@@ -127,6 +228,7 @@ export function buildExecuteConfig(
       config: {
         pod_id: null,
         timeout_seconds: null,
+          device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
         agent_config_mode: "global",
         agent_options: null,
       },
@@ -138,6 +240,7 @@ export function buildExecuteConfig(
       config: {
         pod_id: null,
         timeout_seconds: null,
+          device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
         agent_config_mode: "case_default",
         agent_options: null,
       },
@@ -183,11 +286,13 @@ export function buildExecuteConfig(
       : null,
     gps_info: optionalString(draft.custom.gps_info),
     request_headers: requestHeaders,
+    device_prepare_action: draft.device_prepare_action,
   };
   return {
     config: {
       pod_id: null,
       timeout_seconds: draft.custom.timeout_seconds,
+        device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
       agent_config_mode: "custom",
       agent_options: options,
     },
@@ -205,6 +310,7 @@ export function ExecutionConfigFields({
   caseDefaultLabel = "用例默认配置",
   showModeSelector = true,
   showThreadId = true,
+  showDeviceWaitTimeout = false,
 }: {
   value: ExecutionConfigDraft;
   onChange: (value: ExecutionConfigDraft) => void;
@@ -215,6 +321,7 @@ export function ExecutionConfigFields({
   caseDefaultLabel?: string;
   showModeSelector?: boolean;
   showThreadId?: boolean;
+  showDeviceWaitTimeout?: boolean;
 }) {
   const customMode = value.agent_config_mode === "custom";
   const caseDefaultMode = value.agent_config_mode === "case_default";
@@ -240,6 +347,31 @@ export function ExecutionConfigFields({
     });
   }
 
+  function clearCustom(field: keyof CustomExecutionForm) {
+    updateCustom(field as never, "" as never);
+  }
+
+  function fieldHeading(field: keyof CustomExecutionForm, label: string, inputId: string) {
+    const canClear = CLEARABLE_CUSTOM_FIELDS.has(field)
+      && String(value.custom[field] ?? "").trim().length > 0
+      && !disabled;
+    return (
+      <div className="execution-config-field-heading">
+        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {canClear && (
+          <button
+            type="button"
+            className="text-button execution-config-clear"
+            onClick={() => clearCustom(field)}
+          >
+            清除
+            <span className="sr-only">{` ${label}`}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   function renderNumberField(
     field: "max_step" | "timeout_seconds" | "retry_limit",
     label: string,
@@ -249,7 +381,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <input
           id={inputId}
           name={inputId}
@@ -280,7 +412,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <input
           id={inputId}
           name={inputId}
@@ -303,7 +435,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <textarea
           id={inputId}
           name={inputId}
@@ -366,6 +498,24 @@ export function ExecutionConfigFields({
       </div>
       )}
 
+      {showDeviceWaitTimeout && (
+        <DeviceWaitTimeoutField
+          id={`${idPrefix}-device-wait-timeout-seconds`}
+          name={`${idPrefix}-device-wait-timeout-seconds`}
+          value={value.device_wait_timeout_seconds}
+          onChange={(next) =>
+            onChange({
+              ...value,
+              device_wait_timeout_seconds: next,
+            })}
+          disabled={disabled}
+          wrapperClassName="form-group"
+          labelClassName="form-label"
+          inputClassName="form-input"
+          hintClassName="form-hint execution-config-hint"
+        />
+      )}
+
       {!showModeSelector ? null : caseDefaultMode ? (
         <div className="agent-global-summary">
           <div className="agent-global-summary-head">
@@ -394,6 +544,46 @@ export function ExecutionConfigFields({
         <div className="custom-agent-config">
           <section className="custom-agent-section">
             <h4>运行控制</h4>
+            <div className="form-group">
+              <span
+                className="form-label"
+                id={`${idPrefix}-device-prepare-label`}
+              >
+                设备启动前处理
+              </span>
+              <div
+                className="execution-agent-mode-seg"
+                role="radiogroup"
+                aria-labelledby={`${idPrefix}-device-prepare-label`}
+              >
+                {DEVICE_PREPARE_OPTIONS.map((option) => {
+                  const selected = value.device_prepare_action === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className={`agent-mode-seg-option${selected ? " on" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name={`${idPrefix}-device-prepare-action`}
+                        value={option.value}
+                        checked={selected}
+                        disabled={disabled}
+                        onChange={() =>
+                          onChange({
+                            ...value,
+                            device_prepare_action: option.value,
+                          })}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="form-hint execution-config-hint">
+                默认不处理；选择重置或重启后，将在任务启动 Agent 前处理设备。
+              </p>
+            </div>
             <div className="form-grid custom-agent-number-grid">
               {showThreadId && renderTextField("thread_id", "ThreadId")}
               {renderNumberField("max_step", "最大步骤数 MaxStep", 1, 500)}
@@ -410,12 +600,11 @@ export function ExecutionConfigFields({
                 10,
               )}
               <div className="form-group">
-                <label
-                  className="form-label"
-                  htmlFor={`${idPrefix}-custom-max-output-tokens`}
-                >
-                  最大输出 Token
-                </label>
+                {fieldHeading(
+                  "max_output_tokens",
+                  "最大输出 Token",
+                  `${idPrefix}-custom-max-output-tokens`,
+                )}
                 <input
                   id={`${idPrefix}-custom-max-output-tokens`}
                   name={`${idPrefix}-custom-max-output-tokens`}

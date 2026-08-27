@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Link,
-  useNavigate,
   useParams,
   useSearchParams,
 } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   PlanReportListResponse,
   PlanReportSummary,
@@ -16,10 +15,12 @@ import type {
   TestPlan,
   TestPlanCaseListResponse,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { ConfirmDialog } from "../components/confirm-dialog";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
+import { ScheduleCard } from "../components/schedule-card";
 import { formatChinaDateTime, formatElapsedTime } from "../utils/time";
 
 type PageSize = 10 | 20 | 50;
@@ -68,18 +69,48 @@ function statusBadge(status: ReportStatus) {
   );
 }
 
+const COMPLETED_REPORT_STATUSES: ReportStatus[] = [
+  "success",
+  "failure",
+  "exception",
+  "cancelled",
+];
+
+function isCompletedReport(execution: PlanReportSummary): boolean {
+  return COMPLETED_REPORT_STATUSES.includes(execution.report_status);
+}
+
+function formatRate(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function trendCurvePath(points: Array<{ x: number; y: number }>): string {
+  const [first, ...rest] = points;
+  if (!first) return "";
+  return rest.reduce((path, point, index) => {
+    const previous = index === 0 ? first : rest[index - 1];
+    const controlOffset = (point.x - previous.x) / 2;
+    return [
+      path,
+      `C ${(previous.x + controlOffset).toFixed(2)} ${previous.y.toFixed(2)}`,
+      `${(point.x - controlOffset).toFixed(2)} ${point.y.toFixed(2)}`,
+      `${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+    ].join(" ");
+  }, `M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`);
+}
+
 function casePassRate(testCase: TestCase): string {
   if (!testCase.execution_count) return "-";
-  return `${(
+  return formatRate(
     testCase.pass_count
     / testCase.execution_count
     * 100
-  ).toFixed(2)}%`;
+  );
 }
 
 export function TestPlanDetailPage() {
   const { planId = "" } = useParams<{ planId: string }>();
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const queryClient = useQueryClient();
   const [urlParams, setUrlParams] = useSearchParams();
   const casePage = parsePage(urlParams.get("page"));
@@ -274,6 +305,7 @@ export function TestPlanDetailPage() {
       </div>
 
       <div className="test-plan-detail-stack">
+        <ScheduleCard planId={planId} />
         <section className="plan-detail-section">
           <div className="plan-section-heading">
             <div>
@@ -317,6 +349,8 @@ export function TestPlanDetailPage() {
             <div className="plan-case-empty">该计划尚未执行</div>
           )}
         </section>
+
+        <PassRateTrend executions={recent} />
 
         <section className="plan-detail-section">
           <div className="plan-section-heading">
@@ -446,6 +480,181 @@ export function TestPlanDetailPage() {
   );
 }
 
+function PassRateTrend({ executions }: { executions: PlanReportSummary[] }) {
+  const plot = {
+    left: 7,
+    right: 93,
+    top: 22,
+    middle: 50,
+    bottom: 78,
+  };
+  const completed = executions.filter(isCompletedReport);
+  const trend = [...completed].reverse();
+  const latest = completed[0] ?? null;
+  const runningSkipped = executions.filter((execution) =>
+    execution.report_status === "queued" || execution.report_status === "running"
+  ).length;
+  const average = trend.length
+    ? trend.reduce((total, execution) => total + execution.pass_rate, 0) / trend.length
+    : 0;
+  const min = trend.length
+    ? Math.min(...trend.map((execution) => execution.pass_rate))
+    : 0;
+  const max = trend.length
+    ? Math.max(...trend.map((execution) => execution.pass_rate))
+    : 0;
+  const points = trend.map((execution, index) => {
+    const x = trend.length === 1
+      ? 50
+      : plot.left + index / (trend.length - 1) * (plot.right - plot.left);
+    const y = plot.top
+      + (100 - Math.max(0, Math.min(100, execution.pass_rate)))
+      / 100
+      * (plot.bottom - plot.top);
+    return { execution, x, y };
+  });
+  const [activeExecutionId, setActiveExecutionId] = useState<string | null>(null);
+  const latestPoint = points.at(-1);
+  const activePoint = points.find((point) =>
+    point.execution.execution_id === activeExecutionId
+  ) ?? latestPoint ?? points.at(-1);
+  const line = trendCurvePath(points);
+
+  return (
+    <section
+      className="plan-detail-section pass-rate-trend-section"
+      aria-labelledby="pass-rate-trend-title"
+    >
+      <div className="plan-section-heading">
+        <div>
+          <span className="section-kicker">质量趋势</span>
+          <h2 id="pass-rate-trend-title">成功率趋势</h2>
+        </div>
+        {runningSkipped > 0 && (
+          <span className="trend-skip-note">
+            已过滤 {runningSkipped} 次进行中执行
+          </span>
+        )}
+      </div>
+      {trend.length === 0 ? (
+        <div className="plan-case-empty">暂无已完成执行可用于绘制趋势</div>
+      ) : (
+        <div className="pass-rate-trend-card">
+          <div className="trend-summary-strip">
+            <SummaryItem
+              label="最近完成"
+              value={`最新 ${formatRate(latest?.pass_rate ?? 0)}`}
+            />
+            <SummaryItem label="平均成功率" value={`平均 ${formatRate(average)}`} />
+            <SummaryItem
+              label="波动区间"
+              value={`区间 ${formatRate(min)} - ${formatRate(max)}`}
+            />
+          </div>
+          <div
+            className="pass-rate-chart"
+            role="group"
+            aria-label="成功率趋势图表"
+          >
+            <div className="trend-axis-title y">成功率</div>
+            <div className="trend-axis-title x">执行时间</div>
+            <div className="trend-axis-label top">100%</div>
+            <div className="trend-axis-label middle">50%</div>
+            <div className="trend-axis-label bottom">0%</div>
+            <svg
+              role="img"
+              aria-label="最近完成执行成功率趋势"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="pass-rate-chart-svg"
+            >
+              <line className="trend-grid-line" x1={plot.left} x2={plot.right} y1={plot.top} y2={plot.top} />
+              <line className="trend-grid-line" x1={plot.left} x2={plot.right} y1={plot.middle} y2={plot.middle} />
+              <line className="trend-grid-line" x1={plot.left} x2={plot.right} y1={plot.bottom} y2={plot.bottom} />
+              <line className="trend-axis-line" x1={plot.left} x2={plot.left} y1={plot.top} y2={plot.bottom} />
+              <line className="trend-axis-line" x1={plot.left} x2={plot.right} y1={plot.bottom} y2={plot.bottom} />
+              {points.map((point) => (
+                <line
+                  className="trend-tick-line"
+                  key={`${point.execution.execution_id}-tick`}
+                  x1={point.x}
+                  x2={point.x}
+                  y1={plot.bottom}
+                  y2={plot.bottom + 2.5}
+                />
+              ))}
+              {activePoint && (
+                <line
+                  className="trend-active-line"
+                  x1={activePoint.x}
+                  x2={activePoint.x}
+                  y1={plot.top}
+                  y2={plot.bottom}
+                />
+              )}
+              {line && <path className="trend-line trend-line-path" d={line} />}
+            </svg>
+            {points.map((point) => (
+              <Link
+                key={point.execution.execution_id}
+                className={`trend-point ${statusTone(point.execution.report_status)} ${
+                  point.execution.execution_id === activePoint?.execution.execution_id
+                    ? "active"
+                    : ""
+                }`}
+                style={{
+                  left: `${point.x}%`,
+                  top: `${point.y}%`,
+                }}
+                aria-label={`${point.execution.task_batch_id}，${formatChinaDateTime(point.execution.created_at)}，成功率 ${formatRate(point.execution.pass_rate)}，${STATUS_LABELS[point.execution.report_status]}`}
+                title={`${point.execution.task_batch_id} · ${formatRate(point.execution.pass_rate)}`}
+                to={`/task-reports/${point.execution.execution_id}`}
+                onFocus={() => setActiveExecutionId(point.execution.execution_id)}
+                onMouseEnter={() => setActiveExecutionId(point.execution.execution_id)}
+              />
+            ))}
+            {activePoint && (
+              <span
+                className={`trend-active-value ${activePoint.y <= plot.top + 4 ? "below" : "above"}`}
+                style={{
+                  left: `${activePoint.x}%`,
+                  top: `${activePoint.y}%`,
+                }}
+              >
+                {formatRate(activePoint.execution.pass_rate)}
+              </span>
+            )}
+            {points.map((point) => (
+              <span
+                className={`trend-rate-label ${point.y <= plot.top + 6 ? "below" : "above"}`}
+                key={`${point.execution.execution_id}-rate`}
+                style={{
+                  left: `${point.x}%`,
+                  top: `${point.y}%`,
+                }}
+              >
+                {formatRate(point.execution.pass_rate)}
+              </span>
+            ))}
+            {points.map((point) => (
+              <span
+                className="trend-date-label"
+                key={`${point.execution.execution_id}-date`}
+                style={{
+                  left: `${point.x}%`,
+                  top: `${plot.bottom + 8}%`,
+                }}
+              >
+                {formatChinaDateTime(point.execution.created_at)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ExecutionRow({ execution }: { execution: PlanReportSummary }) {
   return (
     <tr>
@@ -458,7 +667,7 @@ function ExecutionRow({ execution }: { execution: PlanReportSummary }) {
         </Link>
       </td>
       <td>{statusBadge(execution.report_status)}</td>
-      <td>{execution.pass_rate.toFixed(2)}%</td>
+      <td>{formatRate(execution.pass_rate)}</td>
       <td>{formatChinaDateTime(execution.created_at)}</td>
       <td>{formatElapsedTime(execution.started_at, execution.finished_at)}</td>
     </tr>

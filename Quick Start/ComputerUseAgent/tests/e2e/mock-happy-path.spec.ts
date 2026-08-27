@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,6 +36,7 @@ async function findFreePort(): Promise<number> {
 async function startControlledServer(
   dataDir: string,
   holdFile: string,
+  startLog: string,
   port: number,
 ): Promise<TestServer> {
   const output: string[] = [];
@@ -60,7 +61,9 @@ async function startControlledServer(
         APP_ENV: "e2e",
         APP_SECRET_KEY: "e2e-controlled-secret-key-at-least-32-bytes",
         APP_DATA_DIR: dataDir,
+        TASK_WORKER_DRAIN_TIMEOUT_SECONDS: "1",
         E2E_RUNNER_HOLD_FILE: holdFile,
+        E2E_RUNNER_START_LOG: startLog,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -95,6 +98,19 @@ async function stopControlledServer(server: TestServer): Promise<void> {
   }
 }
 
+async function terminateControlledServer(server: TestServer): Promise<void> {
+  const pid = server.process.pid;
+  if (pid && server.process.exitCode === null) {
+    process.kill(-pid, "SIGTERM");
+    await Promise.race([
+      once(server.process, "exit"),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("SIGTERM shutdown timed out")), 5_000)
+      ),
+    ]);
+  }
+}
+
 async function createControlledTask(page, title: string): Promise<string> {
   const origin = new URL(page.url()).origin;
   const task = await createCaseAndTask(page, {
@@ -109,6 +125,7 @@ async function createControlledTask(page, title: string): Promise<string> {
 test("admin verifies success, failure, and review reports", async ({ page }) => {
   const dataDir = await mkdtemp(join(tmpdir(), "mua-mock-results-e2e-"));
   const holdFile = join(dataDir, "hold-runner");
+  const startLog = join(dataDir, "runner-starts.log");
   const port = await findFreePort();
   const appUrl = `http://localhost:${port}`;
   let server: TestServer | undefined;
@@ -122,12 +139,12 @@ test("admin verifies success, failure, and review reports", async ({ page }) => 
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   try {
-    server = await startControlledServer(dataDir, holdFile, port);
+    server = await startControlledServer(dataDir, holdFile, startLog, port);
     await page.goto(appUrl);
     await page.getByLabel("用户名").fill("admin");
     await page.getByLabel("密码").fill("StrongPassword123!");
     await page.getByRole("button", { name: "创建管理员" }).click();
-    await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "执行记录" })).toBeVisible();
     await configureMockRunner(page, appUrl);
 
   async function createTask(
@@ -244,19 +261,20 @@ test("admin cancels active tasks and a second service resumes persisted work", a
 }) => {
   const dataDir = await mkdtemp(join(tmpdir(), "mua-loop2-e2e-"));
   const holdFile = join(dataDir, "hold-runner");
+  const startLog = join(dataDir, "runner-starts.log");
   const port = await findFreePort();
   const appUrl = `http://localhost:${port}`;
   let server: TestServer | undefined;
 
   try {
     await writeFile(holdFile, "hold");
-    server = await startControlledServer(dataDir, holdFile, port);
+    server = await startControlledServer(dataDir, holdFile, startLog, port);
 
     await page.goto(appUrl);
     await page.getByLabel("用户名").fill("admin");
     await page.getByLabel("密码").fill("StrongPassword123!");
     await page.getByRole("button", { name: "创建管理员" }).click();
-    await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "执行记录" })).toBeVisible();
     await configureMockRunner(page, appUrl);
 
     const runningId = await createControlledTask(page, "运行中取消");
@@ -297,20 +315,35 @@ test("admin cancels active tasks and a second service resumes persisted work", a
     await expect.poll(
       async () => (await getTask(page, appUrl, recoveryId)).execution_status,
     ).toBe("running");
+    await expect.poll(
+      async () => Boolean((await getTask(page, appUrl, recoveryId)).remote_run_id),
+    ).toBe(true);
+    const remoteRunId = (await getTask(page, appUrl, recoveryId)).remote_run_id;
+    expect(remoteRunId).toBeTruthy();
     await expect(page.getByText("执行中", { exact: true })).toBeVisible();
 
-    await stopControlledServer(server);
+    await terminateControlledServer(server);
+    const previousOutput = server.output.join("");
     server = undefined;
+    expect(previousOutput).toContain("task_handoff_preserved");
     await rm(holdFile);
-    server = await startControlledServer(dataDir, holdFile, port);
+    server = await startControlledServer(dataDir, holdFile, startLog, port);
 
     await page.goto(`${appUrl}/tasks/${recoveryId}`);
     await expect.poll(
       async () => (await getTask(page, appUrl, recoveryId)).execution_status,
       { timeout: 10_000 },
     ).toBe("result_ready");
+    expect((await getTask(page, appUrl, recoveryId)).remote_run_id).toBe(
+      remoteRunId,
+    );
     await page.reload();
     await expect(page.getByText("已完成", { exact: true })).toBeVisible();
+    const starts = (await readFile(startLog, "utf8"))
+      .trim()
+      .split("\n")
+      .filter((taskId) => taskId === recoveryId);
+    expect(starts).toHaveLength(1);
     const events = await page.evaluate(async (taskId) => {
       const response = await fetch(`/api/v1/tasks/${taskId}/events`);
       return (await response.json()).items as Array<{
@@ -322,11 +355,9 @@ test("admin cancels active tasks and a second service resumes persisted work", a
       events.map((_event, index) => index + 1),
     );
     expect(events.filter((event) => event.type === "task_started")).toHaveLength(1);
-    expect(
-      events.filter((event) =>
-        ["task_finished", "runner_interrupted", "task_cancelled"].includes(event.type),
-      ),
-    ).toHaveLength(1);
+    expect(events.some((event) => event.type === "runner_interrupted")).toBe(false);
+    expect(events.filter((event) => event.type === "task_finished")).toHaveLength(1);
+    await expect.poll(() => server?.output.join("")).toContain("pod_lease_released");
 
     await page.goto(`${appUrl}/tasks/${queuedId}`);
     await expect(page.getByText("已取消", { exact: true })).toBeVisible();

@@ -17,17 +17,33 @@ from cua_platform.test_plans.executions import (
     PlanExecutionService,
 )
 from cua_platform.test_plans.reports import PlanReportService
+from cua_platform.test_plans.schedule_runner import ScheduleTrigger
+from cua_platform.test_plans.schedule_service import (
+    ScheduleAlreadyExistsError,
+    ScheduleNotFoundError,
+    ScheduleService,
+)
+from cua_platform.test_plans.scheduling import (
+    describe_cron,
+    preview_next_runs,
+)
 from cua_platform.test_plans.schemas import (
     CreatorListResponse,
+    CronPreviewResponse,
     PlanReportDetail,
     PlanReportListResponse,
     PlanReportStats,
     ReportStatus,
+    ScheduleEventListResponse,
+    ScheduleEventResponse,
     TagListResponse,
     TagResponse,
     TestPlanCaseListResponse,
     TestPlanListResponse,
     TestPlanResponse,
+    TestPlanScheduleCreate,
+    TestPlanScheduleResponse,
+    TestPlanScheduleUpdate,
     TestPlanStatsResponse,
     TestPlanWrite,
 )
@@ -370,6 +386,48 @@ def list_task_reports(
 
 
 @router.get(
+    "/task-reports/{execution_id}/download",
+)
+def download_task_report(
+    execution_id: str,
+    db: Database,
+    _user: CurrentUser,
+    business: CurrentBusiness,
+    format: str = Query("markdown"),
+) -> Response:
+    try:
+        download = PlanReportService(db).get_download(
+            execution_id,
+            file_format=format,
+            business_id=business.id,
+        )
+    except ValueError as exc:
+        if str(exc) == "task_report_download_unavailable":
+            raise api_error(
+                409,
+                "task_report_download_unavailable",
+                "Task report is not available for download",
+            ) from exc
+        raise api_error(
+            422,
+            "unsupported_report_download_format",
+            "Unsupported task report download format",
+        ) from exc
+    if download is None:
+        raise api_error(
+            404,
+            "task_report_not_found",
+            "Task report not found",
+        )
+    content, media_type, filename = download
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
     "/task-reports/{execution_id}",
     response_model=PlanReportDetail,
 )
@@ -441,7 +499,8 @@ async def create_test_plan_execution(
             runner_type=runner_config.mode,
             config_snapshot=snapshot,
             device_wait_timeout_seconds=(
-                request.app.state.settings.device_wait_timeout_seconds
+                payload.device_wait_timeout_seconds
+                or request.app.state.settings.device_wait_timeout_seconds
             ),
             business_id=business.id,
         )
@@ -476,6 +535,219 @@ async def create_test_plan_execution(
         if schedule_batches is not None:
             await schedule_batches()
     return service.response(result)
+
+
+@router.get(
+    "/test-plans/schedule/preview",
+    response_model=CronPreviewResponse,
+)
+def preview_cron(
+    cron: str = Query(..., min_length=1, max_length=100),
+    timezone: str = Query("UTC", min_length=1, max_length=64),
+    count: int = Query(5, ge=1, le=20),
+):
+    try:
+        next_runs = preview_next_runs(
+            cron, timezone, datetime.now(UTC), count
+        )
+        return CronPreviewResponse(
+            next_runs=next_runs,
+            human_description=describe_cron(cron),
+        )
+    except ValueError as exc:
+        raise api_error(
+            422, "invalid_cron", str(exc)
+        ) from exc
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_schedule(
+    plan_id: str,
+    payload: TestPlanScheduleCreate,
+    db: Database,
+    user: CurrentUser,
+    business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).create(
+            plan_id,
+            payload,
+            created_by=user.username,
+            business_id=business.id,
+        )
+    except ScheduleAlreadyExistsError as exc:
+        raise api_error(
+            409,
+            "schedule_already_exists",
+            "A schedule already exists for this test plan",
+        ) from exc
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.get(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+)
+def get_schedule(
+    plan_id: str,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+):
+    schedule = ScheduleService(db).get(plan_id)
+    if schedule is None:
+        raise _not_found()
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.put(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+)
+def update_schedule(
+    plan_id: str,
+    payload: TestPlanScheduleUpdate,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).update(plan_id, payload)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.delete(
+    "/test-plans/{plan_id}/schedule",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_schedule(
+    plan_id: str,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    if not ScheduleService(db).delete(plan_id):
+        raise _not_found()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/enable",
+    response_model=TestPlanScheduleResponse,
+)
+def enable_schedule(
+    plan_id: str,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).set_enabled(plan_id, True)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/disable",
+    response_model=TestPlanScheduleResponse,
+)
+def disable_schedule(
+    plan_id: str,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).set_enabled(plan_id, False)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/run",
+    response_model=PlanExecutionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def run_schedule_now(
+    plan_id: str,
+    request: Request,
+    db: Database,
+    user: CurrentUser,
+    business: CurrentBusiness,
+    _csrf: CsrfSession,
+    response: Response,
+):
+    schedule = ScheduleService(db).get(plan_id)
+    if schedule is None:
+        raise _not_found()
+    trigger = ScheduleTrigger(
+        db,
+        request.app.state.settings,
+        request.app.state.setting_cipher,
+    )
+    execution_id = trigger.run_once(schedule, trigger_type="manual")
+    if execution_id is None:
+        raise api_error(
+            409,
+            "schedule_run_skipped",
+            "Schedule run was skipped (active execution or trigger failed)",
+        )
+    from cua_platform.test_plans.models import PlanExecution
+
+    execution = db.get(PlanExecution, execution_id)
+    if execution is None:
+        raise api_error(
+            409, "schedule_run_failed", "Execution was not created"
+        )
+    from cua_platform.tasks.models import TaskBatch
+
+    batch = db.get(TaskBatch, execution.task_batch_id)
+    result = type(
+        "Result",
+        (),
+        {"execution": execution, "batch": batch, "disposition": "created"},
+    )()
+    return PlanExecutionService.response(result)
+
+
+@router.get(
+    "/test-plans/{plan_id}/schedule/events",
+    response_model=ScheduleEventListResponse,
+)
+def list_schedule_events(
+    plan_id: str,
+    db: Database,
+    _user: CurrentUser,
+    _business: CurrentBusiness,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+):
+    events, total = ScheduleService(db).list_events(
+        plan_id, page=page, page_size=page_size
+    )
+    return ScheduleEventListResponse(
+        items=[
+            ScheduleEventResponse.model_validate(event) for event in events
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def _not_found():

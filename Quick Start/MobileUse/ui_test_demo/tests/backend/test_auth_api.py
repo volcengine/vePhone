@@ -28,6 +28,14 @@ def test_admin_setup_login_and_session_cookie(client):
     assert "session=" in created.headers["set-cookie"]
     assert "HttpOnly" in created.headers["set-cookie"]
     assert "SameSite=lax" in created.headers["set-cookie"]
+    assert "Max-Age=604800" in created.headers["set-cookie"]
+    with client.app.state.session_factory() as db:
+        auth_session = db.get(AuthSession, client.cookies["session"])
+        lifetime = (
+            auth_session.expires_at.replace(tzinfo=UTC)
+            - auth_session.last_seen_at.replace(tzinfo=UTC)
+        )
+        assert lifetime == timedelta(days=7)
     assert client.get("/api/v1/setup/status").json() == {"initialized": True}
     assert client.get("/api/v1/auth/me").json()["username"] == "admin"
 
@@ -365,7 +373,10 @@ def test_session_idle_expiry_is_persisted_and_enforced(client, initialized_admin
     session_id = client.cookies["session"]
     with client.app.state.session_factory() as db:
         auth_session = db.get(AuthSession, session_id)
-        auth_session.last_seen_at = datetime.now(UTC) - timedelta(minutes=31)
+        auth_session.last_seen_at = datetime.now(UTC) - timedelta(
+            days=1,
+            minutes=1,
+        )
         auth_session.expires_at = datetime.now(UTC) + timedelta(hours=1)
         db.commit()
 
@@ -373,6 +384,22 @@ def test_session_idle_expiry_is_persisted_and_enforced(client, initialized_admin
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "authentication_required"
+
+
+def test_session_remains_valid_within_twenty_four_hour_idle_window(
+    client,
+    initialized_admin,
+):
+    session_id = client.cookies["session"]
+    with client.app.state.session_factory() as db:
+        auth_session = db.get(AuthSession, session_id)
+        auth_session.last_seen_at = datetime.now(UTC) - timedelta(hours=23)
+        auth_session.expires_at = datetime.now(UTC) + timedelta(days=1)
+        db.commit()
+
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 200
 
 
 def test_active_session_refreshes_activity_without_extending_absolute_expiry(

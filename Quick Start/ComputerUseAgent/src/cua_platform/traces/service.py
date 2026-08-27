@@ -175,6 +175,7 @@ def draft_for_runner_event(
         "step_finished": "step",
         "task_finished": "result",
         "task_cancelled": "cancel",
+        "task_start_outcome_unknown": "error",
         "runner_interrupted": "error",
         "runner_warning": "error",
     }.get(event.type, "lifecycle")

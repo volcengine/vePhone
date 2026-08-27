@@ -36,9 +36,35 @@ class Settings(BaseSettings):
     app_data_dir: Path = Path("./data")
     app_base_url: str = "http://localhost:8000"
     request_max_bytes: int = Field(default=1024 * 1024, gt=0)
+    auth_session_lifetime_seconds: int = Field(
+        default=7 * 24 * 60 * 60,
+        ge=300,
+        le=31 * 24 * 60 * 60,
+    )
+    auth_session_idle_timeout_seconds: int = Field(
+        default=24 * 60 * 60,
+        ge=300,
+        le=31 * 24 * 60 * 60,
+    )
+    auth_session_activity_refresh_seconds: int = Field(
+        default=5 * 60,
+        ge=60,
+        le=60 * 60,
+    )
     task_execution_timeout_seconds: int = Field(default=600, gt=0)
     cancel_confirm_timeout_seconds: int = Field(default=30, gt=0)
+    task_worker_drain_timeout_seconds: int = Field(default=30, gt=0, le=30)
     device_wait_timeout_seconds: int = Field(default=300, gt=0)
+    pod_pool_refresh_interval_seconds: int = Field(
+        default=60,
+        ge=5,
+        le=120,
+    )
+    pod_pool_refresh_failure_retry_seconds: int = Field(
+        default=15,
+        ge=5,
+        le=60,
+    )
     task_worker_concurrency: int = Field(default=16, ge=1, le=32)
     mobile_use_access_key_id: str | None = None
     mobile_use_secret_access_key: str | None = None
@@ -74,6 +100,19 @@ class Settings(BaseSettings):
             self.app_secret_key
         ):
             raise ValueError("APP_SECRET_KEY is not suitable for production")
+        if self.auth_session_idle_timeout_seconds > self.auth_session_lifetime_seconds:
+            raise ValueError(
+                "AUTH_SESSION_IDLE_TIMEOUT_SECONDS must not exceed "
+                "AUTH_SESSION_LIFETIME_SECONDS"
+            )
+        if (
+            self.auth_session_activity_refresh_seconds
+            >= self.auth_session_idle_timeout_seconds
+        ):
+            raise ValueError(
+                "AUTH_SESSION_ACTIVITY_REFRESH_SECONDS must be shorter than "
+                "AUTH_SESSION_IDLE_TIMEOUT_SECONDS"
+            )
         return self
 
     @property

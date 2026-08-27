@@ -1,4 +1,5 @@
 import json
+import re
 import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -160,6 +161,8 @@ def parse_agent_result(payload: object) -> ParsedResult:
         )
 
     output = _structured_output(data)
+    if output is None and is_success == 1:
+        output = _relaxed_structured_output(data)
     if output is None:
         return _evidence_missing(remote_state, data)
 
@@ -253,6 +256,11 @@ def _structured_output(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
 
 
 def _last_fenced_json_object(content: str) -> Mapping[str, Any] | None:
+    text = _last_fenced_json_text(content)
+    return _json_object(text.strip()) if text is not None else None
+
+
+def _last_fenced_json_text(content: str) -> str | None:
     stripped = content.strip()
     fence_end = stripped.rfind("```")
     if fence_end <= 0:
@@ -266,7 +274,104 @@ def _last_fenced_json_object(content: str) -> Mapping[str, Any] | None:
     language = stripped[fence_start + 3 : header_end].strip().lower()
     if language not in {"", "json"}:
         return None
-    return _json_object(stripped[header_end + 1 : fence_end].strip())
+    return stripped[header_end + 1 : fence_end]
+
+
+def _relaxed_structured_output(payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    content = payload.get("Content")
+    if not isinstance(content, str):
+        return None
+    text = _last_fenced_json_text(content) or _last_json_like_text(content)
+    if text is None:
+        return None
+    verdict = _relaxed_verdict(text)
+    evidence = _relaxed_evidence(text)
+    if verdict is None or not evidence:
+        return None
+    output: dict[str, Any] = {
+        "verdict": verdict,
+        "evidence": evidence,
+    }
+    summary = _relaxed_string_field(text, "summary")
+    if summary:
+        output["summary"] = summary
+    reason = _relaxed_string_field(text, "reason")
+    if reason:
+        output["reason"] = reason
+    return output
+
+
+def _last_json_like_text(content: str) -> str | None:
+    stripped = content.strip()
+    if not stripped.endswith("}"):
+        return None
+    verdict_index = stripped.rfind('"verdict"')
+    if verdict_index < 0:
+        verdict_index = stripped.rfind('"status"')
+    if verdict_index < 0:
+        return None
+    start = stripped.rfind("{", 0, verdict_index)
+    return stripped[start:] if start >= 0 else None
+
+
+def _relaxed_verdict(text: str) -> str | None:
+    for key in ("verdict", "status", "Status"):
+        match = re.search(
+            rf'(?m)^\s*"{re.escape(key)}"\s*:\s*"(pass|fail|inconclusive)"\s*,?\s*$',
+            text,
+            re.IGNORECASE,
+        )
+        if match:
+            return match.group(1).lower()
+    return None
+
+
+def _relaxed_string_field(text: str, key: str) -> str | None:
+    prefix = f'"{key}"'
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(prefix):
+            continue
+        separator = stripped.find(":")
+        if separator < 0:
+            continue
+        raw_value = stripped[separator + 1 :].strip()
+        if raw_value.endswith(","):
+            raw_value = raw_value[:-1].rstrip()
+        try:
+            value = json.loads(raw_value)
+        except (json.JSONDecodeError, ValueError):
+            value = None
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if len(raw_value) >= 2 and raw_value[0] == '"' and raw_value[-1] == '"':
+            value = raw_value[1:-1].strip()
+            if value:
+                return value
+    return None
+
+
+def _relaxed_evidence(text: str) -> list[str]:
+    lines = text.splitlines()
+    collecting = False
+    evidence: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not collecting:
+            if re.match(r'^"evidence"\s*:\s*\[', stripped):
+                collecting = True
+            continue
+        if stripped.startswith("]"):
+            break
+        if not stripped:
+            continue
+        if stripped.endswith(","):
+            stripped = stripped[:-1].rstrip()
+        if len(stripped) >= 2 and stripped[0] == '"' and stripped[-1] == '"':
+            item = stripped[1:-1].strip()
+            if item:
+                evidence.append(item)
+    return evidence
 
 
 def _verdict_from_status(value: object) -> Verdict | None:
@@ -314,7 +419,42 @@ def _result_assets(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     struct_output = payload.get("StructOutput")
     if isinstance(struct_output, Mapping):
         assets["struct_output"] = dict(struct_output)
+    _copy_int_asset(assets, payload, "duration_ms", "DurationMs", "duration_ms")
+    _copy_string_asset(assets, payload, "duration_fmt", "DurationFmt", "duration_fmt")
+    _copy_int_asset(
+        assets,
+        payload,
+        "avg_step_duration_sec",
+        "AvgStepDurationSec",
+        "avg_step_duration_sec",
+    )
     return assets
+
+
+def _copy_int_asset(
+    target: dict[str, Any],
+    payload: Mapping[str, Any],
+    key: str,
+    *sources: str,
+) -> None:
+    for source in sources:
+        value = payload.get(source)
+        if isinstance(value, int) and not isinstance(value, bool):
+            target[key] = value
+            return
+
+
+def _copy_string_asset(
+    target: dict[str, Any],
+    payload: Mapping[str, Any],
+    key: str,
+    *sources: str,
+) -> None:
+    for source in sources:
+        value = payload.get(source)
+        if isinstance(value, str) and value.strip():
+            target[key] = value.strip()
+            return
 
 
 def _json_object(value: object) -> Mapping[str, Any] | None:

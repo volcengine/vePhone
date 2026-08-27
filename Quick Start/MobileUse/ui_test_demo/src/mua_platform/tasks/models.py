@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from mua_platform.db import Base
 from mua_platform.tasks.execution_config import public_execution_config
-from mua_platform.tasks.state_machine import ExecutionStatus, Verdict
+from mua_platform.tasks.state_machine import ExecutionStatus, StartState, Verdict
 
 
 def utc_now() -> datetime:
@@ -159,6 +159,19 @@ class Task(Base):
         String(255),
         nullable=True,
     )
+    start_state: Mapped[StartState] = mapped_column(
+        Enum(
+            StartState,
+            native_enum=False,
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=StartState.PENDING,
+        server_default=StartState.PENDING.value,
+    )
+    start_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     cancel_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -210,7 +223,15 @@ class Task(Base):
 
     @property
     def execution_config(self) -> dict:
-        return public_execution_config(self.runner_config_snapshot)
+        snapshot = dict(self.runner_config_snapshot)
+        if (
+            "device_wait_timeout_seconds" not in snapshot
+            and self.batch is not None
+        ):
+            snapshot["device_wait_timeout_seconds"] = (
+                self.batch.device_wait_timeout_seconds
+            )
+        return public_execution_config(snapshot)
 
     @property
     def display_task_id(self) -> str:

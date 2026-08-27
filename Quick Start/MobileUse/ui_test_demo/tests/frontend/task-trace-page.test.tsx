@@ -95,5 +95,5 @@ it("links from task details to the trace page via tab", async () => {
   renderApp("/tasks/task-1");
 
   const traceLink = await screen.findByRole("link", { name: /执行轨迹/ });
-  expect(traceLink).toHaveAttribute("href", "/tasks/task-1/trace");
+  expect(traceLink).toHaveAttribute("href", "/biz/biz_default/tasks/task-1/trace");
 });

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 
@@ -138,6 +138,12 @@ it("creates a multi-case batch through the four-step wizard", async () => {
   expect(screen.getByText("2 个用例")).toBeVisible();
   expect(screen.getAllByText("指定设备").some((item) => item.tagName === "DD")).toBe(true);
   await user.click(screen.getByRole("button", { name: "打开执行配置" }));
+  fireEvent.change(
+    screen.getByLabelText("设备不可用后最大等待时间（秒）"),
+    {
+      target: { value: "90" },
+    },
+  );
   await user.click(screen.getByRole("button", { name: /开始执行/ }));
 
   await waitFor(() => expect(payload).not.toBeNull());
@@ -148,6 +154,7 @@ it("creates a multi-case batch through the four-step wizard", async () => {
     device_strategy: "specified",
     pod_ids: ["pod-a"],
     concurrency: 2,
+    device_wait_timeout_seconds: 90,
   });
   expect(await screen.findByText("batch_created")).toBeVisible();
 });

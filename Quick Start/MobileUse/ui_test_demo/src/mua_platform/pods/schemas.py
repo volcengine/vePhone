@@ -89,6 +89,16 @@ class PodDetail:
 
 
 @dataclass(frozen=True, slots=True)
+class PodHostAction:
+    action: str
+    request_id: str | None
+    remote_task_id: str
+    status: str
+    task_result: int | None
+    task_message: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class PodPoolItem:
     product_id: str
     pod_id: str
@@ -122,6 +132,7 @@ class PodPoolItem:
     task_id: str | None
     task_status: str | None
     task_scenario: str | None
+    active_host_action: PodHostAction | None = None
     eip_address: str | None = None
 
     @property

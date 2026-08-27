@@ -1,8 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   PodPoolResponse,
   Task,
@@ -15,6 +16,7 @@ import {
   ExecuteDialog,
   type ExecuteConfig,
 } from "../components/execute-dialog";
+import { BusinessLink as Link } from "../components/business-link";
 import { PageHeader } from "../components/page-header";
 
 type WizardStep = "type" | "scope" | "device" | "review";
@@ -34,7 +36,7 @@ function generateIdempotencyKey(prefix: string) {
 }
 
 export function CreateTaskPage() {
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedStep = searchParams.get("step") as WizardStep | null;
   const step = STEPS.some((item) => item.key === requestedStep)

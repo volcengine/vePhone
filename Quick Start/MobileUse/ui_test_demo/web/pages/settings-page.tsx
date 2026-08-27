@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
 
 import { ApiError, api } from "../api/client";
 import type {
@@ -8,6 +7,8 @@ import type {
   SettingsResponse,
   User,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
+import { ConfirmDialog } from "../components/confirm-dialog";
 import { PageHeader } from "../components/page-header";
 import {
   getStoredThemePreference,
@@ -36,10 +37,25 @@ type MobileField =
   | "mcp_json"
   | "max_output_tokens"
   | "gps_info"
+  | "device_prepare_action"
   | "request_headers";
 
 type MobileValues = Record<MobileField, string>;
 type FieldErrors = Partial<Record<MobileField, string>>;
+type SaveFailureDialog = {
+  message: string;
+  requestId: string | null;
+};
+
+const CLEARABLE_FIELDS = new Set<MobileField>([
+  "max_output_tokens",
+  "system_prompt",
+  "callback_info",
+  "output_schema",
+  "mcp_json",
+  "gps_info",
+  "request_headers",
+]);
 
 const EMPTY_VALUES: MobileValues = {
   access_key_id: "",
@@ -62,6 +78,7 @@ const EMPTY_VALUES: MobileValues = {
   mcp_json: "",
   max_output_tokens: "",
   gps_info: "",
+  device_prepare_action: "none",
   request_headers: "",
 };
 
@@ -86,6 +103,7 @@ const FIELD_LABELS: Record<MobileField, string> = {
   mcp_json: "McpJson",
   max_output_tokens: "MaxOutputTokens",
   gps_info: "GpsInfo",
+  device_prepare_action: "设备启动前处理",
   request_headers: "请求 Header（JSON 对象）",
 };
 
@@ -175,8 +193,11 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<MobileValues>(EMPTY_VALUES);
   const [dirtyFields, setDirtyFields] = useState<Set<MobileField>>(new Set());
+  const [clearedFields, setClearedFields] = useState<Set<MobileField>>(new Set());
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [localError, setLocalError] = useState("");
+  const [pendingClearField, setPendingClearField] = useState<MobileField | null>(null);
+  const [saveFailureDialog, setSaveFailureDialog] =
+    useState<SaveFailureDialog | null>(null);
   const [saved, setSaved] = useState(false);
   const [profileName, setProfileName] = useState("管理员");
   const [profileEmail, setProfileEmail] = useState("admin@example.com");
@@ -223,9 +244,11 @@ export function SettingsPage() {
         ? String(settings.data.mobile_use.max_output_tokens)
         : "",
       gps_info: settings.data.mobile_use.gps_info ?? "",
+      device_prepare_action: settings.data.mobile_use.device_prepare_action ?? "none",
       request_headers: "",
     });
     setDirtyFields(new Set());
+    setClearedFields(new Set());
   }, [settings.data]);
 
   useEffect(() => {
@@ -250,12 +273,22 @@ export function SettingsPage() {
       }));
       setDirtyFields(new Set());
       setFieldErrors({});
-      setLocalError("");
+      setSaveFailureDialog(null);
       setSaved(true);
     },
     onError: (error) => {
       setSaved(false);
-      if (!(error instanceof ApiError)) return;
+      if (!(error instanceof ApiError)) {
+        setSaveFailureDialog({
+          message: "保存失败，请稍后重试。",
+          requestId: null,
+        });
+        return;
+      }
+      setSaveFailureDialog({
+        message: error.message,
+        requestId: error.requestId || null,
+      });
       const field = error.details.field;
       if (typeof field === "string" && field in FIELD_LABELS) {
         const mobileField = field as MobileField;
@@ -295,7 +328,6 @@ export function SettingsPage() {
     },
   });
 
-  const saveError = saveSettings.error instanceof ApiError ? saveSettings.error : null;
   const passwordError =
     changePassword.error instanceof ApiError ? changePassword.error : null;
   const operationPending = saveSettings.isPending || changePassword.isPending;
@@ -303,6 +335,11 @@ export function SettingsPage() {
   function updateValue(field: MobileField, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
     setDirtyFields((current) => new Set(current).add(field));
+    setClearedFields((current) => {
+      const next = new Set(current);
+      next.delete(field);
+      return next;
+    });
     setFieldErrors((current) => {
       const next = { ...current };
       delete next[field];
@@ -312,6 +349,7 @@ export function SettingsPage() {
   }
 
   function isConfigured(field: MobileField): boolean {
+    if (clearedFields.has(field)) return false;
     if (!settings.data) return false;
     if (field === "access_key_id") return settings.data.mobile_use.access_key_id.configured;
     if (field === "secret_access_key") return settings.data.mobile_use.secret_access_key.configured;
@@ -328,15 +366,29 @@ export function SettingsPage() {
         .map((field) => [field, `${FIELD_LABELS[field]} 为必填项`]),
     ) as FieldErrors;
     setFieldErrors(errors);
-    setLocalError(Object.keys(errors).length > 0 ? "请补齐测试默认配置。" : "");
     return Object.keys(errors).length === 0;
+  }
+
+  function showLocalSaveError(message: string) {
+    setSaveFailureDialog({ message, requestId: null });
   }
 
   function saveAll() {
     setSaved(false);
-    if (!validate()) return;
+    setSaveFailureDialog(null);
+    if (!validate()) {
+      setSaveFailureDialog({
+        message: "请补齐测试默认配置。",
+        requestId: null,
+      });
+      return;
+    }
     const changedValues: NonNullable<RunnerSettingsUpdate["mobile_use"]> = {};
     for (const field of dirtyFields) {
+      if (clearedFields.has(field)) {
+        changedValues[field] = null as never;
+        continue;
+      }
       const parsed = parseSettingValue(field, values[field]);
       if (parsed === undefined) continue;
       if (
@@ -357,10 +409,29 @@ export function SettingsPage() {
     saveSettings.mutate(payload);
   }
 
-  function submitPassword(event: FormEvent<HTMLFormElement>) {
+  function submitPassword(event: { preventDefault: () => void }) {
     event.preventDefault();
     setPasswordMessage("");
     changePassword.mutate();
+  }
+
+  function clearValue(field: MobileField) {
+    setPendingClearField(field);
+  }
+
+  function confirmClearValue() {
+    if (pendingClearField === null) return;
+    const field = pendingClearField;
+    setValues((current) => ({ ...current, [field]: "" }));
+    setDirtyFields((current) => new Set(current).add(field));
+    setClearedFields((current) => new Set(current).add(field));
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+    setSaved(false);
+    setPendingClearField(null);
   }
 
   function renderInput(field: MobileField, secret = false) {
@@ -376,27 +447,55 @@ export function SettingsPage() {
           : false;
     const accessKeyHint = settings.data?.mobile_use.access_key_id.hint;
     const requestHeaderNames = settings.data?.mobile_use.request_headers?.names ?? [];
+    const canClear = CLEARABLE_FIELDS.has(field) && isConfigured(field);
 
     return (
       <div className="settings-field">
-        <label htmlFor={`field-${field}`}>{FIELD_LABELS[field]}</label>
-        <input
-          id={`field-${field}`}
-          aria-label={FIELD_LABELS[field]}
-          aria-describedby={
-            fieldErrors[field]
-              ? errorId
-              : configured && (secret || field === "request_headers")
-                ? hintId
-                : undefined
-          }
-          aria-invalid={Boolean(fieldErrors[field])}
-          autoComplete={secret ? "new-password" : "off"}
-          placeholder={field === "request_headers" ? REQUEST_HEADERS_PLACEHOLDER : undefined}
-          type={secret ? "password" : "text"}
-          value={values[field]}
-          onChange={(event) => updateValue(field, event.target.value)}
-        />
+        <div className="settings-field-heading">
+          <label htmlFor={`field-${field}`}>{FIELD_LABELS[field]}</label>
+          {canClear && (
+            <button
+              type="button"
+              className="text-button settings-field-clear"
+              onClick={() => clearValue(field)}
+            >
+              清除
+              <span className="sr-only">{` ${FIELD_LABELS[field]}`}</span>
+            </button>
+          )}
+        </div>
+        {field === "device_prepare_action" ? (
+          <select
+            id={`field-${field}`}
+            aria-label={FIELD_LABELS[field]}
+            aria-invalid={Boolean(fieldErrors[field])}
+            className="form-select"
+            value={values[field]}
+            onChange={(event) => updateValue(field, event.target.value)}
+          >
+            <option value="none">不处理</option>
+            <option value="reset">重置设备</option>
+            <option value="reboot">重启设备</option>
+          </select>
+        ) : (
+          <input
+            id={`field-${field}`}
+            aria-label={FIELD_LABELS[field]}
+            aria-describedby={
+              fieldErrors[field]
+                ? errorId
+                : configured && (secret || field === "request_headers")
+                  ? hintId
+                  : undefined
+            }
+            aria-invalid={Boolean(fieldErrors[field])}
+            autoComplete={secret ? "new-password" : "off"}
+            placeholder={field === "request_headers" ? REQUEST_HEADERS_PLACEHOLDER : undefined}
+            type={secret ? "password" : "text"}
+            value={values[field]}
+            onChange={(event) => updateValue(field, event.target.value)}
+          />
+        )}
         {configured && (secret || field === "request_headers") && (
           <p className="field-hint" id={hintId}>
             {field === "access_key_id" && accessKeyHint
@@ -421,6 +520,9 @@ export function SettingsPage() {
     if (field === "use_base64_screenshot" || field === "screen_record") {
       return trimmed === "true";
     }
+    if (field === "device_prepare_action") {
+      return trimmed || "none";
+    }
     if (
       field === "max_step"
       || field === "timeout_seconds"
@@ -434,19 +536,19 @@ export function SettingsPage() {
       try {
         const parsed = JSON.parse(trimmed);
         if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-          setLocalError("CallbackInfo 必须是 JSON 对象。");
+          showLocalSaveError("CallbackInfo 必须是 JSON 对象。");
           return false;
         }
         return parsed;
       } catch {
-        setLocalError("CallbackInfo 不是合法 JSON。");
+        showLocalSaveError("CallbackInfo 不是合法 JSON。");
         return false;
       }
     }
     if (field === "request_headers") {
       const parsed = parseRequestHeaders(trimmed);
       if (typeof parsed === "string") {
-        setLocalError(parsed);
+        showLocalSaveError(parsed);
         return false;
       }
       return parsed;
@@ -455,7 +557,7 @@ export function SettingsPage() {
       try {
         JSON.parse(trimmed);
       } catch {
-        setLocalError(`${FIELD_LABELS[field]} 不是合法 JSON 字符串。`);
+        showLocalSaveError(`${FIELD_LABELS[field]} 不是合法 JSON 字符串。`);
         return false;
       }
     }
@@ -677,6 +779,7 @@ export function SettingsPage() {
                 {renderInput("retry_limit")}
                 {renderInput("screen_record")}
                 {renderInput("max_output_tokens")}
+                {renderInput("device_prepare_action")}
                 {renderInput("system_prompt")}
                 {renderInput("callback_info")}
                 {renderInput("output_schema")}
@@ -690,15 +793,50 @@ export function SettingsPage() {
       </div>
 
       <div aria-live="polite" className="settings-feedback">
-        {localError && <p className="form-error">{localError}</p>}
-        {saveError && (
-          <div className="form-feedback error" role="alert">
-            <p>{saveError.message}</p>
-            <RequestId value={saveError.requestId} />
-          </div>
-        )}
         {saved && <p className="success-message">设置已保存。</p>}
       </div>
+      {saveFailureDialog && (
+        <div className="modal-overlay">
+          <section
+            className="modal-panel settings-save-error-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="保存失败"
+          >
+            <div className="modal-header">
+              <h3>保存失败</h3>
+            </div>
+            <div className="modal-body">
+              <div className="form-feedback error" role="alert">
+                <p>{saveFailureDialog.message}</p>
+                <RequestId value={saveFailureDialog.requestId} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setSaveFailureDialog(null)}
+              >
+                我知道了
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      <ConfirmDialog
+        open={pendingClearField !== null}
+        title="清除配置"
+        description={
+          pendingClearField === null
+            ? ""
+            : `确认清除 ${FIELD_LABELS[pendingClearField]}？`
+        }
+        confirmLabel="清除"
+        pendingLabel="清除中..."
+        onConfirm={confirmClearValue}
+        onClose={() => setPendingClearField(null)}
+      />
     </div>
   );
 }

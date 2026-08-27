@@ -221,7 +221,7 @@ it("adds the test plan navigation and separates result from latest execution", a
   await screen.findByRole("link", { name: "登录核心回归" });
   expect(screen.getByRole("link", { name: "测试计划" })).toHaveAttribute(
     "href",
-    "/test-plans",
+    "/biz/biz_default/test-plans",
   );
   expect(screen.getAllByRole("columnheader").map((item) => item.textContent)).toEqual([
     "测试计划名称",
@@ -247,12 +247,12 @@ it("adds the test plan navigation and separates result from latest execution", a
   expect(within(row as HTMLElement).getByText("2026-07-29 20:03:00")).toBeVisible();
   expect(within(row as HTMLElement).getByText("admin")).toBeVisible();
   expect(within(row as HTMLElement).getByRole("link", { name: /batch_latest/ }))
-    .toHaveAttribute("href", "/task-reports/execution_latest");
+    .toHaveAttribute("href", "/biz/biz_default/task-reports/execution_latest");
   expect(within(row as HTMLElement).getByText("+1")).toBeVisible();
   expect(within(row as HTMLElement).getByRole("link", { name: "执行测试计划" }))
-    .toHaveAttribute("href", "/test-plans/plan_login/run");
+    .toHaveAttribute("href", "/biz/biz_default/test-plans/plan_login/run");
   expect(within(row as HTMLElement).getByRole("link", { name: "编辑测试计划" }))
-    .toHaveAttribute("href", "/test-plans/plan_login/edit");
+    .toHaveAttribute("href", "/biz/biz_default/test-plans/plan_login/edit");
   expect(within(row as HTMLElement).getByRole("button", { name: "删除测试计划" }))
     .toBeVisible();
   const actions = (row as HTMLElement).querySelectorAll(

@@ -10,14 +10,20 @@ from sqlalchemy.orm import Session
 from mua_platform.auth.models import AuthSession, User
 from mua_platform.auth.schemas import UserCreate, UserUpdate
 
-SESSION_LIFETIME = timedelta(hours=12)
+DEFAULT_SESSION_LIFETIME = timedelta(days=7)
 _DUMMY_PASSWORD_HASH = PasswordHasher().hash(secrets.token_urlsafe(32))
 
 
 class AuthService:
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+        *,
+        session_lifetime: timedelta = DEFAULT_SESSION_LIFETIME,
+    ):
         self.db = db
         self.hasher = PasswordHasher()
+        self.session_lifetime = session_lifetime
 
     def is_initialized(self) -> bool:
         return self.db.scalar(select(User.id).limit(1)) is not None
@@ -188,7 +194,7 @@ class AuthService:
             id=secrets.token_urlsafe(32),
             user_id=user_id,
             csrf_token=secrets.token_urlsafe(32),
-            expires_at=now + SESSION_LIFETIME,
+            expires_at=now + self.session_lifetime,
             last_seen_at=now,
         )
         self.db.add(auth_session)

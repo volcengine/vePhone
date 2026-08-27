@@ -23,11 +23,14 @@ class RunnerFailure(RuntimeError):
         code: str,
         failure_type: str,
         request_id: str | None = None,
+        *,
+        start_outcome_unknown: bool = False,
     ) -> None:
         super().__init__(code)
         self.code = code
         self.failure_type = failure_type
         self.request_id = request_id
+        self.start_outcome_unknown = start_outcome_unknown
 
 
 @dataclass(frozen=True)

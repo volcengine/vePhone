@@ -112,7 +112,8 @@ APP_ENV=development
 APP_BASE_URL=http://10.37.28.65:8000
 APP_DATA_DIR=/data00/home/yanghailan/eval-mua/data
 APP_SECRET_KEY=<stable key>
-TASK_WORKER_CONCURRENCY=4
+TASK_WORKER_CONCURRENCY=16
+TASK_WORKER_DRAIN_TIMEOUT_SECONDS=30
 ```
 
 For HTTP devbox deployment, keep `APP_ENV=development` unless you are also
@@ -212,7 +213,7 @@ When code or built assets change:
 
 1. Sync or update the repo on the devbox.
 2. Refresh `.venv` and `dist/` if needed.
-3. Restart the service.
+3. Restart the service with `./scripts/mua-platform-systemd.sh restart`.
 4. Re-run health checks.
 
 Typical flow:
@@ -222,6 +223,17 @@ cd ~/eval-mua
 ./scripts/mua-platform-systemd.sh restart
 curl http://127.0.0.1:8000/health/ready
 ```
+
+The rendered unit sends `SIGTERM` and uses `TimeoutStopSec=45`. On `SIGTERM`,
+the backend enters draining, readiness returns `503`, new tasks are not
+scheduled, and active local Worker tasks get up to
+`TASK_WORKER_DRAIN_TIMEOUT_SECONDS` seconds to finish. If the process exits
+while a remote task is still running, the next process resumes polling by the
+saved `remote_run_id`.
+
+Do not start a second MUA backend process against the same SQLite data
+directory. The graceful restart path is single-instance recovery, not
+multi-instance rolling deployment.
 
 If Python dependencies changed, rebuild `.venv` first. If frontend code
 changed, rebuild `dist/` first.

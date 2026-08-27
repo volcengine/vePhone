@@ -15,13 +15,16 @@ from cua_platform.test_plans.models import (
     TagColorRegistry,
     TestPlan,
     TestPlanCase,
+    TestPlanSchedule,
 )
 from cua_platform.test_plans.schemas import (
     LatestPlanExecutionResponse,
+    ScheduleSummaryResponse,
     TagResponse,
     TestPlanResponse,
     TestPlanWrite,
 )
+from cua_platform.test_plans.reports import effective_report_status
 
 
 class TestPlanNameConflictError(ValueError):
@@ -562,6 +565,10 @@ class TestPlanService:
         ]
         plan.cases.remove(association)
         self.db.flush()
+        offset = len(remaining) + 1
+        for item in remaining:
+            item.position += offset
+        self.db.flush()
         for position, item in enumerate(remaining):
             item.position = position
         self.db.commit()
@@ -632,18 +639,53 @@ class TestPlanService:
         latest_batch_ids = [
             batch.id for _execution, batch in latest_by_plan.values()
         ]
+        schedules_by_plan = {
+            row.test_plan_id: row
+            for row in self.db.execute(
+                select(TestPlanSchedule).where(
+                    TestPlanSchedule.test_plan_id.in_(plan_ids)
+                )
+            ).scalars()
+        }
         task_aggregates = {
-            batch_id: (passed, exceptional)
-            for batch_id, passed, exceptional in self.db.execute(
+            batch_id: (passed, failed, exceptional, cancelled, queued, running)
+            for (
+                batch_id,
+                passed,
+                failed,
+                exceptional,
+                cancelled,
+                queued,
+                running,
+            ) in self.db.execute(
                 select(
                     Task.batch_id,
                     func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.RESULT_READY,
                         Task.verdict == Verdict.PASS
                     ),
                     func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.RESULT_READY,
+                        Task.verdict == Verdict.FAIL,
+                        (
+                            Task.failure_type.is_(None)
+                            | (Task.failure_type == "assertion_failed")
+                        ),
+                    ),
+                    func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.RESULT_READY,
                         Task.verdict == Verdict.FAIL,
                         Task.failure_type.is_not(None),
                         Task.failure_type != "assertion_failed",
+                    ),
+                    func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.CANCELLED
+                    ),
+                    func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.QUEUED
+                    ),
+                    func.count(Task.id).filter(
+                        Task.execution_status == ExecutionStatus.RUNNING
                     ),
                 )
                 .where(Task.batch_id.in_(latest_batch_ids))
@@ -657,15 +699,35 @@ class TestPlanService:
             latest = None
             if latest_row is not None:
                 execution, batch = latest_row
-                passed, exceptional = task_aggregates.get(
+                (
+                    passed,
+                    failed,
+                    exceptional,
+                    cancelled,
+                    queued,
+                    running,
+                ) = task_aggregates.get(
                     batch.id,
-                    (0, 0),
+                    (0, 0, 0, 0, 0, 0),
                 )
                 latest = self._latest_execution_response(
                     execution,
                     batch,
                     passed=passed,
-                    exceptional_failure=bool(exceptional),
+                    failed=failed,
+                    exceptional=exceptional,
+                    cancelled=cancelled,
+                    queued=queued,
+                    running=running,
+                )
+            schedule_row = schedules_by_plan.get(plan.id)
+            schedule = None
+            if schedule_row is not None:
+                schedule = ScheduleSummaryResponse(
+                    enabled=schedule_row.enabled,
+                    cron_expr=schedule_row.cron_expr,
+                    next_run_at=schedule_row.next_run_at,
+                    last_run_at=schedule_row.last_run_at,
                 )
             responses.append(
                 TestPlanResponse(
@@ -692,6 +754,7 @@ class TestPlanService:
                     case_count=len(plan.cases),
                     execution_count=execution_counts.get(plan.id, 0),
                     latest_execution=latest,
+                    schedule=schedule,
                     created_by=plan.created_by,
                     created_at=plan.created_at,
                     updated_at=plan.updated_at,
@@ -786,7 +849,11 @@ class TestPlanService:
         batch: TaskBatch,
         *,
         passed: int,
-        exceptional_failure: bool,
+        failed: int,
+        exceptional: int,
+        cancelled: int,
+        queued: int,
+        running: int,
     ) -> LatestPlanExecutionResponse:
         denominator = len(execution.case_ids_snapshot)
         pass_rate = (
@@ -799,7 +866,13 @@ class TestPlanService:
             task_batch_id=batch.id,
             report_status=self._report_status(
                 batch,
-                exceptional_failure=exceptional_failure,
+                passed=passed,
+                failed=failed,
+                exceptional=exceptional,
+                cancelled=cancelled,
+                queued=queued,
+                running=running,
+                total=denominator,
             ),
             pass_rate=pass_rate,
             created_at=execution.created_at,
@@ -809,8 +882,27 @@ class TestPlanService:
         self,
         batch: TaskBatch,
         *,
-        exceptional_failure: bool,
+        passed: int = 0,
+        failed: int = 0,
+        exceptional: int = 0,
+        cancelled: int = 0,
+        queued: int = 0,
+        running: int = 0,
+        total: int = 0,
     ) -> str:
+        effective = effective_report_status(
+            batch.execution_status.value,
+            batch.verdict.value if batch.verdict is not None else None,
+            pass_count=passed,
+            fail_count=failed,
+            exception_count=exceptional,
+            cancelled_count=cancelled,
+            queued_count=queued,
+            running_count=running,
+            total_count=total,
+        )
+        if effective is not None:
+            return effective
         if batch.execution_status == ExecutionStatus.QUEUED:
             return "queued"
         if batch.execution_status == ExecutionStatus.RUNNING:
@@ -819,4 +911,4 @@ class TestPlanService:
             return "cancelled"
         if batch.verdict == Verdict.PASS:
             return "success"
-        return "exception" if exceptional_failure else "failure"
+        return "exception" if exceptional else "failure"

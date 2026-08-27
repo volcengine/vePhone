@@ -62,7 +62,24 @@ function parseTimestamp(ts: string | undefined): number {
 function toolSuccess(tool: RuntimeToolCallResult): boolean | null {
   const sr = tool.StepResult;
   if (!sr || typeof sr !== "object") return null;
+  const innerStatus = toolInnerResultStatus(sr.Result);
+  if (innerStatus != null) return innerStatus;
   if ("IsSuccess" in sr) return Boolean(sr.IsSuccess);
+  return null;
+}
+
+function toolInnerResultStatus(result: unknown): boolean | null {
+  if (typeof result !== "string" || !result.trim()) return null;
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const value = parsed as Record<string, unknown>;
+    if (value.status === "failure" || value.status === "failed") return false;
+    if (value.status === "success") return true;
+    if (value.error != null) return false;
+  } catch {
+    return null;
+  }
   return null;
 }
 
@@ -220,10 +237,11 @@ function ToolCallCard({ item, index }: { item: TimelineItem; index: number }) {
 export function TaskTracePage() {
   const { taskId } = useParams();
   const [stepSnapshots, setStepSnapshots] = useState<TaskRuntimeResponse["thread_steps"]>([]);
+  const [showAllSteps, setShowAllSteps] = useState(false);
   const runtime = useQuery({
     enabled: Boolean(taskId),
     queryKey: ["task-runtime", taskId],
-    queryFn: () => api.get<TaskRuntimeResponse>(`/tasks/${taskId}/runtime?current_step_only=true`),
+    queryFn: () => api.get<TaskRuntimeResponse>(`/tasks/${taskId}/runtime`),
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return 2000;
@@ -233,14 +251,24 @@ export function TaskTracePage() {
 
   useEffect(() => {
     setStepSnapshots([]);
+    setShowAllSteps(false);
   }, [taskId]);
 
   useEffect(() => {
     const currentStep = runtime.data?.current_step;
-    if (!currentStep) return;
-    setStepSnapshots((previous) =>
-      mergeRuntimeThreadSteps(previous, [currentStepSnapshot(currentStep)]),
-    );
+    if (!runtime.data) return;
+    if (isTerminalStatus(runtime.data.task.execution_status)) {
+      const threadSteps = runtime.data.thread_steps ?? [];
+      if (threadSteps.length > 0) {
+        setStepSnapshots((previous) => mergeRuntimeThreadSteps(previous, threadSteps));
+        return;
+      }
+    }
+    if (currentStep) {
+      setStepSnapshots((previous) =>
+        mergeRuntimeThreadSteps(previous, [currentStepSnapshot(currentStep)]),
+      );
+    }
   }, [runtime.data]);
 
   const currentStep = runtime.data?.current_step ?? null;
@@ -253,6 +281,10 @@ export function TaskTracePage() {
   );
 
   const stepCount = timeline.length;
+  const hasHiddenSteps = stepCount > 20;
+  const visibleTimeline = showAllSteps || !hasHiddenSteps
+    ? timeline
+    : timeline.slice(-20);
   const currentStepInfo = currentStep ? remoteStatusInfo(currentStep.status) : null;
   const streamPodId = runtime.data?.execution_config?.pod_id ?? null;
 
@@ -308,19 +340,32 @@ export function TaskTracePage() {
             {timeline.length === 0 ? (
               <p className="muted">暂无步骤详情。</p>
             ) : (
-              <div className="trace-timeline">
-                {timeline.map((item, idx) => (
-                  <ToolCallCard key={item.key} item={item} index={idx} />
-                ))}
-                {isRunning && timeline.length > 0 && (
-                  <div className="trace-timeline-item pending">
-                    <div className="trace-timeline-dot"><span className="pending-dot" /></div>
-                    <div className="trace-timeline-content">
-                      <span className="muted small">等待下一步操作...</span>
+              <>
+                <div className="trace-timeline">
+                  {visibleTimeline.map((item, idx) => (
+                    <ToolCallCard key={item.key} item={item} index={idx} />
+                  ))}
+                  {isRunning && visibleTimeline.length > 0 && (
+                    <div className="trace-timeline-item pending">
+                      <div className="trace-timeline-dot"><span className="pending-dot" /></div>
+                      <div className="trace-timeline-content">
+                        <span className="muted small">等待下一步操作...</span>
+                      </div>
                     </div>
+                  )}
+                </div>
+                {hasHiddenSteps && (
+                  <div className="trace-step-toggle-row">
+                    <button
+                      type="button"
+                      className="secondary-button compact"
+                      onClick={() => setShowAllSteps((value) => !value)}
+                    >
+                      {showAllSteps ? "收起到最近 20 步" : `展开全部 ${stepCount} 步`}
+                    </button>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </section>
         </div>

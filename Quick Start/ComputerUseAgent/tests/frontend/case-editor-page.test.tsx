@@ -198,3 +198,26 @@ it("paginates bound test plans", async () => {
   await waitFor(() => expect(requests.at(-1)?.searchParams.get("page")).toBe("2"));
   expect(await within(section).findByText("分页计划 6")).toBeVisible();
 });
+
+it("opens the default execution config dialog immediately when enabling it", async () => {
+  server.use(
+    http.get("/api/v1/cases/case_saved", () => HttpResponse.json(savedCase())),
+    http.get("/api/v1/cases/case_saved/tasks", () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 5 })),
+    http.get("/api/v1/cases/case_saved/test-plans", () =>
+      HttpResponse.json({ total: 0, page: 1, page_size: 5, items: [] })),
+    http.get("/api/v1/cases/tags", () => HttpResponse.json({ items: [] })),
+    http.get("/api/v1/cases/modules", () => HttpResponse.json({ items: [] })),
+  );
+
+  renderApp("/cases/case_saved/edit");
+
+  expect(await screen.findByRole("heading", { name: "编辑用例" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "启用配置" }));
+
+  const dialog = await screen.findByRole("dialog", {
+    name: "编辑用例默认执行配置",
+  });
+  expect(dialog).toBeVisible();
+  expect(within(dialog).getByText("运行控制")).toBeVisible();
+});

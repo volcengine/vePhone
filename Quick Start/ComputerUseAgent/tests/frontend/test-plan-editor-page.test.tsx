@@ -9,6 +9,7 @@ import type {
   TestCaseListResponse,
   TestPlan,
 } from "../../web/api/types";
+import appSource from "../../web/app.tsx?raw";
 import mainSource from "../../web/main.tsx?raw";
 import editorSource from "../../web/pages/test-plan-editor-page.tsx?raw";
 import { expectCsrf, renderApp, server, user } from "./setup";
@@ -83,6 +84,13 @@ it("uses the official Data Router blocker instead of a popstate guard", () => {
   expect(editorSource).toContain("useBlocker");
   expect(editorSource).not.toContain("popstate");
   expect(editorSource).not.toContain("historyIndexRef");
+});
+
+it("keeps test plan and report routes in the main bundle", () => {
+  expect(appSource).not.toContain("lazy(");
+  expect(appSource).not.toContain("import(\"./pages/test-plan");
+  expect(appSource).not.toContain("import(\"./pages/task-report-list-page");
+  expect(appSource).not.toContain("import(\"./pages/plan-execution-report-page");
 });
 
 it("aligns basic info inputs in a wide name and compact metadata row", () => {

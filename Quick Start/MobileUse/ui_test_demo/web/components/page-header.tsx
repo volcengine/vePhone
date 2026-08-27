@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+
+import { BusinessLink as Link } from "./business-link";
 
 export type BreadcrumbItem = {
   label: string;

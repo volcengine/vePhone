@@ -61,6 +61,7 @@ export type Credentials = {
 };
 
 export type RunnerMode = "mock" | "mobile_use";
+export type DevicePrepareAction = "none" | "reset" | "reboot";
 
 export type SecretState = {
   configured: boolean;
@@ -93,6 +94,7 @@ export type MobileUseSettings = {
   mcp_json: string | null;
   max_output_tokens: number | null;
   gps_info: string | null;
+  device_prepare_action: DevicePrepareAction;
   request_headers: {
     configured: boolean;
     names: string[];
@@ -116,6 +118,7 @@ export type AgentRuntimeOptions = {
   mcp_json?: string | null;
   max_output_tokens?: number | null;
   gps_info?: string | null;
+  device_prepare_action?: DevicePrepareAction | null;
   request_headers?: Record<string, string> | null;
 };
 
@@ -150,8 +153,9 @@ export type RunnerSettingsUpdate = {
       | "mcp_json"
       | "max_output_tokens"
       | "gps_info"
+      | "device_prepare_action"
       | "request_headers",
-      string | number | boolean | Record<string, unknown>
+      string | number | boolean | Record<string, unknown> | null
     >
   >;
 };
@@ -212,6 +216,15 @@ export type PodLocalState =
   | "stale"
   | "unavailable";
 
+export type PodHostAction = {
+  action: "reset" | "reboot" | "power_on" | "power_off";
+  request_id: string | null;
+  remote_task_id: string;
+  status: "running" | "succeeded" | "failed";
+  task_result: number | null;
+  task_message: string | null;
+};
+
 export type PodPoolItem = {
   product_id: string;
   pod_id: string;
@@ -245,6 +258,7 @@ export type PodPoolItem = {
   task_id: string | null;
   task_status: ExecutionStatus | null;
   task_scenario: string | null;
+  active_host_action?: PodHostAction | null;
   eip_address: string | null;
 };
 
@@ -441,13 +455,16 @@ export type TaskOperatorListResponse = {
 };
 
 export type TaskExecutionConfig = {
-  source: "global" | "custom" | "legacy";
+  source: "global" | "custom" | "case_default" | "legacy";
   product_id: string | null;
   pod_id: string | null;
+  device_strategy?: "automatic" | "specified" | string | null;
+  pod_ids?: string[] | null;
   tos_bucket: string | null;
   tos_endpoint: string | null;
   tos_region: string | null;
   timeout_seconds: number | null;
+  device_wait_timeout_seconds: number | null;
   use_base64_screenshot: boolean | null;
   max_step: number | null;
   callback_info: Record<string, unknown> | null;
@@ -458,6 +475,7 @@ export type TaskExecutionConfig = {
   mcp_json: string | null;
   max_output_tokens: number | null;
   gps_info: string | null;
+  device_prepare_action: DevicePrepareAction;
   request_headers: {
     configured: boolean;
     names: string[];
@@ -518,6 +536,7 @@ export type TaskBatchCreateRequest = {
   device_strategy: "automatic" | "specified";
   pod_ids: string[];
   concurrency: number;
+  device_wait_timeout_seconds?: number | null;
   timeout_seconds?: number | null;
   agent_config_mode: "global" | "custom" | "case_default";
   agent_options?: AgentRuntimeOptions | null;
@@ -607,6 +626,9 @@ export type RuntimeAssets = {
     out_tokens?: number | string;
   };
   files?: string[];
+  duration_ms?: number;
+  duration_fmt?: string;
+  avg_step_duration_sec?: number;
 };
 
 export type RuntimeScreenshot = {
@@ -662,9 +684,18 @@ export type RuntimeThreadStep = {
   results: RuntimeToolCallResult[];
 };
 
+export type RuntimeCurrentPhase = {
+  type: "device_prepare";
+  status: "running";
+  action: "reset" | "reboot";
+  product_id: string | null;
+  pod_id: string | null;
+};
+
 export type TaskRuntimeResponse = {
   task: Task;
   execution_config: TaskExecutionConfig;
+  current_phase: RuntimeCurrentPhase | null;
   current_step: RuntimeCurrentStep | null;
   thread_groups: RuntimeThreadGroup[];
   thread_steps: RuntimeThreadStep[];
@@ -709,6 +740,13 @@ export type LatestPlanExecution = {
   created_at: string;
 };
 
+export type ScheduleSummary = {
+  enabled: boolean;
+  cron_expr: string;
+  next_run_at: string | null;
+  last_run_at: string | null;
+};
+
 export type TestPlan = {
   id: string;
   name: string;
@@ -719,6 +757,7 @@ export type TestPlan = {
   case_count: number;
   execution_count: number;
   latest_execution: LatestPlanExecution | null;
+  schedule?: ScheduleSummary | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -762,6 +801,7 @@ export type PlanExecutionCreate = {
   device_strategy: "automatic" | "specified";
   pod_ids: string[];
   concurrency: number;
+  device_wait_timeout_seconds?: number | null;
   timeout_seconds?: number | null;
   agent_config_mode: "global" | "custom" | "case_default";
   agent_options?: AgentRuntimeOptions | null;
@@ -821,6 +861,7 @@ export type ReportTaskVerdict = Verdict | "unknown";
 
 export type PlanReportTask = {
   task_id: string;
+  remote_run_id: string | null;
   case_id: string;
   case_title: string;
   case_deleted: boolean;
@@ -831,6 +872,9 @@ export type PlanReportTask = {
   started_at: string | null;
   finished_at: string | null;
   duration_seconds: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_steps: number | null;
 };
 
 export type PlanReportDetail = PlanReportSummary & {
@@ -860,4 +904,67 @@ export type PlanReportListResponse = {
   total: number;
   page: number;
   page_size: number;
+};
+
+export type ScheduleEventType = "triggered" | "skipped" | "failed";
+export type ScheduleTriggerType = "scheduled" | "manual" | "catchup";
+
+export type ScheduleExecutionConfig = {
+  test_type: TestType;
+  device_strategy: "automatic" | "specified";
+  pod_ids: string[];
+  concurrency: number;
+  device_wait_timeout_seconds?: number | null;
+  timeout_seconds?: number | null;
+  agent_config_mode?: "global" | "custom" | "case_default";
+  agent_options?: Record<string, unknown> | null;
+};
+
+export type TestPlanSchedule = {
+  id: string;
+  test_plan_id: string;
+  cron_expr: string;
+  timezone: string;
+  enabled: boolean;
+  next_run_at: string;
+  last_run_at: string | null;
+  last_skip_reason: string | null;
+  execution_config: ScheduleExecutionConfig;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TestPlanScheduleCreate = {
+  cron_expr: string;
+  timezone: string;
+  execution_config: ScheduleExecutionConfig;
+  enabled?: boolean;
+};
+
+export type TestPlanScheduleUpdate = Partial<TestPlanScheduleCreate>;
+
+export type ScheduleEvent = {
+  id: string;
+  schedule_id: string;
+  event_type: ScheduleEventType;
+  trigger_type: ScheduleTriggerType;
+  scheduled_for: string;
+  fired_at: string;
+  plan_execution_id: string | null;
+  skip_reason: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type ScheduleEventListResponse = {
+  items: ScheduleEvent[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type CronPreviewResponse = {
+  next_runs: string[];
+  human_description: string | null;
 };

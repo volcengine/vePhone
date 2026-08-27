@@ -79,6 +79,9 @@ class MockRunner:
             ),
         )
 
+    async def prepare_device(self, _request: RunRequest) -> dict[str, object] | None:
+        return None
+
     async def start(
         self,
         request: RunRequest,

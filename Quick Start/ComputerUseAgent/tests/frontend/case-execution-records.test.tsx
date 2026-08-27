@@ -16,6 +16,12 @@ const caseDetail: TestCase = {
     thread_id: "thread-case-default",
     max_step: 123,
     timeout_seconds: 456,
+    callback_info: { url: "https://callback.example.com" },
+    output_schema: "{\"type\":\"object\"}",
+    system_prompt: "custom default prompt",
+    mcp_json: "{\"mcpServers\":{}}",
+    max_output_tokens: 2048,
+    request_headers: { "X-Env": "staging" },
   },
   execution_count: 2,
   pass_count: 1,
@@ -100,6 +106,22 @@ it("shows the case execution records table with task ids, results and time", asy
     "placeholder",
     '{"X-Env":"test","X-Request-Source":"cua"}',
   );
+  expect(screen.getByLabelText("SystemPrompt")).toHaveValue(
+    "custom default prompt",
+  );
+  expect(screen.getByLabelText("最大输出 Token")).toHaveValue(2048);
+  await user.click(screen.getByRole("button", { name: "清除 SystemPrompt" }));
+  await user.click(screen.getByRole("button", { name: "清除 CallbackInfo（JSON 对象）" }));
+  await user.click(screen.getByRole("button", { name: "清除 OutputSchema（JSON 字符串）" }));
+  await user.click(screen.getByRole("button", { name: "清除 McpJson（JSON 字符串）" }));
+  await user.click(screen.getByRole("button", { name: "清除 请求 Header（JSON 对象）" }));
+  await user.click(screen.getByRole("button", { name: "清除 最大输出 Token" }));
+  expect(screen.getByLabelText("SystemPrompt")).toHaveValue("");
+  expect(screen.getByLabelText("CallbackInfo（JSON 对象）")).toHaveValue("");
+  expect(screen.getByLabelText("OutputSchema（JSON 字符串）")).toHaveValue("");
+  expect(screen.getByLabelText("McpJson（JSON 字符串）")).toHaveValue("");
+  expect(screen.getByLabelText("请求 Header（JSON 对象）")).toHaveValue("");
+  expect(screen.getByLabelText("最大输出 Token")).toHaveValue(null);
 
   await user.click(screen.getByRole("button", { name: "完成" }));
 
@@ -113,9 +135,9 @@ it("shows the case execution records table with task ids, results and time", asy
   // Created time rendered in China timezone.
   expect(within(passRow as HTMLElement).getByText("2026-07-28 11:30:00")).toBeVisible();
   // Elapsed time between start and finish.
-  expect(within(passRow as HTMLElement).getByText("01:05")).toBeVisible();
+  expect(within(passRow as HTMLElement).getByText("1 分 5 秒")).toBeVisible();
   expect(within(passRow as HTMLElement).getByRole("link", { name: "查看" }))
-    .toHaveAttribute("href", "/tasks/task_pass");
+    .toHaveAttribute("href", "/biz/biz_default/tasks/task_pass");
 
   const failRow = screen.getByText("task_fail").closest("tr");
   expect(within(failRow as HTMLElement).getByText("失败")).toBeVisible();

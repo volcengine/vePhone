@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type { TaskListPage } from "../api/types";
+import { BusinessLink as Link } from "./business-link";
 import { CopyButton } from "./copy-button";
 import { formatChinaDateTime, formatTaskElapsedTime } from "../utils/time";
 import { taskResultLabel, taskResultTone, taskStatusLabel, taskStatusTone } from "../utils/task-status";

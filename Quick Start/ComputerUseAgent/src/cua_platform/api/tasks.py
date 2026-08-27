@@ -77,7 +77,8 @@ async def create_task_batch(
             runner_type=runner_config.mode,
             config_snapshot=snapshot,
             device_wait_timeout_seconds=(
-                request.app.state.settings.device_wait_timeout_seconds
+                payload.device_wait_timeout_seconds
+                or request.app.state.settings.device_wait_timeout_seconds
             ),
         )
     except ValueError as exc:
@@ -234,7 +235,6 @@ async def get_task_runtime(
     db: Database,
     _user: CurrentUser,
     business: CurrentBusiness,
-    current_step_only: bool = False,
 ) -> dict:
     task = _get_task(db, task_id, business.id)
     response = {
@@ -259,6 +259,7 @@ async def get_task_runtime(
         ).model_dump(mode="json"),
         "errors": {},
     }
+    _merge_local_runtime_assets(response, task.result_assets or {})
     if task.runner_type != "mobile_use" or not task.remote_run_id:
         return response
 
@@ -279,9 +280,6 @@ async def get_task_runtime(
         response["current_step"] = _current_step(current_payload)
     except Exception as exc:
         response["errors"]["current_step"] = type(exc).__name__
-
-    if current_step_only:
-        return response
 
     try:
         remote_result = await gateway.get_result(config, task.remote_run_id)
@@ -581,6 +579,24 @@ def _merge_remote_result(
     )
 
 
+def _merge_local_runtime_assets(response: dict, assets: dict) -> None:
+    if not isinstance(assets, dict):
+        return
+    current_step = assets.get("current_step")
+    if isinstance(current_step, dict):
+        response["current_step"] = current_step
+    thread_groups = assets.get("thread_groups")
+    if isinstance(thread_groups, list):
+        response["thread_groups"] = [
+            item for item in thread_groups if isinstance(item, dict)
+        ]
+    thread_steps = assets.get("thread_steps")
+    if isinstance(thread_steps, list):
+        response["thread_steps"] = [
+            item for item in thread_steps if isinstance(item, dict)
+        ]
+
+
 def _merge_int_asset(
     assets: dict,
     payload: dict,
@@ -607,7 +623,7 @@ def _merge_string_asset(
             return
 
 
-def _filter_result_assets_for_run(assets: dict, run_id: str | None) -> dict:
+def _filter_result_assets_for_run(assets: object, run_id: str | None) -> dict:
     if not isinstance(assets, dict):
         return {}
     filtered = dict(assets)

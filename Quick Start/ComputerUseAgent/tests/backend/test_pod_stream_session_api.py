@@ -58,12 +58,12 @@ def _add_pod(
 def test_pod_stream_session_returns_novnc_session(authenticated_client):
     gateway = FakeStreamTokenGateway()
     authenticated_client.app.state.stream_token_gateway = gateway
-    _add_pod(authenticated_client)
     configured = authenticated_client.put(
         "/api/v1/settings/runner",
         json={"mode": "mobile_use", "mobile_use": COMPUTER_USE_STREAM_CONFIG},
     )
     assert configured.status_code == 200
+    _add_pod(authenticated_client)
 
     response = authenticated_client.post("/api/v1/pod-pool/i-node123/stream-session")
 
@@ -123,17 +123,17 @@ def test_pod_stream_session_rejects_unknown_pod(authenticated_client):
 def test_pod_stream_session_rejects_unstreamable_node_before_remote_call(authenticated_client):
     gateway = FakeStreamTokenGateway()
     authenticated_client.app.state.stream_token_gateway = gateway
+    configured = authenticated_client.put(
+        "/api/v1/settings/runner",
+        json={"mode": "mobile_use", "mobile_use": COMPUTER_USE_STREAM_CONFIG},
+    )
+    assert configured.status_code == 200
     _add_pod(
         authenticated_client,
         ecsid="i-upgrade-failed",
         status_code=6,
         status_name="升级失败",
     )
-    configured = authenticated_client.put(
-        "/api/v1/settings/runner",
-        json={"mode": "mobile_use", "mobile_use": COMPUTER_USE_STREAM_CONFIG},
-    )
-    assert configured.status_code == 200
 
     response = authenticated_client.post("/api/v1/pod-pool/i-upgrade-failed/stream-session")
 

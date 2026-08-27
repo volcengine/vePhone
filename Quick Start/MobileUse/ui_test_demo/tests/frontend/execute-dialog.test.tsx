@@ -72,6 +72,8 @@ describe("ExecuteDialog", () => {
 
     await screen.findByText("Fresh Phone");
     expect(screen.queryByLabelText("执行超时时间")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("设备不可用后最大等待时间（秒）"))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "执行超时时间" }))
       .not.toBeInTheDocument();
   });
@@ -149,6 +151,7 @@ describe("ExecuteDialog", () => {
 
     await screen.findByText("Fresh Phone");
     await user.click(screen.getByRole("radio", { name: "自定义本次执行配置" }));
+    await user.click(screen.getByRole("radio", { name: "重置设备" }));
     await user.type(screen.getByLabelText("ThreadId"), "thread-dialog");
     fireEvent.change(screen.getByLabelText("最大步骤数 MaxStep"), { target: { value: "123" } });
     fireEvent.change(screen.getByLabelText("任务超时 Timeout（秒）"), { target: { value: "456" } });
@@ -177,6 +180,7 @@ describe("ExecuteDialog", () => {
         agent_config_mode: "custom",
         timeout_seconds: 456,
         agent_options: expect.objectContaining({
+          device_prepare_action: "reset",
           thread_id: "thread-dialog",
           use_base64_screenshot: true,
           max_step: 123,
@@ -243,6 +247,7 @@ describe("ExecuteDialog", () => {
 
     await screen.findByText("Fresh Phone");
     await user.click(screen.getByRole("radio", { name: "用例默认配置" }));
+    expect(screen.queryByText("设备启动前处理")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /开始执行/ }));
 
     expect(onConfirm).toHaveBeenCalledWith(
@@ -272,6 +277,7 @@ describe("ExecuteDialog", () => {
     const globalRadio = screen.getByRole("radio", { name: "使用全局配置" });
     expect(globalRadio).toBeChecked();
     expect(screen.getByText("将套用的全局配置")).toBeVisible();
+    expect(screen.queryByText("设备启动前处理")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("最大步骤数 MaxStep")).not.toBeInTheDocument();
   });
 

@@ -1,4 +1,7 @@
+import csv
 from datetime import UTC, datetime, timedelta
+from io import StringIO
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -213,6 +216,30 @@ def test_report_status_mapping(
     assert response.json()["report_status"] == expected
 
 
+def test_report_status_running_when_some_children_finished_and_others_queued(
+    authenticated_client,
+):
+    report = _seed_report(
+        authenticated_client,
+        batch_status=ExecutionStatus.QUEUED,
+        batch_verdict=None,
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (ExecutionStatus.QUEUED, None, None),
+        ],
+    )
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}"
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["report_status"] == "running"
+    assert body["queued_count"] == 1
+    assert body["running_count"] == 0
+
+
 def test_report_uses_snapshot_pass_rate_duration_and_public_config(
     authenticated_client,
     monkeypatch,
@@ -287,6 +314,55 @@ def test_report_duration_is_null_before_start_and_terminal_uses_finish(
 
     assert queued_body["duration_seconds"] is None
     assert terminal_body["duration_seconds"] == 65
+
+
+def test_report_timing_uses_child_task_bounds_when_batch_started_late(
+    authenticated_client,
+    monkeypatch,
+):
+    now = datetime(2026, 1, 1, 10, tzinfo=UTC)
+    monkeypatch.setattr(
+        "mua_platform.test_plans.reports.utc_now",
+        lambda: now,
+    )
+    first_task_started = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    late_batch_started = datetime(2026, 1, 1, 9, 30, tzinfo=UTC)
+    report = _seed_report(
+        authenticated_client,
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (ExecutionStatus.RUNNING, None, None),
+        ],
+        batch_status=ExecutionStatus.RUNNING,
+        batch_verdict=None,
+        started_at=late_batch_started,
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        tasks = list(
+            db.query(Task)
+            .filter(Task.batch_id == report["batch_id"])
+            .order_by(Task.batch_position)
+        )
+        tasks[0].started_at = first_task_started
+        tasks[0].finished_at = first_task_started + timedelta(minutes=5)
+        tasks[1].started_at = first_task_started + timedelta(minutes=10)
+        db.commit()
+
+    detail = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}"
+    )
+    listed = authenticated_client.get(
+        f"/api/v1/test-plans/{report['plan']['id']}/executions",
+        params={"page": 1, "page_size": 10},
+    )
+
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["started_at"] == "2026-01-01T09:00:00Z"
+    assert detail.json()["duration_seconds"] == 3600
+    assert listed.status_code == 200, listed.text
+    listed_item = listed.json()["items"][0]
+    assert listed_item["started_at"] == "2026-01-01T09:00:00Z"
+    assert listed_item["duration_seconds"] == 3600
 
 
 def test_report_list_stats_filters_and_page_sizes_match(
@@ -534,6 +610,265 @@ def test_report_detail_marks_soft_deleted_cases(authenticated_client):
     task = response.json()["tasks"][0]
     assert task["case_id"] == case_id
     assert task["case_deleted"] is True
+
+
+def test_report_detail_refreshes_task_runtime_metrics(authenticated_client, monkeypatch):
+    class ReportMetricGateway:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def get_result(self, _config, run_id):
+            self.calls.append(run_id)
+            return SimpleNamespace(
+                payload={
+                    "Result": {
+                        "Usage": {"in_tokens": 1234, "out_tokens": "56"},
+                        "TotalSteps": 6,
+                        "DurationMs": 125000,
+                    },
+                },
+            )
+
+        async def detail_task_by_thread(self, _config, *, thread_id, run_id):
+            self.calls.append(f"{thread_id}:{run_id}")
+            return SimpleNamespace(
+                payload={
+                    "Result": {
+                        "RunSteps": [
+                            {
+                                "RunId": run_id,
+                                "ThreadId": thread_id,
+                                "StepId": "step_1",
+                                "Results": [{"name": f"tool_{index}"} for index in range(3)],
+                            },
+                            {
+                                "RunId": run_id,
+                                "ThreadId": thread_id,
+                                "StepId": "step_2",
+                                "Results": [{"name": f"tool_{index}"} for index in range(4)],
+                            },
+                        ],
+                    },
+                },
+            )
+
+    gateway = ReportMetricGateway()
+    monkeypatch.setattr(
+        "mua_platform.api.test_plans.UniversalGateway",
+        lambda: gateway,
+    )
+    report = _seed_report(
+        authenticated_client,
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+        ],
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        tasks = list(
+            db.query(Task)
+            .filter(Task.batch_id == report["batch_id"])
+            .order_by(Task.batch_position)
+        )
+        tasks[0].runner_type = "mobile_use"
+        tasks[0].remote_run_id = "run_report_metric"
+        tasks[0].remote_thread_id = "thread_report_metric"
+        tasks[0].result_assets = {
+            "usage": {"in_tokens": 0, "out_tokens": 0},
+            "total_steps": 0,
+        }
+        tasks[1].result_assets = {
+            "usage": {"in_tokens": "bad", "out_tokens": None},
+            "total_steps": "bad",
+        }
+        db.commit()
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}"
+    )
+
+    assert response.status_code == 200, response.text
+    first, second = response.json()["tasks"]
+    assert gateway.calls == [
+        "run_report_metric",
+        "thread_report_metric:run_report_metric",
+    ]
+    assert first["remote_run_id"] == "run_report_metric"
+    assert second["remote_run_id"] is None
+    assert first["input_tokens"] == 1234
+    assert first["output_tokens"] == 56
+    assert first["total_steps"] == 7
+    assert first["duration_seconds"] == 125
+    assert second["input_tokens"] is None
+    assert second["output_tokens"] is None
+    assert second["total_steps"] is None
+
+
+def test_report_download_markdown_contains_kpis_snapshot_and_tasks(
+    authenticated_client,
+):
+    report = _seed_report(
+        authenticated_client,
+        plan_name="下载报告",
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (
+                ExecutionStatus.RESULT_READY,
+                Verdict.FAIL,
+                "assertion_failed",
+            ),
+        ],
+        batch_verdict=Verdict.FAIL,
+        started_at=datetime(2026, 1, 1, 10, tzinfo=UTC),
+        finished_at=datetime(2026, 1, 1, 10, 2, 5, tzinfo=UTC),
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        task = (
+            db.query(Task)
+            .filter(Task.batch_id == report["batch_id"])
+            .order_by(Task.batch_position)
+            .first()
+        )
+        task.remote_run_id = "run_download_md"
+        task.result_assets = {
+            "usage": {"in_tokens": 1234, "out_tokens": 56},
+            "total_steps": 7,
+        }
+        db.commit()
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}/download",
+        params={"format": "markdown"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert (
+        response.headers["content-disposition"]
+        == f'attachment; filename="mua-test-report-{report["batch_id"]}.md"'
+    )
+    body = response.text
+    assert "# 测试报告：下载报告" in body
+    assert "执行结果：失败" in body
+    assert "测试通过率：50%" in body
+    assert "总执行时长：2 分 5 秒" in body
+    assert "## 执行快照" in body
+    assert "设备策略：自动分配" in body
+    assert "并发数：1" in body
+    assert "## 子任务结果" in body
+    assert "Run ID" in body
+    assert "run_download_md" in body
+    assert "输入 Token" in body
+    assert "输出 Token" in body
+    assert "执行步数" in body
+    assert "1234" in body
+    assert "56" in body
+    assert "7" in body
+    assert "assertion_failed" in body
+    assert report["case_ids"][0] in body
+
+
+def test_report_download_csv_groups_kpis_snapshot_and_subtask_rows(
+    authenticated_client,
+):
+    report = _seed_report(
+        authenticated_client,
+        plan_name="CSV报告",
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (
+                ExecutionStatus.RESULT_READY,
+                Verdict.FAIL,
+                "runner_interrupted",
+            ),
+        ],
+        batch_verdict=Verdict.FAIL,
+        started_at=datetime(2026, 1, 1, 10, tzinfo=UTC),
+        finished_at=datetime(2026, 1, 1, 10, 2, 5, tzinfo=UTC),
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        tasks = list(
+            db.query(Task)
+            .filter(Task.batch_id == report["batch_id"])
+            .order_by(Task.batch_position)
+        )
+        tasks[1].remote_run_id = "run_download_csv"
+        tasks[1].result_assets = {
+            "usage": {"in_tokens": 987, "out_tokens": 65},
+            "total_steps": 4,
+        }
+        db.commit()
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}/download",
+        params={"format": "csv"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    assert (
+        response.headers["content-disposition"]
+        == f'attachment; filename="mua-test-report-{report["batch_id"]}.csv"'
+    )
+    rows = list(csv.reader(StringIO(response.text)))
+    assert rows[:3] == [
+        ["KPI 值"],
+        ["报告ID", report["execution_id"]],
+        ["任务批次ID", report["batch_id"]],
+    ]
+    assert rows[3][0] == "测试计划"
+    assert rows[3][1].startswith("CSV报告")
+    assert rows[4:10] == [
+        ["执行结果", "异常"],
+        ["测试通过率", "50%"],
+        ["通过子任务", "1"],
+        ["总子任务", "2"],
+        ["总执行时长", "2 分 5 秒"],
+        [],
+    ]
+    assert ["执行快照"] in rows
+    assert ["设备策略", "自动分配"] in rows
+    assert ["并发数", "1"] in rows
+    assert ["子任务结果"] in rows
+    assert [
+        "任务ID",
+        "Run ID",
+        "用例ID",
+        "用例标题",
+        "任务状态",
+        "任务结果",
+        "失败类型",
+        "任务创建时间",
+        "任务执行时长",
+        "输入 Token",
+        "输出 Token",
+        "执行步数",
+    ] in rows
+    assert any(
+        row[1] == "run_download_csv"
+        and row[6] == "runner_interrupted"
+        and row[8] == "2 分 5 秒"
+        and row[9:12] == ["987", "65", "4"]
+        for row in rows
+        if len(row) == 12
+    )
+
+
+def test_report_download_rejects_non_downloadable_status(authenticated_client):
+    report = _seed_report(
+        authenticated_client,
+        batch_status=ExecutionStatus.RUNNING,
+        batch_verdict=None,
+        task_states=[(ExecutionStatus.RUNNING, None, None)],
+    )
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}/download",
+        params={"format": "markdown"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "task_report_download_unavailable"
 
 
 def test_report_detail_paginates_tasks_in_plan_order(

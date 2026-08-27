@@ -8,9 +8,20 @@ from sqlalchemy import func, select
 from mua_platform.cases.models import TestCase as CaseModel
 from mua_platform.pods.repository import PodRepository
 from mua_platform.pods.schemas import ListPodPage, PodDetail, PodSummary
-from mua_platform.runners.base import CancelResult, PollResult, RunHandle, RunnerEvent
+from mua_platform.runners.base import (
+    CancelResult,
+    PollResult,
+    RunHandle,
+    RunRequest,
+    RunnerEvent,
+    RunnerFailure,
+)
 from mua_platform.runners.mock import MockRunner
-from mua_platform.tasks.models import Task, TaskEvent
+from mua_platform.runners.mobile_use import MobileUseRunner
+from mua_platform.runners.universal_gateway import UniversalGateway, UniversalRequest
+from mua_platform.settings.repository import SettingRepository
+from mua_platform.settings.service import SettingsService
+from mua_platform.tasks.models import PodLease, Task, TaskEvent
 from mua_platform.tasks.repository import SQLiteTaskRepository
 from mua_platform.tasks.service import TaskService
 from mua_platform.tasks.state_machine import ExecutionStatus, Verdict
@@ -685,6 +696,98 @@ async def test_runner_task_cancelled_event_finishes_task_as_cancelled(
         assert terminal_log.remote_status_code == 5
 
 
+@pytest.mark.asyncio
+async def test_device_prepare_failure_finishes_task_before_agent_start(
+    authenticated_client,
+):
+    class PrepareFailingRunner:
+        started = False
+
+        async def prepare_device(self, request):
+            raise RunnerFailure(
+                "reset_pod_failed",
+                "device_prepare_failed",
+                "req-prepare-failed",
+            )
+
+        async def start(self, request, idempotency_key):
+            self.started = True
+            return RunHandle(
+                task_id=request.task_id,
+                runner_type="mock",
+                run_id=f"started:{request.task_id}",
+            )
+
+        async def poll(self, handle, after_sequence):
+            return PollResult(
+                events=(
+                    RunnerEvent(
+                        sequence=1,
+                        type="task_started",
+                        payload={"task_id": handle.task_id},
+                    ),
+                    RunnerEvent(
+                        sequence=2,
+                        type="task_finished",
+                        payload={
+                            "verdict": "pass",
+                            "summary": "should not run",
+                        },
+                    ),
+                ),
+                terminal=True,
+            )
+
+    case_id = _create_case(authenticated_client, "前置设备处理失败")
+    runner = PrepareFailingRunner()
+    with authenticated_client.app.state.session_factory() as db:
+        repository = SQLiteTaskRepository(db)
+        case = repository.get_case(case_id)
+        assert case is not None
+        task_id = repository.create_from_case(
+            case,
+            "前置设备处理失败",
+            idempotency_key="device-prepare-failed",
+            runner_type="mock",
+            runner_config_snapshot={
+                "pod_id": "pod_prepare",
+                "device_prepare_action": "reset",
+            },
+        ).task.id
+
+        completed = await TaskService(repository, runner=runner).run_task(
+            task_id,
+            worker_id="worker:test",
+        )
+
+        assert completed is not None
+        assert completed.execution_status == ExecutionStatus.RESULT_READY
+        assert completed.verdict == Verdict.FAIL
+        assert completed.failure_type == "device_prepare_failed"
+        assert completed.remote_run_id is None
+        assert runner.started is False
+        assert db.scalar(select(func.count()).select_from(PodLease)) == 0
+        events = db.scalars(
+            select(TaskEvent)
+            .where(TaskEvent.task_id == task_id)
+            .order_by(TaskEvent.sequence)
+        ).all()
+        assert [event.event_type for event in events] == [
+            "device_prepare_started",
+            "device_prepare_failed",
+        ]
+        assert events[0].payload == {
+            "action": "reset",
+            "pod_id": "pod_prepare",
+            "product_id": None,
+        }
+        assert events[-1].payload == {
+            "failure_type": "device_prepare_failed",
+            "error_code": "reset_pod_failed",
+            "request_id": "req-prepare-failed",
+        }
+
+
 def test_completed_task_does_not_write_case_stat_cache(
     authenticated_client,
     monkeypatch,
@@ -1125,6 +1228,7 @@ def test_execute_case_persists_custom_agent_runtime_options(
                 ),
                 "max_output_tokens": 2048,
                 "gps_info": "116.397128,39.916527,50,0,0,10",
+                "device_prepare_action": "reboot",
             },
         },
     )
@@ -1136,6 +1240,7 @@ def test_execute_case_persists_custom_agent_runtime_options(
     assert runtime.status_code == 200
     execution_config = runtime.json()["execution_config"]
     assert execution_config["source"] == "custom"
+    assert execution_config["device_prepare_action"] == "reboot"
     assert execution_config["timeout_seconds"] == 456
     assert execution_config["callback_info"] == {
         "url": "https://callback.example.com",
@@ -1147,6 +1252,7 @@ def test_execute_case_persists_custom_agent_runtime_options(
         task = db.get(Task, body["id"])
         assert task is not None
         assert task.runner_config_snapshot["config_source"] == "custom"
+        assert task.runner_config_snapshot["device_prepare_action"] == "reboot"
         assert task.runner_config_snapshot["pod_id"] == "pod_custom"
         assert task.runner_config_snapshot["use_base64_screenshot"] is False
         assert task.runner_config_snapshot["max_step"] == 123
@@ -1219,6 +1325,593 @@ def test_execute_case_uses_case_default_agent_options(
         assert task.runner_config_snapshot["max_step"] == 123
         assert task.runner_config_snapshot["tos_bucket"] == "case-bucket"
         assert task.runner_config_snapshot["screen_record"] is True
+
+
+@pytest.mark.asyncio
+async def test_case_default_device_prepare_flows_to_remote_before_agent_start(
+    authenticated_client,
+    monkeypatch,
+):
+    class PreparePodGateway:
+        async def list_all(self, _config):
+            return ListPodPage(
+                items=(
+                    PodSummary(
+                        product_id="prod_prepare",
+                        pod_id="host_prepare_1",
+                        pod_name="前置处理云机",
+                        pod_status_code=1,
+                        stream_status=None,
+                        image_id=None,
+                        image_name=None,
+                        aosp_version=None,
+                        display_layout_id=None,
+                        dc_id=None,
+                        dc_name=None,
+                        isp_code=None,
+                        region=None,
+                        zone_id=None,
+                        config_code=None,
+                        config_name=None,
+                        config_type=None,
+                        server_type_code=None,
+                        intranet_ip=None,
+                        adb_address=None,
+                        adb_status=None,
+                        data_size=None,
+                        data_size_used=None,
+                        pod_created_at=None,
+                    ),
+                ),
+                next_token=None,
+                request_id="req-prepare-pool",
+            )
+
+        async def detail(self, _config, pod_id: str):
+            return PodDetail(
+                product_id="prod_prepare",
+                pod_id=pod_id,
+                pod_name="前置处理云机",
+                pod_status_code=1,
+                stream_status=None,
+                image_id=None,
+                image_name=None,
+                aosp_version=None,
+                display_layout_id=None,
+                dc_id=None,
+                dc_name=None,
+                isp_code=None,
+                region=None,
+                zone_id=None,
+                config_code=None,
+                config_name=None,
+                config_type=None,
+                server_type_code=None,
+                intranet_ip=None,
+                adb_address=None,
+                adb_status=None,
+                data_size=None,
+                data_size_used=None,
+                pod_created_at=None,
+                request_id="req-prepare-detail",
+            )
+
+    configured = authenticated_client.put(
+        "/api/v1/settings/runner",
+        json={
+            "mode": "mobile_use",
+            "mobile_use": {
+                "access_key_id": "AKLT00000000WXYZ",
+                "secret_access_key": "secret-value",
+                "product_id": "prod_prepare",
+                "tos_bucket": "mua-test",
+                "tos_region": "cn-beijing",
+            },
+        },
+    )
+    assert configured.status_code == 200, configured.text
+    authenticated_client.app.state.pod_gateway = PreparePodGateway()
+    with authenticated_client.app.state.session_factory() as db:
+        PodRepository(db).sync(
+            "prod_prepare",
+            ListPodPage(
+                items=(
+                    PodSummary(
+                        product_id="prod_prepare",
+                        pod_id="host_prepare_1",
+                        pod_name="前置处理云机",
+                        pod_status_code=1,
+                        stream_status=None,
+                        image_id=None,
+                        image_name=None,
+                        aosp_version=None,
+                        display_layout_id=None,
+                        dc_id=None,
+                        dc_name=None,
+                        isp_code=None,
+                        region=None,
+                        zone_id=None,
+                        config_code=None,
+                        config_name=None,
+                        config_type=None,
+                        server_type_code=None,
+                        intranet_ip=None,
+                        adb_address=None,
+                        adb_status=None,
+                        data_size=None,
+                        data_size_used=None,
+                        pod_created_at=None,
+                    ),
+                ),
+                next_token=None,
+                request_id="req-prepare-pool",
+            ),
+        )
+    monkeypatch.setattr(
+        authenticated_client.app.state.task_worker,
+        "enqueue",
+        _ignore_enqueue,
+    )
+    case_id = _create_case(
+        authenticated_client,
+        "前置处理链路用例",
+        default_agent_options={
+            "device_prepare_action": "reset",
+            "timeout_seconds": 321,
+            "tos_bucket": "mua-test",
+            "tos_region": "cn-beijing",
+        },
+    )
+
+    created = authenticated_client.post(
+        f"/api/v1/cases/{case_id}/execute",
+        json={
+            "idempotency_key": "case-default-device-prepare",
+            "pod_id": "host_prepare_1",
+            "agent_config_mode": "case_default",
+        },
+    )
+
+    assert created.status_code == 201, created.text
+    task_id = created.json()["id"]
+    calls: list[UniversalRequest] = []
+    detail_statuses = [1, 2, 0, 1]
+
+    def invoke(_config, request: UniversalRequest):
+        calls.append(request)
+        if request.action == "DetailPod":
+            online = detail_statuses.pop(0)
+            return {
+                "ResponseMetadata": {"RequestId": f"req-detail-{online}"},
+                "Result": {
+                    "ProductId": "prod_prepare",
+                    "PodId": "host_prepare_1",
+                    "PodName": "前置处理云机",
+                    "Online": online,
+                },
+            }
+        if request.action == "PowerOffPod":
+            return {
+                "ResponseMetadata": {"RequestId": "req-power-off"},
+                "Result": {
+                    "Details": [
+                        {
+                            "PodId": "host_prepare_1",
+                            "Success": True,
+                            "ErrMsg": "",
+                        }
+                    ]
+                },
+            }
+        if request.action == "ResetPod":
+            return {
+                "TaskId": "prepare-task-1",
+                "TaskAction": "ResetPod",
+                "Jobs": [
+                    {
+                        "PodId": "host_prepare_1",
+                        "JobId": "job-reset-pod",
+                        "Status": 10,
+                    }
+                ],
+            }
+        if request.action == "GetTaskInfo":
+            return {
+                "TaskId": request.body["TaskId"],
+                "TaskAction": "ResetPod",
+                "TaskResult": 100,
+                "TaskMessage": "reset done",
+                "Jobs": [
+                    {
+                        "PodId": "host_prepare_1",
+                        "JobId": "job-reset-pod",
+                        "Status": 100,
+                    }
+                ],
+            }
+        if request.action == "PowerOnPod":
+            return {
+                "Details": [
+                    {
+                        "PodId": "host_prepare_1",
+                        "Success": True,
+                        "ErrMsg": "",
+                    }
+                ],
+            }
+        if request.action == "RunAgentTaskOneStep":
+            return {
+                "ResponseMetadata": {"RequestId": "req-run-agent"},
+                "Result": {"RunId": "run-prepare", "ThreadId": "thread-prepare"},
+            }
+        if request.action == "ListAgentRunTaskByThread":
+            return {
+                "ResponseMetadata": {"RequestId": "req-task-status"},
+                "Result": {
+                    "ThreadGroups": [
+                        {
+                            "ThreadId": "thread-prepare",
+                            "Tasks": [{"RunId": "run-prepare", "Status": 3}],
+                        }
+                    ]
+                },
+            }
+        if request.action == "GetAgentResult":
+            return {
+                "ResponseMetadata": {"RequestId": "req-agent-result"},
+                "Result": {
+                    "IsSuccess": 1,
+                    "Content": "prepared and passed",
+                    "StructOutput": {
+                        "status": "pass",
+                        "reason": "",
+                        "assertions": [
+                            {
+                                "index": 1,
+                                "result": "pass",
+                                "evidence": ["prepared"],
+                            }
+                        ],
+                        "evidence": ["prepared"],
+                    },
+                },
+            }
+        raise AssertionError(f"unexpected action: {request.action}")
+
+    with authenticated_client.app.state.session_factory() as db:
+        repository = SQLiteTaskRepository(db)
+        task = repository.get(task_id)
+        assert task is not None
+        config = SettingsService(
+            SettingRepository(
+                db,
+                authenticated_client.app.state.setting_cipher,
+                authenticated_client.app.state.settings.runner_setting_defaults(),
+            )
+        ).get_runner_config(task.business_id).with_execution_snapshot(
+            task.runner_config_snapshot
+        )
+
+        def load_request(_task_id: str):
+            return RunRequest(
+                task_id=task.id,
+                scenario=task.scenario,
+                title="前置处理链路用例",
+                content_markdown=task.prompt_snapshot or "",
+            )
+
+        completed = await TaskService(
+            repository,
+            MobileUseRunner(
+                config,
+                UniversalGateway(call=invoke),
+                request_loader=load_request,
+                poll_interval=0,
+            ),
+        ).run_task(task_id, worker_id="worker:test")
+
+        assert completed is not None
+        assert completed.execution_status == ExecutionStatus.RESULT_READY
+        assert completed.verdict == Verdict.PASS
+        assert completed.failure_type is None
+        assert completed.remote_run_id == "run-prepare"
+
+    assert [request.action for request in calls] == [
+        "DetailPod",
+        "PowerOffPod",
+        "DetailPod",
+        "ResetPod",
+        "GetTaskInfo",
+        "PowerOnPod",
+        "DetailPod",
+        "DetailPod",
+        "RunAgentTaskOneStep",
+        "ListAgentRunTaskByThread",
+        "GetAgentResult",
+    ]
+    assert calls[3].body == {
+        "ProductId": "prod_prepare",
+        "PodIdList": ["host_prepare_1"],
+    }
+    assert calls[4].body == {
+        "ProductId": "prod_prepare",
+        "TaskId": "prepare-task-1",
+    }
+    assert calls[5].body == {
+        "ProductId": "prod_prepare",
+        "PodId": "host_prepare_1",
+    }
+    assert calls[8].body["PodId"] == "host_prepare_1"
+    assert calls[8].body["ProductId"] == "prod_prepare"
+    assert calls[8].body["Timeout"] == 321
+    with authenticated_client.app.state.session_factory() as db:
+        events = db.scalars(
+            select(TaskEvent)
+            .where(TaskEvent.task_id == task_id)
+            .order_by(TaskEvent.sequence)
+        ).all()
+        assert [event.event_type for event in events[:3]] == [
+            "device_prepare_started",
+            "device_prepare_succeeded",
+            "task_started",
+        ]
+        assert events[0].payload == {
+            "action": "reset",
+            "pod_id": "host_prepare_1",
+            "product_id": "prod_prepare",
+        }
+        assert events[1].payload == {
+            "action": "reset",
+            "remote_task_id": "prepare-task-1",
+        }
+
+
+@pytest.mark.asyncio
+async def test_case_default_reboot_prepare_waits_until_pod_running_before_agent_start(
+    authenticated_client,
+    monkeypatch,
+):
+    class RebootPreparePodGateway:
+        async def list_all(self, _config):
+            return ListPodPage(
+                items=(
+                    PodSummary(
+                        product_id="prod_prepare",
+                        pod_id="host_prepare_reboot",
+                        pod_name="重启前置云机",
+                        pod_status_code=1,
+                        stream_status=None,
+                        image_id=None,
+                        image_name=None,
+                        aosp_version=None,
+                        display_layout_id=None,
+                        dc_id=None,
+                        dc_name=None,
+                        isp_code=None,
+                        region=None,
+                        zone_id=None,
+                        config_code=None,
+                        config_name=None,
+                        config_type=None,
+                        server_type_code=None,
+                        intranet_ip=None,
+                        adb_address=None,
+                        adb_status=None,
+                        data_size=None,
+                        data_size_used=None,
+                        pod_created_at=None,
+                    ),
+                ),
+                next_token=None,
+                request_id="req-prepare-pool",
+            )
+
+        async def detail(self, _config, pod_id: str):
+            return PodDetail(
+                product_id="prod_prepare",
+                pod_id=pod_id,
+                pod_name="重启前置云机",
+                pod_status_code=1,
+                stream_status=None,
+                image_id=None,
+                image_name=None,
+                aosp_version=None,
+                display_layout_id=None,
+                dc_id=None,
+                dc_name=None,
+                isp_code=None,
+                region=None,
+                zone_id=None,
+                config_code=None,
+                config_name=None,
+                config_type=None,
+                server_type_code=None,
+                intranet_ip=None,
+                adb_address=None,
+                adb_status=None,
+                data_size=None,
+                data_size_used=None,
+                pod_created_at=None,
+                request_id="req-prepare-detail",
+            )
+
+    configured = authenticated_client.put(
+        "/api/v1/settings/runner",
+        json={
+            "mode": "mobile_use",
+            "mobile_use": {
+                "access_key_id": "AKLT00000000WXYZ",
+                "secret_access_key": "secret-value",
+                "product_id": "prod_prepare",
+                "tos_bucket": "mua-test",
+                "tos_region": "cn-beijing",
+            },
+        },
+    )
+    assert configured.status_code == 200, configured.text
+    authenticated_client.app.state.pod_gateway = RebootPreparePodGateway()
+    with authenticated_client.app.state.session_factory() as db:
+        PodRepository(db).sync(
+            "prod_prepare",
+            ListPodPage(
+                items=(
+                    PodSummary(
+                        product_id="prod_prepare",
+                        pod_id="host_prepare_reboot",
+                        pod_name="重启前置云机",
+                        pod_status_code=1,
+                        stream_status=None,
+                        image_id=None,
+                        image_name=None,
+                        aosp_version=None,
+                        display_layout_id=None,
+                        dc_id=None,
+                        dc_name=None,
+                        isp_code=None,
+                        region=None,
+                        zone_id=None,
+                        config_code=None,
+                        config_name=None,
+                        config_type=None,
+                        server_type_code=None,
+                        intranet_ip=None,
+                        adb_address=None,
+                        adb_status=None,
+                        data_size=None,
+                        data_size_used=None,
+                        pod_created_at=None,
+                    ),
+                ),
+                next_token=None,
+                request_id="req-prepare-pool",
+            ),
+        )
+    monkeypatch.setattr(
+        authenticated_client.app.state.task_worker,
+        "enqueue",
+        _ignore_enqueue,
+    )
+    case_id = _create_case(
+        authenticated_client,
+        "重启前置处理链路用例",
+        default_agent_options={
+            "device_prepare_action": "reboot",
+            "timeout_seconds": 321,
+            "tos_bucket": "mua-test",
+            "tos_region": "cn-beijing",
+        },
+    )
+    created = authenticated_client.post(
+        f"/api/v1/cases/{case_id}/execute",
+        json={
+            "idempotency_key": "case-default-reboot-prepare",
+            "pod_id": "host_prepare_reboot",
+            "agent_config_mode": "case_default",
+        },
+    )
+    assert created.status_code == 201, created.text
+    task_id = created.json()["id"]
+    calls: list[UniversalRequest] = []
+    detail_statuses = [1, 4, 1]
+
+    def invoke(_config, request: UniversalRequest):
+        calls.append(request)
+        if request.action == "DetailPod":
+            online = detail_statuses.pop(0)
+            return {
+                "ResponseMetadata": {"RequestId": f"req-detail-{online}"},
+                "Result": {
+                    "ProductId": "prod_prepare",
+                    "PodId": "host_prepare_reboot",
+                    "PodName": "重启前置云机",
+                    "Online": online,
+                },
+            }
+        if request.action == "RebootPod":
+            return None
+        if request.action == "RunAgentTaskOneStep":
+            return {
+                "ResponseMetadata": {"RequestId": "req-run-agent"},
+                "Result": {"RunId": "run-reboot-prepare", "ThreadId": "thread-prepare"},
+            }
+        if request.action == "ListAgentRunTaskByThread":
+            return {
+                "ResponseMetadata": {"RequestId": "req-task-status"},
+                "Result": {
+                    "ThreadGroups": [
+                        {
+                            "ThreadId": "thread-prepare",
+                            "Tasks": [{"RunId": "run-reboot-prepare", "Status": 3}],
+                        }
+                    ]
+                },
+            }
+        if request.action == "GetAgentResult":
+            return {
+                "ResponseMetadata": {"RequestId": "req-agent-result"},
+                "Result": {
+                    "IsSuccess": 1,
+                    "Content": "reboot prepared and passed",
+                    "StructOutput": {
+                        "status": "pass",
+                        "reason": "",
+                        "assertions": [
+                            {
+                                "index": 1,
+                                "result": "pass",
+                                "evidence": ["reboot prepared"],
+                            }
+                        ],
+                        "evidence": ["reboot prepared"],
+                    },
+                },
+            }
+        raise AssertionError(f"unexpected action: {request.action}")
+
+    with authenticated_client.app.state.session_factory() as db:
+        repository = SQLiteTaskRepository(db)
+        task = repository.get(task_id)
+        assert task is not None
+        config = SettingsService(
+            SettingRepository(
+                db,
+                authenticated_client.app.state.setting_cipher,
+                authenticated_client.app.state.settings.runner_setting_defaults(),
+            )
+        ).get_runner_config(task.business_id).with_execution_snapshot(
+            task.runner_config_snapshot
+        )
+
+        completed = await TaskService(
+            repository,
+            MobileUseRunner(
+                config,
+                UniversalGateway(call=invoke),
+                request_loader=lambda _task_id: RunRequest(
+                    task_id=task.id,
+                    scenario=task.scenario,
+                    title="重启前置处理链路用例",
+                    content_markdown=task.prompt_snapshot or "",
+                ),
+                poll_interval=0,
+            ),
+        ).run_task(task_id, worker_id="worker:test")
+
+        assert completed is not None
+        assert completed.execution_status == ExecutionStatus.RESULT_READY
+        assert completed.verdict == Verdict.PASS
+        assert completed.failure_type is None
+        assert completed.remote_run_id == "run-reboot-prepare"
+
+    assert [request.action for request in calls] == [
+        "DetailPod",
+        "RebootPod",
+        "DetailPod",
+        "DetailPod",
+        "RunAgentTaskOneStep",
+        "ListAgentRunTaskByThread",
+        "GetAgentResult",
+    ]
 
 
 async def _ignore_enqueue(_task_id: str) -> None:

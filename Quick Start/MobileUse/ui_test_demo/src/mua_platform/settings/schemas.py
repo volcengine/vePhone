@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 RunnerMode = Literal["mock", "mobile_use"]
+DevicePrepareAction = Literal["none", "reset", "reboot"]
 _TOS_REGION = re.compile(r"^[a-z]{2}-[a-z]+(?:-\d+)?$")
 _RESERVED_REQUEST_HEADERS = {
     "accept",
@@ -49,6 +50,7 @@ class MobileUseSettingsUpdate(BaseModel):
     max_output_tokens: int | None = Field(default=None, ge=1)
     gps_info: str | None = None
     request_headers: dict[str, str] | None = None
+    device_prepare_action: DevicePrepareAction | None = None
 
     @field_validator("output_schema", "mcp_json")
     @classmethod
@@ -81,6 +83,7 @@ class AgentRuntimeOptions(BaseModel):
     max_output_tokens: int | None = Field(default=None, ge=1)
     gps_info: str | None = None
     request_headers: dict[str, str] | None = None
+    device_prepare_action: DevicePrepareAction | None = None
 
     @field_validator("output_schema", "mcp_json")
     @classmethod
@@ -125,6 +128,7 @@ class RunnerConfig(BaseModel):
     max_output_tokens: int | None = Field(default=None, ge=1)
     gps_info: str | None = None
     request_headers: dict[str, str] | None = None
+    device_prepare_action: DevicePrepareAction = "none"
 
     @classmethod
     def mock(cls) -> "RunnerConfig":
@@ -164,6 +168,7 @@ class RunnerConfig(BaseModel):
             "max_output_tokens": self.max_output_tokens,
             "gps_info": self.gps_info,
             "request_headers": self.request_headers,
+            "device_prepare_action": self.device_prepare_action,
         })
 
     def with_execution_snapshot(self, snapshot: dict[str, Any]) -> "RunnerConfig":
@@ -191,6 +196,7 @@ class RunnerConfig(BaseModel):
                 "max_output_tokens",
                 "gps_info",
                 "request_headers",
+                "device_prepare_action",
             )
         }
         return self.model_copy(

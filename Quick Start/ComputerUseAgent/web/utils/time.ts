@@ -59,13 +59,7 @@ export function formatElapsedTime(
   const endMs = end ? parseTimestampMs(end) : nowMs;
   if (Number.isNaN(endMs)) return "-";
   const totalSeconds = Math.max(0, Math.floor((endMs - startMs) / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return formatCompactDuration(totalSeconds);
 }
 
 export function formatTaskElapsedTime(
@@ -74,7 +68,7 @@ export function formatTaskElapsedTime(
   end: string | null | undefined,
   nowMs = Date.now(),
 ): string {
-  if (executionStatus === "queued") return "00:00";
+  if (executionStatus === "queued") return "0 秒";
   return formatElapsedTime(start, end, nowMs);
 }
 
@@ -82,14 +76,20 @@ export function formatDurationSeconds(
   value: number | null | undefined,
 ): string {
   if (value == null || !Number.isFinite(value) || value < 0) return "-";
-  const totalSeconds = Math.floor(value);
+  return formatCompactDuration(Math.floor(value));
+}
+
+function formatCompactDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    return `${hours} 小时 ${String(minutes).padStart(2, "0")} 分 ${
+      String(seconds).padStart(2, "0")
+    } 秒`;
   }
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  if (minutes > 0) return `${minutes} 分 ${seconds} 秒`;
+  return `${seconds} 秒`;
 }
 
 export function recentWindowStartIso(days: number, nowMs = Date.now()): string {

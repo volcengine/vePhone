@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, api } from "../api/client";
 import type { PodDetail, PodPoolItem, PodPoolResponse } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { CloudPhoneStreamPanel } from "../components/cloud-phone-stream-panel";
 import { PageHeader } from "../components/page-header";
 
@@ -46,6 +46,7 @@ const TASK_FILTER_OPTIONS = [
   { value: "failed", label: "失败" },
   { value: "cancelled", label: "已取消" },
 ];
+type HostAction = "reset" | "reboot" | "power_on" | "power_off";
 
 function formatTime(value: string | null): string {
   return value ? new Date(value).toLocaleString("zh-CN") : "尚未检查";
@@ -88,14 +89,6 @@ function SmartphoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" />
-    </svg>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -150,6 +143,13 @@ function isIdleInstance(pod: PodPoolItem): boolean {
 
 function isAbnormalInstance(pod: PodPoolItem): boolean {
   return pod.pod_status_code === 2 || pod.pod_status_code === 3 || pod.pod_status_code === 4;
+}
+
+function canRunHostAction(pod: PodPoolItem, action: HostAction): boolean {
+  if (action === "reboot") return pod.pod_status_code === 1;
+  if (action === "power_off") return [0, 1, 4].includes(pod.pod_status_code);
+  if (action === "power_on" || action === "reset") return pod.pod_status_code === 2;
+  return false;
 }
 
 function taskFilterValue(pod: PodPoolItem): string {
@@ -370,6 +370,173 @@ function PodDetailContent({ data }: { data: PodDetail }) {
   );
 }
 
+type HostActionState = {
+  action: HostAction;
+  pod: PodPoolItem;
+} | null;
+
+type HostActionResult = {
+  action: HostAction;
+  product_id: string;
+  pod_id: string;
+  request_id: string | null;
+  remote_task_id: string | null;
+};
+
+type HostActionStatus = {
+  product_id: string;
+  pod_id: string;
+  remote_task_id: string;
+  request_id: string | null;
+  task_action: string | null;
+  task_result: number | null;
+  task_message: string | null;
+  status: "running" | "succeeded" | "failed";
+  jobs: Array<Record<string, unknown>>;
+};
+
+type RunningHostAction = {
+  action: HostAction;
+  pod: PodPoolItem;
+  result: HostActionResult;
+};
+
+function hostActionLabel(action: HostAction) {
+  if (action === "reset") return "重置";
+  if (action === "reboot") return "重启";
+  if (action === "power_on") return "开机";
+  return "关机";
+}
+
+function hostActionProgressTitle(
+  action: HostAction,
+  pending: boolean,
+  result: HostActionResult | null,
+  status: HostActionStatus | undefined,
+) {
+  const label = hostActionLabel(action);
+  if (!result) return pending ? `正在提交${label}请求` : `确认${label}实例`;
+  if (status?.status === "succeeded") return `${label}完成`;
+  if (status?.status === "failed") return `${label}失败`;
+  return `正在${label}实例`;
+}
+
+function HostActionDialog({
+  target,
+  pending,
+  result,
+  status,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  target: NonNullable<HostActionState>;
+  pending: boolean;
+  result: HostActionResult | null;
+  status: HostActionStatus | undefined;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const label = hostActionLabel(target.action);
+  const title = `${label}实例`;
+  const progressTitle = hostActionProgressTitle(
+    target.action,
+    pending,
+    result,
+    status,
+  );
+  return (
+    <div className="modal-overlay" onClick={pending ? undefined : onCancel}>
+      <div
+        className="modal-panel pod-action-modal"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="modal-header">
+          <h3>{title}</h3>
+          <button
+            className="modal-close"
+            onClick={onCancel}
+            type="button"
+            aria-label="关闭"
+            disabled={pending}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="modal-body">
+          <div
+            className={`pod-action-progress ${
+              status?.status === "succeeded"
+                ? "done"
+                : status?.status === "failed"
+                  ? "failed"
+                  : pending || result
+                    ? "pending"
+                    : ""
+            }`}
+          >
+            <span className="pod-action-progress-dot" aria-hidden="true" />
+            <div>
+              <strong>{progressTitle}</strong>
+              <p>{target.pod.pod_name || target.pod.pod_id}</p>
+            </div>
+          </div>
+          {!result && !pending && (
+            <p className="form-hint">提交后将显示操作进展。</p>
+          )}
+          {result && (
+            <dl className="pod-action-result">
+              <div>
+                <dt>request_id</dt>
+                <dd>{result.request_id ?? "-"}</dd>
+              </div>
+              <div>
+                <dt>remote_task_id</dt>
+                <dd>{result.remote_task_id ?? "-"}</dd>
+              </div>
+              <div>
+                <dt>进展</dt>
+                <dd>{status?.task_result == null ? "查询中" : status.task_result}</dd>
+              </div>
+            </dl>
+          )}
+          {error && <p className="form-error" role="alert">{error}</p>}
+        </div>
+        <div className="modal-footer">
+          {result ? (
+            <button type="button" className="primary-button" onClick={onCancel}>
+              关闭
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={onCancel}
+                disabled={pending}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={onConfirm}
+                disabled={pending}
+              >
+                {pending ? "提交中..." : `确认${label}`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PodPoolPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -381,6 +548,9 @@ export function PodPoolPage() {
   const [openColumnFilter, setOpenColumnFilter] = useState<"instance" | "task" | null>(null);
   const [page, setPage] = useState(1);
   const [detailPodId, setDetailPodId] = useState<string | null>(null);
+  const [actionTarget, setActionTarget] = useState<HostActionState>(null);
+  const [runningHostAction, setRunningHostAction] = useState<RunningHostAction | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const pool = useQuery({
     queryKey: ["pod-pool"],
@@ -393,6 +563,42 @@ export function PodPoolPage() {
       queryClient.setQueryData<PodPoolResponse>(["pod-pool"], response);
     },
   });
+  const hostAction = useMutation({
+    mutationFn: ({ pod, action }: { pod: PodPoolItem; action: HostAction }) =>
+      api.post<HostActionResult>(`/pod-pool/${pod.pod_id}/${action.replace("_", "-")}`),
+    onMutate: () => {
+      setActionError("");
+    },
+    onSuccess: (response, variables) => {
+      setRunningHostAction({
+        action: response.action,
+        pod: variables.pod,
+        result: response,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["pod-pool"] });
+      refresh.mutate();
+    },
+    onError: (error) => {
+      setActionError(error instanceof ApiError ? error.message : "设备操作提交失败");
+    },
+  });
+  const hostActionStatus = useQuery({
+    enabled: Boolean(runningHostAction?.result.remote_task_id),
+    queryKey: [
+      "pod-host-action",
+      runningHostAction?.pod.pod_id,
+      runningHostAction?.result.remote_task_id,
+    ],
+    queryFn: () =>
+      api.get<HostActionStatus>(
+        `/pod-pool/${runningHostAction!.pod.pod_id}/host-actions/${runningHostAction!.result.remote_task_id}`,
+      ),
+    refetchInterval: (query) =>
+      query.state.data?.status === "succeeded"
+      || query.state.data?.status === "failed"
+        ? false
+        : 1000,
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -400,6 +606,32 @@ export function PodPoolPage() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [refresh.isPending, refresh.mutate]);
+
+  useEffect(() => {
+    if (runningHostAction) return;
+    const pod = (pool.data?.items ?? []).find((item) => item.active_host_action);
+    if (!pod?.active_host_action) return;
+    setRunningHostAction({
+      action: pod.active_host_action.action,
+      pod,
+      result: {
+        action: pod.active_host_action.action,
+        product_id: pod.product_id,
+        pod_id: pod.pod_id,
+        request_id: pod.active_host_action.request_id,
+        remote_task_id: pod.active_host_action.remote_task_id,
+      },
+    });
+  }, [pool.data?.items, runningHostAction]);
+
+  useEffect(() => {
+    if (
+      hostActionStatus.data?.status === "succeeded"
+      || hostActionStatus.data?.status === "failed"
+    ) {
+      void queryClient.invalidateQueries({ queryKey: ["pod-pool"] });
+    }
+  }, [hostActionStatus.data?.status, queryClient]);
 
   const refreshError = refresh.error instanceof ApiError ? refresh.error : null;
   const allItems = pool.data?.items ?? [];
@@ -463,6 +695,42 @@ export function PodPoolPage() {
     [allItems],
   );
 
+  function submitHostAction(pod: PodPoolItem, action: HostAction) {
+    if (!canRunHostAction(pod, action)) return;
+    setActionError("");
+    if (hostActionStatus.data?.status === "succeeded" || hostActionStatus.data?.status === "failed") {
+      setRunningHostAction(null);
+    }
+    setActionTarget({ pod, action });
+  }
+
+  function activeHostAction(pod: PodPoolItem): HostAction | null {
+    if (hostAction.isPending && actionTarget?.pod.pod_id === pod.pod_id) {
+      return actionTarget.action;
+    }
+    if (runningHostAction?.pod.pod_id === pod.pod_id) {
+      const terminal = hostActionStatus.data?.status === "succeeded"
+        || hostActionStatus.data?.status === "failed";
+      return terminal ? null : runningHostAction.action;
+    }
+    return pod.active_host_action?.status === "running"
+      ? pod.active_host_action.action
+      : null;
+  }
+
+  function closeHostActionDialog() {
+    if (hostAction.isPending) return;
+    setActionTarget(null);
+    setActionError("");
+  }
+
+  const dialogResult = actionTarget
+    && runningHostAction?.pod.pod_id === actionTarget.pod.pod_id
+    && runningHostAction.action === actionTarget.action
+    ? runningHostAction.result
+    : null;
+  const dialogStatus = dialogResult ? hostActionStatus.data : undefined;
+
   const toggleDraftInstanceStatus = (value: string) => {
     setDraftInstanceStatusFilter((current) =>
       current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
@@ -500,6 +768,11 @@ export function PodPoolPage() {
           {refreshError.requestId && (
             <p className="request-id">request_id：<code>{refreshError.requestId}</code></p>
           )}
+        </div>
+      )}
+      {actionError && (
+        <div className="form-feedback error" role="alert">
+          <p>{actionError}</p>
         </div>
       )}
 
@@ -655,7 +928,7 @@ export function PodPoolPage() {
                         <th>系统/屏幕</th>
                         <th>云机规格</th>
                         <th>创建时间</th>
-                        <th className="th-right">操作</th>
+                        <th className="th-right sticky-actions-column">操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -681,7 +954,9 @@ export function PodPoolPage() {
                               </div>
                             </div>
                           </td>
-                          <td><PodStatusBadge code={pod.pod_status_code} /></td>
+                          <td>
+                            <PodStatusBadge code={pod.pod_status_code} />
+                          </td>
                           <td><TaskStatusCell pod={pod} /></td>
                           <td><CurrentTaskCell pod={pod} /></td>
                           <td>
@@ -725,16 +1000,52 @@ export function PodPoolPage() {
                           <td style={{ fontSize: "0.78rem", color: "var(--mua-neutral-500)", whiteSpace: "nowrap" }}>
                             {formatTime(pod.pod_created_at)}
                           </td>
-                          <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                            <button
-                              className="text-button"
-                              type="button"
-                              onClick={() => setDetailPodId(pod.pod_id)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.78rem" }}
-                            >
-                              <EyeIcon />
-                              详情
-                            </button>
+                          <td className="device-actions-cell sticky-actions-column">
+                            <div className="device-actions">
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => submitHostAction(pod, "reset")}
+                                disabled={!canRunHostAction(pod, "reset") || Boolean(activeHostAction(pod))}
+                                aria-label="重置设备"
+                              >
+                                重置
+                              </button>
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => submitHostAction(pod, "power_on")}
+                                disabled={!canRunHostAction(pod, "power_on") || Boolean(activeHostAction(pod))}
+                                aria-label="开机设备"
+                              >
+                                开机
+                              </button>
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => submitHostAction(pod, "power_off")}
+                                disabled={!canRunHostAction(pod, "power_off") || Boolean(activeHostAction(pod))}
+                                aria-label="关机设备"
+                              >
+                                关机
+                              </button>
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => submitHostAction(pod, "reboot")}
+                                disabled={!canRunHostAction(pod, "reboot") || Boolean(activeHostAction(pod))}
+                                aria-label="重启设备"
+                              >
+                                重启
+                              </button>
+                              <button
+                                className="text-button"
+                                type="button"
+                                onClick={() => setDetailPodId(pod.pod_id)}
+                              >
+                                详情
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -779,6 +1090,21 @@ export function PodPoolPage() {
       )}
 
       {detailPodId && <DetailModal podId={detailPodId} onClose={() => setDetailPodId(null)} />}
+      {actionTarget && (
+        <HostActionDialog
+          target={actionTarget}
+          pending={hostAction.isPending}
+          result={dialogResult}
+          status={dialogStatus}
+          error={actionError}
+          onCancel={closeHostActionDialog}
+          onConfirm={() =>
+            hostAction.mutate({
+              pod: actionTarget.pod,
+              action: actionTarget.action,
+            })}
+        />
+      )}
     </>
   );
 }

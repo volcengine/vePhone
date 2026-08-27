@@ -23,11 +23,14 @@ class RunnerFailure(RuntimeError):
         code: str,
         failure_type: str,
         request_id: str | None = None,
+        *,
+        start_outcome_unknown: bool = False,
     ) -> None:
         super().__init__(code)
         self.code = code
         self.failure_type = failure_type
         self.request_id = request_id
+        self.start_outcome_unknown = start_outcome_unknown
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,8 @@ class RunnerAdapter(Protocol):
     async def validate(self, config: RunnerConfig) -> ValidationResult: ...
 
     async def list_pods(self, config: RunnerConfig) -> tuple[PodDiagnostic, ...]: ...
+
+    async def prepare_device(self, request: RunRequest) -> dict[str, Any] | None: ...
 
     async def start(
         self,

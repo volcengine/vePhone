@@ -27,19 +27,20 @@ describe("China time formatting", () => {
     expect(formatChinaDateTime("not-a-date")).toBe("-");
   });
 
-  it("formats duration seconds without localized prose", () => {
-    expect(formatDurationSeconds(65)).toBe("01:05");
-    expect(formatDurationSeconds(3661)).toBe("01:01:01");
+  it("formats duration seconds as compact Chinese text", () => {
+    expect(formatDurationSeconds(0)).toBe("0 秒");
+    expect(formatDurationSeconds(65)).toBe("1 分 5 秒");
+    expect(formatDurationSeconds(3661)).toBe("1 小时 01 分 01 秒");
     expect(formatDurationSeconds(null)).toBe("-");
     expect(formatDurationSeconds(-1)).toBe("-");
   });
 
   it("formats elapsed time from start to end", () => {
-    expect(formatElapsedTime("2026-07-28T03:35:31Z", "2026-07-28T03:38:32Z")).toBe("03:01");
+    expect(formatElapsedTime("2026-07-28T03:35:31Z", "2026-07-28T03:38:32Z")).toBe("3 分 1 秒");
   });
 
   it("formats running elapsed time with supplied now", () => {
-    expect(formatElapsedTime("2026-07-28T03:35:31Z", null, Date.parse("2026-07-28T04:36:32Z"))).toBe("01:01:01");
+    expect(formatElapsedTime("2026-07-28T03:35:31Z", null, Date.parse("2026-07-28T04:36:32Z"))).toBe("1 小时 01 分 01 秒");
   });
 
   it("keeps queued task elapsed time at zero", () => {
@@ -48,7 +49,7 @@ describe("China time formatting", () => {
       "2026-07-28T03:35:31Z",
       null,
       Date.parse("2026-07-28T04:36:32Z"),
-    )).toBe("00:00");
+    )).toBe("0 秒");
   });
 
   it("keeps not-started non-queued task elapsed time blank", () => {

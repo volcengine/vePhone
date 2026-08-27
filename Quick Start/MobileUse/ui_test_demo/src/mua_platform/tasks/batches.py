@@ -70,6 +70,9 @@ class TaskBatchService:
         snapshot = dict(config_snapshot)
         snapshot.pop("pod_id", None)
         snapshot["config_source"] = payload.agent_config_mode
+        snapshot["device_strategy"] = payload.device_strategy
+        snapshot["pod_ids"] = list(payload.pod_ids)
+        snapshot["device_wait_timeout_seconds"] = device_wait_timeout_seconds
         if payload.timeout_seconds is not None:
             snapshot["timeout_seconds"] = payload.timeout_seconds
         if payload.agent_config_mode == "custom" and payload.agent_options:

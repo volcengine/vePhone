@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type {
@@ -11,6 +10,7 @@ import type {
   Verdict,
 } from "../api/types";
 import { CopyButton } from "../components/copy-button";
+import { BusinessLink as Link } from "../components/business-link";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
 import { SingleSelect } from "../components/single-select";
@@ -186,6 +186,7 @@ export function TaskListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
   const [cancelRequestedTaskId, setCancelRequestedTaskId] = useState<string | null>(null);
   const [reviewingTask, setReviewingTask] = useState<Task | null>(null);
   const [reviewResult, setReviewResult] = useState<Verdict>("pass");
@@ -326,6 +327,23 @@ export function TaskListPage() {
     });
   }
 
+  async function refreshTasks() {
+    if (manualRefreshing) return;
+    setActionError(null);
+    setManualRefreshing(true);
+    try {
+      const [taskResult, statsResult] = await Promise.all([
+        tasks.refetch(),
+        stats.refetch(),
+      ]);
+      if (taskResult.isError || statsResult.isError) {
+        setActionError("刷新执行记录失败，请稍后重试。");
+      }
+    } finally {
+      setManualRefreshing(false);
+    }
+  }
+
   if (tasks.isPending) return <p className="panel">正在加载任务...</p>;
   if (tasks.isError) return <p className="panel form-error">执行记录加载失败：{(tasks.error as Error).message}</p>;
 
@@ -454,13 +472,11 @@ export function TaskListPage() {
         <button
           type="button"
           className="secondary-button compact"
-          onClick={() => {
-            void tasks.refetch();
-            void stats.refetch();
-          }}
+          disabled={manualRefreshing}
+          onClick={() => void refreshTasks()}
         >
           <RefreshIcon />
-          刷新
+          {manualRefreshing ? "刷新中..." : "刷新"}
         </button>
       </div>
 

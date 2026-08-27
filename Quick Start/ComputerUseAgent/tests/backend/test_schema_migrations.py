@@ -245,6 +245,71 @@ def _insert_plan_execution(
     )
 
 
+def test_task_start_state_migration_preserves_unknown_dispatch_boundary():
+    engine = create_engine("sqlite://")
+    now = datetime(2026, 8, 24, 8, 0, tzinfo=UTC)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE test_cases (id VARCHAR(40) PRIMARY KEY)"))
+            connection.execute(text("INSERT INTO test_cases (id) VALUES ('case_start_state')"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE tasks (
+                        id VARCHAR(40) PRIMARY KEY,
+                        case_id VARCHAR(40) NOT NULL,
+                        script_version_id VARCHAR(40),
+                        runner_type VARCHAR(32) NOT NULL,
+                        scenario VARCHAR(32) NOT NULL,
+                        execution_status VARCHAR(15) NOT NULL,
+                        verdict VARCHAR(12),
+                        failure_type VARCHAR(64),
+                        idempotency_key VARCHAR(255) NOT NULL,
+                        request_fingerprint VARCHAR NOT NULL,
+                        remote_run_id VARCHAR,
+                        version INTEGER NOT NULL,
+                        created_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, case_id, runner_type, scenario, execution_status,
+                        idempotency_key, request_fingerprint, remote_run_id,
+                        version, created_at
+                    ) VALUES
+                        ('queued', 'case_start_state', 'mock', 'queued', 'queued',
+                         'q', '{}', NULL, 1, :now),
+                        ('unknown', 'case_start_state', 'mock', 'unknown', 'running',
+                         'u', '{}', NULL, 1, :now),
+                        ('attached', 'case_start_state', 'mock', 'attached', 'running',
+                         'a', '{}', 'run-1', 1, :now)
+                    """
+                ),
+                {"now": now},
+            )
+
+        Base.metadata.create_all(engine)
+        ensure_schema_migrations(engine)
+
+        columns = {column["name"] for column in inspect(engine).get_columns("tasks")}
+        assert {"start_state", "start_attempted_at"} <= columns
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT id, start_state FROM tasks ORDER BY id")
+            ).all()
+        assert rows == [
+            ("attached", "attached"),
+            ("queued", "pending"),
+            ("unknown", "dispatching"),
+        ]
+    finally:
+        engine.dispose()
+
+
 def test_discovered_pods_legacy_schema_is_migrated_for_current_model():
     engine = create_engine("sqlite://")
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
@@ -1229,3 +1294,45 @@ def test_every_tag_color_candidate_contrasts_with_its_composited_background():
         _contrast_ratio(color, _composite_over_white(color)) >= 4.5
         for color in _TAG_COLOR_CANDIDATES
     )
+
+
+def test_schedule_tables_exist_after_migration():
+    engine = create_engine("sqlite://")
+    try:
+        Base.metadata.create_all(engine)
+        ensure_schema_migrations(engine)
+
+        tables = set(inspect(engine).get_table_names())
+        assert "test_plan_schedules" in tables
+        assert "schedule_events" in tables
+
+        schedule_columns = {
+            col["name"]
+            for col in inspect(engine).get_columns("test_plan_schedules")
+        }
+        assert {
+            "id", "business_id", "test_plan_id", "cron_expr", "timezone",
+            "enabled", "next_run_at", "last_run_at", "last_skip_reason",
+            "execution_config", "created_by", "created_at", "updated_at",
+        }.issubset(schedule_columns)
+
+        event_columns = {
+            col["name"]
+            for col in inspect(engine).get_columns("schedule_events")
+        }
+        assert {
+            "id", "schedule_id", "business_id", "event_type", "trigger_type",
+            "scheduled_for", "fired_at", "plan_execution_id",
+            "skip_reason", "error_message", "created_at",
+        }.issubset(event_columns)
+
+        indexes = {
+            idx["name"]
+            for idx in inspect(engine).get_indexes("test_plan_schedules")
+        }
+        assert "ix_schedule_enabled_next_run" in indexes
+
+        fks = inspect(engine).get_foreign_keys("schedule_events")
+        assert any(fk["referred_table"] == "test_plan_schedules" for fk in fks)
+    finally:
+        engine.dispose()

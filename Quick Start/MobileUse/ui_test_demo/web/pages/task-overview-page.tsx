@@ -3,13 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { CopyButton } from "../components/copy-button";
 import { RuntimeConfigSnapshot } from "../components/runtime-config-snapshot";
 import { StatusBadge } from "../components/status-badge";
-import { formatChinaDateTime, formatTaskElapsedTime } from "../utils/time";
+import { formatChinaDateTime, formatDurationSeconds, formatTaskElapsedTime } from "../utils/time";
+import { failureTypeLabel } from "../utils/task-status";
 import type {
   RuntimeScreenshot,
   Task,
   TaskRuntimeResponse,
+  TestCase,
 } from "../api/types";
 import { mergeRuntimeThreadSteps, runtimeToolCount } from "../utils/runtime-trace";
 
@@ -97,11 +100,25 @@ type ScreenshotEntry = {
 
 const TERMINAL_STATUSES = ["result_ready", "cancelled"];
 
+function numericSuffix(key: string): number | null {
+  const match = key.match(/-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function compareScreenshotKeys(leftKey: string, rightKey: string) {
+  const leftSuffix = numericSuffix(leftKey);
+  const rightSuffix = numericSuffix(rightKey);
+  if (leftSuffix !== null && rightSuffix !== null && leftSuffix !== rightSuffix) {
+    return leftSuffix - rightSuffix;
+  }
+  return leftKey.localeCompare(rightKey);
+}
+
 function screenshotEntries(
   screenshots: Record<string, RuntimeScreenshot> | undefined,
 ): ScreenshotEntry[] {
   return Object.entries(screenshots ?? {})
-    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .sort(([leftKey], [rightKey]) => compareScreenshotKeys(leftKey, rightKey))
     .flatMap(([key, data]) => {
       const url = data.screenshot ?? data.original_screenshot;
       if (!url) return [];
@@ -122,8 +139,19 @@ function remoteStatusCode(
   return data?.current_step?.status ?? item.remote_status_code ?? firstThreadTask?.status;
 }
 
+function currentPhaseLabel(data: TaskRuntimeResponse | undefined): string | null {
+  if (data?.current_phase?.type !== "device_prepare") return null;
+  if (data.current_phase.action === "reset") return "正在重置设备";
+  if (data.current_phase.action === "reboot") return "正在重启设备";
+  return null;
+}
+
 function isTerminalStatus(status: string) {
   return TERMINAL_STATUSES.includes(status);
+}
+
+function shouldCollapseCaseContent(value: string): boolean {
+  return value.length > 240 || value.split(/\r?\n/).length > 6;
 }
 
 export function TaskOverviewPage() {
@@ -147,9 +175,16 @@ export function TaskOverviewPage() {
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(0);
+  const [caseContentExpanded, setCaseContentExpanded] = useState(false);
   const [failedScreenshots, setFailedScreenshots] = useState<Set<string>>(() => new Set());
   const [recordingFailed, setRecordingFailed] = useState(false);
   const loadedItem = runtime.data?.task ?? task.data ?? null;
+  const caseDetail = useQuery({
+    enabled: Boolean(loadedItem?.case_id),
+    queryKey: ["task-case-content", loadedItem?.case_id],
+    queryFn: () => api.get<TestCase>(`/cases/${loadedItem?.case_id ?? ""}`),
+    retry: false,
+  });
   const isTerminal = loadedItem ? isTerminalStatus(loadedItem.execution_status) : true;
   const result = runtime.data?.result ?? {
     summary: loadedItem?.result_summary ?? null,
@@ -165,11 +200,17 @@ export function TaskOverviewPage() {
   const files = result.assets.files ?? [];
   const usage = result.assets.usage ?? {};
   const firstThreadTask = runtime.data?.thread_groups.flatMap((group) => group.tasks)[0];
+  const phaseLabel = currentPhaseLabel(runtime.data);
   const visibleThreadSteps = isTerminal
     ? mergeRuntimeThreadSteps(threadSteps, runtime.data?.thread_steps ?? [])
     : [];
   const toolCount = isTerminal ? runtimeToolCount(visibleThreadSteps) : null;
-  const durationText = loadedItem
+  const remoteDurationSeconds = isTerminal && typeof result.assets.duration_ms === "number"
+    ? result.assets.duration_ms / 1000
+    : null;
+  const durationText = remoteDurationSeconds !== null
+    ? formatDurationSeconds(remoteDurationSeconds)
+    : loadedItem
     ? formatTaskElapsedTime(
       loadedItem.execution_status,
       loadedItem.started_at,
@@ -192,6 +233,10 @@ export function TaskOverviewPage() {
   useEffect(() => {
     setThreadSteps([]);
   }, [taskId]);
+
+  useEffect(() => {
+    setCaseContentExpanded(false);
+  }, [loadedItem?.case_id]);
 
   useEffect(() => {
     if (!runtime.data) return;
@@ -234,8 +279,12 @@ export function TaskOverviewPage() {
               <MetricGlyph type="status" />
             </span>
             <span className="runtime-metric-copy">
-              <span className="runtime-metric-label">远端状态</span>
-              <strong>{statusText(remoteStatusCode(runtime.data, item))}</strong>
+              <span className="runtime-metric-label">
+                {phaseLabel ? "当前阶段" : "远端状态"}
+              </span>
+              <strong>
+                {phaseLabel ?? statusText(remoteStatusCode(runtime.data, item))}
+              </strong>
             </span>
           </div>
           <div className="runtime-metric-pill token-in">
@@ -423,6 +472,62 @@ export function TaskOverviewPage() {
           )}
         </section>
 
+        <section
+          className="table-card runtime-card task-overview-case"
+          aria-label="用例内容"
+        >
+          <div className="section-heading">
+            <div>
+              <h2>用例内容</h2>
+              {caseDetail.data && (
+                <p className="muted small runtime-case-meta">
+                  <span>{caseDetail.data.module ?? "未分组"}</span>
+                  <code translate="no">{caseDetail.data.id}</code>
+                </p>
+              )}
+            </div>
+            {caseDetail.data?.content_markdown?.trim() && (
+              <div className="section-actions">
+                <CopyButton
+                  value={caseDetail.data.content_markdown}
+                  label="用例内容"
+                />
+                {shouldCollapseCaseContent(caseDetail.data.content_markdown) && (
+                  <button
+                    type="button"
+                    className="text-button runtime-case-toggle"
+                    aria-expanded={caseContentExpanded}
+                    aria-label={caseContentExpanded ? "收起用例内容" : "展开用例内容"}
+                    onClick={() => setCaseContentExpanded((current) => !current)}
+                  >
+                    {caseContentExpanded ? "收起" : "展开"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {caseDetail.isLoading ? (
+            <p className="muted">正在加载用例内容...</p>
+          ) : caseDetail.isError ? (
+            <p className="muted">用例内容不可用。</p>
+          ) : caseDetail.data?.content_markdown?.trim() ? (
+            <>
+              <strong className="runtime-case-title">
+                {caseDetail.data.title}
+              </strong>
+              <pre
+                className={`runtime-case-content${
+                  caseContentExpanded ? " expanded" : ""
+                }`}
+              >
+                {caseDetail.data.content_markdown}
+              </pre>
+            </>
+          ) : (
+            <p className="muted">暂无用例内容。</p>
+          )}
+        </section>
+
         <section className="table-card runtime-card task-overview-meta">
           <div className="section-heading">
             <h2>任务信息</h2>
@@ -430,7 +535,7 @@ export function TaskOverviewPage() {
           <dl className="runtime-meta-grid">
             <div><dt>用例ID</dt><dd className="mono" title={item.case_id}>{item.case_id}</dd></div>
             <div><dt>设备ID</dt><dd className="mono" title={firstThreadTask?.pod_id ?? undefined}>{firstThreadTask?.pod_id ?? "-"}</dd></div>
-            <div><dt>失败类型</dt><dd className={item.failure_type ? "form-error" : undefined}>{item.failure_type ?? "-"}</dd></div>
+            <div><dt>失败类型</dt><dd className={item.failure_type ? "form-error" : undefined}>{failureTypeLabel(item.failure_type)}</dd></div>
             <div><dt>创建时间</dt><dd>{formatChinaDateTime(item.created_at)}</dd></div>
             <div><dt>开始时间</dt><dd>{formatChinaDateTime(item.started_at)}</dd></div>
             <div><dt>完成时间</dt><dd>{formatChinaDateTime(item.finished_at)}</dd></div>

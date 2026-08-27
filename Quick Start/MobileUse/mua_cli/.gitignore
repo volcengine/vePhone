@@ -1,0 +1,32 @@
+# Python 编译缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# 环境变量与本地配置（含真实凭证，严禁上传）
+.env
+.env.local
+.env.*.local
+
+# 本地凭证存储
+.credentials.json
+credentials*.json
+*.pem
+*.key
+
+# 火山引擎 / TOS / 方舟相关密钥文件
+*.secret
+*token*
+
+# IDE / 系统
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# 测试产物
+.pytest_cache/
+.coverage
+htmlcov/

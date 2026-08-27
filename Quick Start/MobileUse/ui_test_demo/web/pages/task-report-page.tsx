@@ -4,6 +4,7 @@ import { useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { TaskReport } from "../api/types";
 import { StatusBadge } from "../components/status-badge";
+import { failureTypeLabel } from "../utils/task-status";
 
 function emptyFriendlyError(error: unknown) {
   if (!error) return null;
@@ -81,7 +82,9 @@ export function TaskReportPage() {
               <p className="muted">Agent 未返回摘要信息。</p>
             )}
             {data.failure_type && (
-              <p className="form-error" style={{ marginTop: 8 }}>失败类型：{data.failure_type}</p>
+              <p className="form-error" style={{ marginTop: 8 }}>
+                失败类型：{failureTypeLabel(data.failure_type)}
+              </p>
             )}
           </div>
         </div>

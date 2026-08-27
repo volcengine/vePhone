@@ -144,6 +144,11 @@ Execution flow:
    evidence, trace spans, and reports.
 8. Frontend reads task details and trace data from local APIs.
 
+During single-instance shutdown, the Worker enters draining state and stops
+accepting new work. Active tasks may finish for up to
+`TASK_WORKER_DRAIN_TIMEOUT_SECONDS`; after a restart, the new process recovers
+unfinished remote tasks and continues polling them with their stored `RunId`.
+
 ## CUA Runner Flow
 
 The CUA execution flow uses Volcengine Universal API requests:
@@ -194,8 +199,9 @@ The node pool turns CUA node availability into task scheduling decisions.
 5. Creating a task records the requested allocation strategy.
 6. Before running, the backend creates a local `pod_leases` row for the selected
    `Ecsid`.
-7. Terminal task states, cancellation, failure, or startup cleanup release the
-   lease.
+7. Terminal task states, cancellation, failure, or startup cleanup normally
+   release the lease. An unknown remote start outcome keeps the lease until the
+   possible remote execution timeout plus the 30-second safety interval elapses.
 
 This mechanism does not start, stop, rebuild, or fence cloud resources. It only
 coordinates task assignment inside one backend instance.
@@ -253,6 +259,10 @@ The current architecture intentionally favors a small deployment footprint:
 - No external queue.
 - No distributed lock.
 - No multi-instance task fencing.
+
+Readiness returns HTTP 503 while the Worker is draining and until startup
+recovery completes. Restart this single instance in place; never overlap old
+and new processes against the same SQLite file.
 
 If horizontal scaling is required, redesign task claiming, CUA node leases,
 database storage, and scheduler ownership first. Do not simply run multiple

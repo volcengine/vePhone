@@ -15,6 +15,14 @@ function displayValue(value: unknown, fallback = "-"): string {
   return String(value);
 }
 
+function podIdDisplay(config: TaskExecutionConfig): string {
+  if (config.pod_id) return config.pod_id;
+  if (config.device_strategy === "specified" && config.pod_ids?.length) {
+    return config.pod_ids.join(", ");
+  }
+  return "自动分配";
+}
+
 function formatJson(value: unknown): string {
   if (typeof value === "string") {
     try {
@@ -101,12 +109,20 @@ export function RuntimeConfigSnapshot({
     ? "自定义配置"
     : config.source === "global"
       ? "全局配置"
-      : "历史配置";
+      : config.source === "case_default"
+        ? "用例默认配置"
+        : "历史配置";
+  const devicePrepareLabel = config.device_prepare_action === "reset"
+    ? "重置设备"
+    : config.device_prepare_action === "reboot"
+      ? "重启设备"
+      : "不处理";
   const requestHeaderNames = config.request_headers?.names ?? [];
   const requestHeaderItems = config.request_headers?.items?.length
     ? config.request_headers.items
     : requestHeaderNames.map((name) => ({ name, value: "-" }));
   const requestHeadersConfigured = Boolean(config.request_headers?.configured);
+  const podIdText = podIdDisplay(config);
   const advanced = [
     ["SystemPrompt", config.system_prompt],
     ["McpJson", config.mcp_json],
@@ -155,8 +171,8 @@ export function RuntimeConfigSnapshot({
         </div>
         <div>
           <span>PodID</span>
-          <code translate="no" title={config.pod_id ?? undefined}>
-            {config.pod_id || "自动分配"}
+          <code translate="no" title={podIdText === "自动分配" ? undefined : podIdText}>
+            {podIdText}
           </code>
         </div>
         <div>
@@ -177,8 +193,21 @@ export function RuntimeConfigSnapshot({
             label="Timeout"
             value={config.timeout_seconds == null ? "-" : `${config.timeout_seconds} s`}
           />
+          <ConfigRow
+            label="设备等待超时"
+            value={
+              config.device_wait_timeout_seconds == null
+                ? "-"
+                : `${config.device_wait_timeout_seconds} s`
+            }
+          />
           <ConfigRow label="MaxStep" value={displayValue(config.max_step)} />
           <ConfigRow label="RetryLimit" value={displayValue(config.retry_limit)} />
+          <ConfigRow
+            label="设备启动前处理"
+            value={devicePrepareLabel}
+            positive={config.device_prepare_action !== "none"}
+          />
           <ConfigRow
             label="MaxOutputTokens"
             value={displayValue(config.max_output_tokens, "默认")}

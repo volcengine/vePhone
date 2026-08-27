@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type {
@@ -9,6 +8,7 @@ import type {
   CaseImportPreviewItem,
   CaseImportPreviewResponse,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { PageHeader } from "../components/page-header";
 
 const sampleCsv = `title,module,tags,content_markdown
@@ -60,7 +60,7 @@ function summaryText(item: CaseImportPreviewItem): string {
     .split(/\r?\n/)
     .map((line) => line.replace(/^#+\s*/, "").replace(/^-\s*/, "").trim())
     .filter(Boolean);
-  return lines.slice(0, 2).join("，") || "内容为空";
+  return lines.join("，") || "内容为空";
 }
 
 function friendlyImportError(error: unknown): string {
@@ -334,37 +334,40 @@ export function CaseImportPreviewPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
-                <tr key={`${row.row}-${row.draft.title}`}>
-                  <td>{index + 1}</td>
-                  <td>{row.draft.title}</td>
-                  <td>{row.draft.module ?? "-"}</td>
-                  <td>
-                    <div className="tag-list">
-                      {(row.draft.tags ?? []).map((tag) => (
-                        <span className="tag tag-primary" key={tag}>{tag}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>{summaryText(row)}</td>
-                  <td>
-                    <span className={`case-import-status ${row.status === "valid" ? "success" : row.status === "warning" ? "warning" : "danger"}`}>
-                      {statusLabel(row.status)}
-                    </span>
-                  </td>
-                  <td>{row.messages.length > 0 ? row.messages.join("；") : "-"}</td>
-                  <td>
-                    <button
-                      type="button"
-                      aria-label={`移除 ${row.draft.title || `第 ${row.row} 行`}`}
-                      className="case-import-remove-button"
-                      onClick={() => removePreviewRow(row)}
-                    >
-                      移除
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row, index) => {
+                const summary = summaryText(row);
+                return (
+                  <tr key={`${row.row}-${row.draft.title}`}>
+                    <td>{index + 1}</td>
+                    <td>{row.draft.title}</td>
+                    <td>{row.draft.module ?? "-"}</td>
+                    <td>
+                      <div className="tag-list">
+                        {(row.draft.tags ?? []).map((tag) => (
+                          <span className="tag tag-primary" key={tag}>{tag}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="case-import-summary-cell" title={summary}>{summary}</td>
+                    <td>
+                      <span className={`case-import-status ${row.status === "valid" ? "success" : row.status === "warning" ? "warning" : "danger"}`}>
+                        {statusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td>{row.messages.length > 0 ? row.messages.join("；") : "-"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        aria-label={`移除 ${row.draft.title || `第 ${row.row} 行`}`}
+                        className="case-import-remove-button"
+                        onClick={() => removePreviewRow(row)}
+                      >
+                        移除
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

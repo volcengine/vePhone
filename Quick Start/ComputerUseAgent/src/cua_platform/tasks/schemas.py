@@ -35,10 +35,13 @@ class TaskExecutionConfig(BaseModel):
     account_id: str | None = None
     product_id: str | None = None
     pod_id: str | None = None
+    device_strategy: str | None = None
+    pod_ids: list[str] | None = None
     tos_bucket: str | None = None
     tos_endpoint: str | None = None
     tos_region: str | None = None
     timeout_seconds: int | None = None
+    device_wait_timeout_seconds: int | None = None
     use_base64_screenshot: bool | None = None
     max_step: int | None = None
     callback_info: dict[str, Any] | None = None
@@ -121,6 +124,11 @@ class TaskBatchCreateRequest(BaseModel):
     device_strategy: Literal["automatic", "specified"]
     pod_ids: list[str] = Field(default_factory=list, max_length=20)
     concurrency: int = Field(ge=1, le=20)
+    device_wait_timeout_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        le=86400,
+    )
     timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
     agent_config_mode: Literal["global", "custom", "case_default"] = "global"
     agent_options: dict[str, Any] | None = None

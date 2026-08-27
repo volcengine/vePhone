@@ -109,6 +109,7 @@ http://localhost:8001
 | `TASK_EXECUTION_TIMEOUT_SECONDS` | `600` | 单个本地任务的最长运行时间，单位秒。 |
 | `CANCEL_CONFIRM_TIMEOUT_SECONDS` | `30` | 取消任务后等待远端确认的最长时间，单位秒。 |
 | `DEVICE_WAIT_TIMEOUT_SECONDS` | `300` | 指定节点不可用时任务最多等待多久后失败。 |
+| `TASK_WORKER_DRAIN_TIMEOUT_SECONDS` | `30` | 服务停机时等待当前 Worker 任务自然结束的最长时间，范围 1-30 秒。 |
 | `TASK_WORKER_CONCURRENCY` | `16` | 后端 Worker 全局最大并发数。 |
 
 ### CUA 配置

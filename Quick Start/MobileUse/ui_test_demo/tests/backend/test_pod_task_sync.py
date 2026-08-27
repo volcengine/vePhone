@@ -9,7 +9,7 @@ from mua_platform.db import Base
 from mua_platform.pods.models import DiscoveredPod
 from mua_platform.pods.repository import PodRepository
 from mua_platform.runners.base import PollResult, RunHandle, RunnerEvent
-from mua_platform.tasks.models import PodLease, Task
+from mua_platform.tasks.models import PodLease, Task, TaskRunnerConfig
 from mua_platform.tasks.repository import SQLiteTaskRepository
 from mua_platform.tasks.service import TaskService
 from mua_platform.tasks.state_machine import ExecutionStatus
@@ -96,6 +96,60 @@ def test_pool_snapshot_maps_queued_task_from_product_scoped_lease_key():
         engine.dispose()
 
 
+def test_claim_does_not_set_local_execution_deadline():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 7, 28, 3, 0, tzinfo=UTC)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            case = CaseModel(
+                id="case_timeout",
+                title="超时用例",
+                module=None,
+                content_markdown="## 执行任务\n验证超时",
+                tags=[],
+                automation_level="auto",
+                created_by="admin",
+            )
+            task = Task(
+                id="task_timeout",
+                case_id=case.id,
+                script_version_id=None,
+                prompt_snapshot=case.content_markdown,
+                runner_type="mobile_use",
+                scenario="验证超时",
+                created_by="admin",
+                execution_status=ExecutionStatus.QUEUED,
+                idempotency_key="timeout-key",
+                request_fingerprint="{}",
+                version=1,
+            )
+            config = TaskRunnerConfig(
+                task_id=task.id,
+                config_snapshot={
+                    "pod_id": "pod_timeout",
+                    "product_id": "product_timeout",
+                    "timeout_seconds": 1800,
+                },
+            )
+            db.add_all([case, task, config])
+            db.commit()
+
+            claimed = SQLiteTaskRepository(db).claim(
+                task.id,
+                "worker:default",
+                now,
+                timedelta(seconds=30),
+                execution_timeout=timedelta(seconds=600),
+            )
+
+            assert claimed is not None
+            assert claimed.deadline_at is None
+            assert claimed.runner_config_snapshot["timeout_seconds"] == 1800
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
 async def test_running_task_renews_its_pod_lease_before_remote_poll(monkeypatch):
     engine = create_engine("sqlite://")
@@ -124,7 +178,7 @@ async def test_running_task_renews_its_pod_lease_before_remote_poll(monkeypatch)
                 idempotency_key="renew-key",
                 request_fingerprint="{}",
                 remote_run_id="run_renew",
-                deadline_at=now + timedelta(minutes=10),
+                deadline_at=now - timedelta(seconds=1),
                 version=1,
             )
             lease = PodLease(

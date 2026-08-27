@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 
-import { renderApp, server } from "./setup";
+import { renderApp, server, user } from "./setup";
 
 const STYLES = readFileSync("web/styles.css", "utf8");
 
@@ -68,10 +68,12 @@ it("keeps the trace timeline narrower than the realtime stream area on desktop",
 });
 
 it("renders trace timeline with current step during execution", async () => {
+  let runtimeRequestSearch = "";
   server.use(
     http.get("/api/v1/tasks/task_trace", () => HttpResponse.json(runningTask)),
-    http.get("/api/v1/tasks/task_trace/runtime", () =>
-      HttpResponse.json({
+    http.get("/api/v1/tasks/task_trace/runtime", ({ request }) => {
+      runtimeRequestSearch = new URL(request.url).search;
+      return HttpResponse.json({
         task: runningTask,
         execution_config: executionConfig,
         current_step: {
@@ -133,8 +135,8 @@ it("renders trace timeline with current step during execution", async () => {
           assets: {},
         },
         errors: {},
-      }),
-    ),
+      });
+    }),
   );
 
   renderApp("/tasks/task_trace/trace");
@@ -146,9 +148,10 @@ it("renders trace timeline with current step during execution", async () => {
   expect(screen.getByText("自动刷新中")).toBeVisible();
   expect(screen.getByLabelText("CUA noVNC 实时画面")).toBeVisible();
   expect(screen.getByRole("button", { name: "查看画面" })).toBeEnabled();
+  expect(runtimeRequestSearch).toBe("");
 });
 
-it("keeps only current-step snapshots on the timeline after completion", async () => {
+it("shows thread detail steps on the timeline after completion", async () => {
   server.use(
     http.get("/api/v1/tasks/task_trace", () => HttpResponse.json(completedTask)),
     http.get("/api/v1/tasks/task_trace/runtime", () =>
@@ -200,12 +203,12 @@ it("keeps only current-step snapshots on the timeline after completion", async (
 
   await screen.findByText("执行步骤详情");
   expect(screen.queryByText("当前步骤")).not.toBeInTheDocument();
-  expect(screen.queryByText("observe")).not.toBeInTheDocument();
-  expect(screen.queryByText("tap")).not.toBeInTheDocument();
-  expect(screen.getByText("finished")).toBeVisible();
+  expect(screen.getByText("observe")).toBeVisible();
+  expect(screen.getByText("tap")).toBeVisible();
+  expect(screen.queryByText("finished")).not.toBeInTheDocument();
 });
 
-it("hides current step card when task is completed but keeps final current-step snapshot", async () => {
+it("hides current step card when task is completed and shows returned thread detail", async () => {
   server.use(
     http.get("/api/v1/tasks/task_trace", () => HttpResponse.json(completedTask)),
     http.get("/api/v1/tasks/task_trace/runtime", () =>
@@ -266,7 +269,50 @@ it("hides current step card when task is completed but keeps final current-step 
   await screen.findByText("执行步骤详情");
   expect(screen.queryByText("当前步骤")).not.toBeInTheDocument();
   expect(screen.queryByText("自动刷新中")).not.toBeInTheDocument();
-  expect(screen.queryByText("observe")).not.toBeInTheDocument();
-  expect(screen.queryByText("tap")).not.toBeInTheDocument();
+  expect(screen.getByText("observe")).toBeVisible();
+  expect(screen.getByText("tap")).toBeVisible();
   expect(await screen.findByText("finished")).toBeVisible();
+});
+
+it("shows the latest twenty retained current-step actions by default and can expand all", async () => {
+  const results = Array.from({ length: 25 }, (_, index) => ({
+    Action: `action-${index + 1}`,
+    Param: { index: index + 1 },
+    StepResult: { IsSuccess: true, Result: `result-${index + 1}` },
+    Timestamp: `2026-07-28T11:${String(index + 1).padStart(2, "0")}:00+08:00`,
+  }));
+  server.use(
+    http.get("/api/v1/tasks/task_trace", () => HttpResponse.json(completedTask)),
+    http.get("/api/v1/tasks/task_trace/runtime", () =>
+      HttpResponse.json({
+        task: completedTask,
+        execution_config: executionConfig,
+        current_step: {
+          run_id: "run-current",
+          thread_id: "thread-xyz",
+          status: 3,
+          step_id: "finished",
+          results,
+        },
+        thread_groups: [],
+        thread_steps: [],
+        result: { summary: "任务完成", evidence: [], recording_url: null, assets: {} },
+        errors: {},
+      }),
+    ),
+  );
+
+  renderApp("/tasks/task_trace/trace");
+
+  await screen.findByText("执行步骤详情");
+  expect(screen.queryByText("action-1")).not.toBeInTheDocument();
+  expect(screen.getByText("action-6")).toBeVisible();
+  expect(screen.getByText("action-25")).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "展开全部 25 步" }));
+  expect(screen.getByText("action-1")).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "收起到最近 20 步" }));
+  expect(screen.queryByText("action-1")).not.toBeInTheDocument();
+  expect(screen.getByText("action-25")).toBeVisible();
 });

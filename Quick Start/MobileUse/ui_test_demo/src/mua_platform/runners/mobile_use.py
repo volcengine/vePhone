@@ -41,6 +41,13 @@ _REMOTE_TASK_FAILED_STATES = {
     6: "failed",
     7: "interrupted",
 }
+_DEVICE_PREPARE_POLL_TIMEOUTS = {
+    "wait_power_off": 120,
+    "wait_power_on": 180,
+    "wait_reboot_running": 180,
+    "wait_reset_task": 300,
+    "wait_reset_running": 180,
+}
 logger = logging.getLogger("mua_platform.mobile_use")
 
 
@@ -113,6 +120,7 @@ class MobileUseRunner:
                 "response_invalid",
                 "runner_interrupted",
                 remote.request_id,
+                start_outcome_unknown=True,
             )
         _log(
             logging.INFO,
@@ -123,6 +131,172 @@ class MobileUseRunner:
             request_id=remote.request_id,
         )
         return RunHandle(request.task_id, self.runner_type, remote.run_id, remote.thread_id)
+
+    async def prepare_device(self, request: RunRequest) -> dict[str, object] | None:
+        action = self._config.device_prepare_action
+        if action == "none":
+            return None
+        try:
+            self._validate_config()
+        except RunnerFailure as exc:
+            raise RunnerFailure(
+                exc.code,
+                "device_prepare_failed",
+                exc.request_id,
+            ) from None
+        if not self._config.product_id or not self._config.pod_id:
+            raise RunnerFailure(
+                "device_prepare_config_missing",
+                "device_prepare_failed",
+            )
+        try:
+            if action == "reset":
+                result = await self._prepare_reset()
+            elif action == "reboot":
+                result = await self._prepare_reboot()
+            else:
+                raise RunnerFailure(
+                    "device_prepare_action_invalid",
+                    "device_prepare_failed",
+                )
+        except UniversalRemoteError as exc:
+            raise RunnerFailure(
+                exc.code,
+                "device_prepare_failed",
+                exc.request_id,
+            ) from None
+        _log(
+            logging.INFO,
+            "mobile_use_device_prepare_dispatched",
+            task_id=request.task_id,
+            action=action,
+            product_id=self._config.product_id,
+            pod_id=self._config.pod_id,
+            remote_task_id=result.get("remote_task_id"),
+            request_id=result.get("request_id"),
+        )
+        return result
+
+    async def _prepare_reboot(self) -> dict[str, object]:
+        current = await self._detail_pod_status("precheck_reboot")
+        if current != 1:
+            raise RunnerFailure(
+                "device_prepare_pod_not_running",
+                "device_prepare_failed",
+            )
+        remote = await self._gateway.reboot_host(
+            self._config,
+            product_id=self._config.product_id or "",
+            pod_id=self._config.pod_id or "",
+        )
+        await self._wait_pod_status(1, "wait_reboot_running")
+        return {
+            "action": "reboot",
+            "request_id": remote.request_id,
+            "remote_task_id": remote.task_id,
+        }
+
+    async def _prepare_reset(self) -> dict[str, object]:
+        current = await self._detail_pod_status("precheck_reset")
+        if current != 2:
+            power_off = await self._gateway.power_off_pod(
+                self._config,
+                product_id=self._config.product_id or "",
+                pod_id=self._config.pod_id or "",
+            )
+            await self._wait_pod_status(2, "wait_power_off")
+            _log(
+                logging.INFO,
+                "mobile_use_device_prepare_power_off_done",
+                product_id=self._config.product_id,
+                pod_id=self._config.pod_id,
+                request_id=power_off.request_id,
+            )
+        remote = await self._gateway.reset_host(
+            self._config,
+            product_id=self._config.product_id or "",
+            pod_id=self._config.pod_id or "",
+        )
+        if not remote.task_id:
+            raise RunnerFailure(
+                "response_invalid",
+                "device_prepare_failed",
+                remote.request_id,
+            )
+        await self._wait_task_succeeded(remote.task_id, "wait_reset_task")
+        await self._gateway.power_on_pod(
+            self._config,
+            product_id=self._config.product_id or "",
+            pod_id=self._config.pod_id or "",
+        )
+        await self._wait_pod_status(1, "wait_power_on")
+        return {
+            "action": "reset",
+            "request_id": remote.request_id,
+            "remote_task_id": remote.task_id,
+        }
+
+    async def _detail_pod_status(self, stage: str) -> int:
+        try:
+            remote = await self._gateway.detail_pod_status(
+                self._config,
+                product_id=self._config.product_id or "",
+                pod_id=self._config.pod_id or "",
+            )
+        except UniversalRemoteError as exc:
+            raise RunnerFailure(
+                exc.code,
+                "device_prepare_failed",
+                exc.request_id,
+            ) from None
+        if remote.online not in {0, 1, 2, 3, 4}:
+            raise RunnerFailure(
+                f"{stage}_status_invalid",
+                "device_prepare_failed",
+                remote.request_id,
+            )
+        return remote.online
+
+    async def _wait_pod_status(self, expected: int, stage: str) -> None:
+        attempts = self._prepare_wait_attempts(stage)
+        for _ in range(attempts):
+            if await self._detail_pod_status(stage) == expected:
+                return
+            if self._poll_interval > 0:
+                await self._clock.sleep(self._poll_interval)
+        raise RunnerFailure("device_prepare_timeout", "device_prepare_failed")
+
+    async def _wait_task_succeeded(self, task_id: str, stage: str) -> None:
+        attempts = self._prepare_wait_attempts(stage)
+        for _ in range(attempts):
+            try:
+                remote = await self._gateway.get_task_info(
+                    self._config,
+                    product_id=self._config.product_id or "",
+                    task_id=task_id,
+                )
+            except UniversalRemoteError as exc:
+                raise RunnerFailure(
+                    exc.code,
+                    "device_prepare_failed",
+                    exc.request_id,
+                ) from None
+            if remote.task_result == 100:
+                return
+            if isinstance(remote.task_result, int) and remote.task_result < 0:
+                raise RunnerFailure(
+                    "device_prepare_remote_task_failed",
+                    "device_prepare_failed",
+                    remote.request_id,
+                )
+            if self._poll_interval > 0:
+                await self._clock.sleep(self._poll_interval)
+        raise RunnerFailure("device_prepare_timeout", "device_prepare_failed")
+
+    def _prepare_wait_attempts(self, stage: str) -> int:
+        timeout = _DEVICE_PREPARE_POLL_TIMEOUTS.get(stage, 120)
+        interval = self._poll_interval if self._poll_interval > 0 else 1
+        return max(1, int(timeout / interval))
 
     async def poll(
         self,
@@ -368,7 +542,14 @@ def _runner_failure(exc: UniversalRemoteError) -> RunnerFailure:
         if exc.code in _DEVICE_ERROR_CODES
         else "runner_interrupted"
     )
-    return RunnerFailure(exc.code, failure_type, exc.request_id)
+    return RunnerFailure(
+        exc.code,
+        failure_type,
+        exc.request_id,
+        start_outcome_unknown=(
+            not exc.response_received or exc.code == "response_invalid"
+        ),
+    )
 
 
 def _task_status(payload: object, run_id: str) -> int | None:

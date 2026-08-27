@@ -129,9 +129,10 @@ APP_DATA_DIR=./data
 APP_SECRET_KEY=replace-with-a-stable-random-string-at-least-32-bytes
 APP_BASE_URL=http://127.0.0.1:8000
 TASK_WORKER_CONCURRENCY=16
+TASK_WORKER_DRAIN_TIMEOUT_SECONDS=30
 ```
 
-上面 5 个配置的作用：
+上面配置的作用：
 
 | 配置 | 建议值 | 作用 |
 | --- | --- | --- |
@@ -140,6 +141,7 @@ TASK_WORKER_CONCURRENCY=16
 | `APP_SECRET_KEY` | 自己生成一串至少 32 字节的随机字符串 | 用来加密保存云端密钥等敏感配置。部署后请固定不变。 |
 | `APP_BASE_URL` | `http://127.0.0.1:8000` 或实际访问地址 | 告诉系统自己的访问地址。换端口、换域名、加反向代理时需要同步修改。 |
 | `TASK_WORKER_CONCURRENCY` | `16` | 控制后端最多同时处理多少个任务。修改 `.env` 后需要重启服务才会生效。 |
+| `TASK_WORKER_DRAIN_TIMEOUT_SECONDS` | `30` | 收到 `SIGTERM` 后等待本地 Worker 排空的最长秒数，合法范围为 `1..30`。 |
 
 关于并发数要特别注意：
 
@@ -147,6 +149,7 @@ TASK_WORKER_CONCURRENCY=16
 - 每个业务空间默认上限为 `4`，可配置范围为 `1-8`。
 - 页面中测试计划/批次填写的“设备并发数”是本次运行的上限。
 - 本轮实际新增并发取全局剩余、业务剩余、批次剩余和当前业务可用设备数中的最小值。
+- 服务重启期间 readiness 会返回 `503`。已保存 `remote_run_id` 的远端任务会在新进程启动后恢复轮询，不会重新发起远端执行。
 
 4. 运行 `make dev` 启动服务。
 5. 打开 `http://127.0.0.1:8000`，创建第一个管理员账号，并在设置页面配置 Runner。

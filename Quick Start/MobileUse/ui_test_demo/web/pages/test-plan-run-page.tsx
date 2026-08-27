@@ -1,31 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Link,
   useBlocker,
-  useNavigate,
   useParams,
 } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   PlanExecutionCreate,
   PlanExecutionResponse,
-  PodPoolResponse,
   TestCaseListResponse,
   TestPlan,
 } from "../api/types";
 import {
   buildExecuteConfig,
   createExecutionConfigDraft,
+  DeviceWaitTimeoutField,
   ExecutionConfigFields,
   type ExecutionConfigDraft,
 } from "../components/execution-config-form";
+import { BusinessLink as Link } from "../components/business-link";
+import { DeviceStrategySelector, type DeviceStrategy } from "../components/device-strategy-selector";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
 
 type PageSize = 10 | 20 | 50;
-type DeviceStrategy = "automatic" | "specified";
 
 const MAX_PLAN_CONCURRENCY = 20;
 function createIdempotencyKey() {
@@ -48,15 +48,6 @@ function friendlyRunError(error: unknown): string {
   return error.message || "运行计划失败，请稍后重试。";
 }
 
-function formatPodIdentity(
-  pod: PodPoolResponse["items"][number],
-): string {
-  const podName = pod.pod_name?.trim();
-  return podName && podName !== pod.pod_id
-    ? `${podName} · ${pod.pod_id}`
-    : pod.pod_id;
-}
-
 function formatPodSelectionLimitError(
   selectedCount: number,
   concurrency: number,
@@ -66,7 +57,7 @@ function formatPodSelectionLimitError(
 
 export function TestPlanRunPage() {
   const { planId = "" } = useParams<{ planId: string }>();
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const queryClient = useQueryClient();
   const [deviceStrategy, setDeviceStrategy] =
     useState<DeviceStrategy>("automatic");
@@ -77,10 +68,14 @@ export function TestPlanRunPage() {
   const [scopePage, setScopePage] = useState(1);
   const [scopePageSize, setScopePageSize] = useState<PageSize>(10);
   const [validationError, setValidationError] = useState("");
-  const [selectionInvalidated, setSelectionInvalidated] = useState(false);
-  const [podSearch, setPodSearch] = useState("");
   const [completedExecutionId, setCompletedExecutionId] = useState("");
   const keyRef = useRef<{ fingerprint: string; key: string } | null>(null);
+  const podStateRef = useRef<{
+    isLoading: boolean;
+    isError: boolean;
+    isSuccess: boolean;
+    selectablePodIds: Set<string>;
+  }>({ isLoading: false, isError: false, isSuccess: false, selectablePodIds: new Set() });
 
   const plan = useQuery({
     queryKey: ["test-plan", planId],
@@ -114,16 +109,6 @@ export function TestPlanRunPage() {
       ]);
       setCompletedExecutionId(execution.id);
     },
-  });
-  const pods = useQuery({
-    queryKey: ["pod-pool", "plan-run"],
-    queryFn: () => api.post<PodPoolResponse>("/pod-pool/refresh"),
-    enabled: deviceStrategy === "specified",
-    refetchInterval: (
-      deviceStrategy === "specified" && !runPlan.isPending
-        ? 3000
-        : false
-    ),
   });
 
   const blocker = useBlocker(
@@ -159,47 +144,6 @@ export function TestPlanRunPage() {
       current.slice(0, maxConcurrency));
   }, [plan.data]);
 
-  const selectablePods = useMemo(
-    () => (pods.data?.items ?? []).filter(
-      (pod) =>
-        pod.discovery_state === "active"
-        && pod.pod_status_code === 1,
-    ),
-    [pods.data],
-  );
-  const selectablePodIds = useMemo(
-    () => new Set(selectablePods.map((pod) => pod.pod_id)),
-    [selectablePods],
-  );
-  const visibleSelectablePods = useMemo(() => {
-    const keyword = podSearch.trim().toLowerCase();
-    if (!keyword) return selectablePods;
-    return selectablePods.filter((pod) => {
-      const identity = `${pod.pod_name ?? ""} ${pod.pod_id} ${
-        pod.local_state ?? ""
-      }`.toLowerCase();
-      return identity.includes(keyword);
-    });
-  }, [podSearch, selectablePods]);
-
-  useEffect(() => {
-    if (runPlan.isPending || !pods.isSuccess || !pods.data) return;
-    const remaining = selectedPodIds.filter((podId) =>
-      selectablePodIds.has(podId));
-    if (remaining.length === selectedPodIds.length) return;
-    setSelectedPodIds(remaining);
-    setSelectionInvalidated(true);
-    setValidationError("设备状态已更新，请重新选择可用设备。");
-    runPlan.reset();
-  }, [
-    pods.data,
-    pods.isSuccess,
-    runPlan.isPending,
-    runPlan.reset,
-    selectablePodIds,
-    selectedPodIds,
-  ]);
-
   function changeConfiguration(change: () => void) {
     if (runPlan.isPending) return;
     change();
@@ -207,36 +151,29 @@ export function TestPlanRunPage() {
     runPlan.reset();
   }
 
-  function togglePod(podId: string) {
-    if (runPlan.isPending || !selectablePodIds.has(podId)) return;
-    const selected = selectedPodIds.includes(podId);
-    if (!selected && selectedPodIds.length >= concurrency) {
+  function handleConcurrencyChange(next: number) {
+    if (runPlan.isPending) return;
+    const maxConc = Math.max(
+      1,
+      Math.min(plan.data?.case_count ?? MAX_PLAN_CONCURRENCY, MAX_PLAN_CONCURRENCY),
+    );
+    const clamped = Math.max(1, Math.min(maxConc, next));
+    setConcurrency(clamped);
+    if (selectedPodIds.length > clamped) {
       setValidationError(
-        formatPodSelectionLimitError(selectedPodIds.length + 1, concurrency),
+        formatPodSelectionLimitError(selectedPodIds.length, clamped),
       );
-      runPlan.reset();
-      return;
+    } else {
+      setValidationError("");
     }
-    setSelectedPodIds((current) =>
-      current.includes(podId)
-        ? current.filter((item) => item !== podId)
-        : [...current, podId]);
-    setValidationError("");
-    setSelectionInvalidated(false);
     runPlan.reset();
   }
 
-  function selectDeviceStrategy(strategy: DeviceStrategy) {
-    changeConfiguration(() => {
-      setDeviceStrategy(strategy);
-      if (strategy === "automatic") {
-        setSelectedPodIds([]);
-        setPodSearch("");
-      } else {
-        setPodSearch("");
-      }
-      setSelectionInvalidated(false);
-    });
+  function handleSelectedPodIdsChange(next: string[]) {
+    if (runPlan.isPending) return;
+    setSelectedPodIds(next);
+    setValidationError("");
+    runPlan.reset();
   }
 
   function submit() {
@@ -249,17 +186,14 @@ export function TestPlanRunPage() {
     }
     if (
       deviceStrategy === "specified"
-      && (!pods.isSuccess || !pods.data)
+      && (!podStateRef.current.isSuccess)
     ) {
       setValidationError("设备池刷新失败，请重新加载设备池后再提交。");
       return;
     }
     if (
       deviceStrategy === "specified"
-      && (
-        selectionInvalidated
-        || selectedPodIds.some((podId) => !selectablePodIds.has(podId))
-      )
+      && selectedPodIds.some((podId) => !podStateRef.current.selectablePodIds.has(podId))
     ) {
       setValidationError("设备状态已更新，请重新选择可用设备。");
       return;
@@ -288,6 +222,7 @@ export function TestPlanRunPage() {
         MAX_PLAN_CONCURRENCY,
       ),
       timeout_seconds: executionConfig.config.timeout_seconds,
+      device_wait_timeout_seconds: executionDraft.device_wait_timeout_seconds,
       agent_config_mode: executionConfig.config.agent_config_mode,
       agent_options: executionConfig.config.agent_options ?? null,
     };
@@ -423,201 +358,48 @@ export function TestPlanRunPage() {
               <h2>配置并发和设备范围</h2>
             </div>
           </div>
-          <div className="plan-run-device-row">
-            <div className="plan-run-strategy-grid">
-              <label className={deviceStrategy === "automatic" ? "selected" : ""}>
-                <input
-                  type="radio"
-                  aria-label="自动分配"
-                  name="plan-device-strategy"
-                  value="automatic"
-                  checked={deviceStrategy === "automatic"}
-                  onChange={() =>
-                    selectDeviceStrategy("automatic")}
-                />
-                <strong>自动分配</strong>
-                <span>从当前设备池中动态分配空闲设备</span>
-              </label>
-              <label className={deviceStrategy === "specified" ? "selected" : ""}>
-                <input
-                  type="radio"
-                  aria-label="指定设备"
-                  name="plan-device-strategy"
-                  value="specified"
-                  checked={deviceStrategy === "specified"}
-                  onChange={() =>
-                    selectDeviceStrategy("specified")}
-                />
-                <strong>指定设备</strong>
-                <span>仅在选中的设备范围内持续排队</span>
-              </label>
-            </div>
-            <label className="plan-run-field plan-run-concurrency">
-              <span>设备并发数</span>
-              <input
-                name="concurrency"
-                autoComplete="off"
-                type="number"
-                aria-label="设备并发数"
-                min={1}
-                max={maxConcurrency}
-                value={concurrency}
-                onChange={(event) =>
-                  {
-                    const next = Math.max(
-                      1,
-                      Math.min(
-                        maxConcurrency,
-                        Number(event.target.value) || 1,
-                      ),
-                    );
-                    if (runPlan.isPending) return;
-                    setConcurrency(next);
-                    setValidationError(
-                      selectedPodIds.length > next
-                        ? formatPodSelectionLimitError(
-                            selectedPodIds.length,
-                            next,
-                          )
-                        : "",
-                    );
-                    runPlan.reset();
-                  }}
-              />
-              <small>最大不超过 {maxConcurrency} 个并发任务</small>
-            </label>
-          </div>
+          <DeviceStrategySelector
+            strategy={deviceStrategy}
+            onStrategyChange={(next) => changeConfiguration(() => {
+              setDeviceStrategy(next);
+              if (next === "automatic") setSelectedPodIds([]);
+            })}
+            concurrency={concurrency}
+            onConcurrencyChange={handleConcurrencyChange}
+            selectedPodIds={selectedPodIds}
+            onSelectedPodIdsChange={handleSelectedPodIdsChange}
+            maxConcurrency={Math.max(
+              1,
+              Math.min(plan.data?.case_count ?? MAX_PLAN_CONCURRENCY, MAX_PLAN_CONCURRENCY),
+            )}
+            disabled={runPlan.isPending}
+            refetchInterval={!runPlan.isPending ? 3000 : false}
+            onPodStateChange={(state) => { podStateRef.current = state; }}
+            showSelectedStrip
+            showPanelHeader
+            hideLabel
+            hintText=""
+          />
+        </section>
 
-          {deviceStrategy === "specified" && (
-            <div className="plan-run-device-select">
-              {pods.isLoading ? (
-                <p
-                  className="muted"
-                  role="status"
-                  aria-live="polite"
-                  aria-busy="true"
-                >
-                  正在加载设备池…
-                </p>
-              ) : pods.isError ? (
-                <div className="form-error" role="alert">
-                  <span>设备池加载失败，请重新加载。</span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    aria-label="重新加载设备池"
-                    onClick={() => void pods.refetch()}
-                  >
-                    重新加载
-                  </button>
-                </div>
-              ) : selectablePods.length === 0 ? (
-                <div className="plan-case-empty">暂无可选设备</div>
-              ) : (
-                <div className="plan-run-field plan-run-pod-field">
-                  <span id="plan-run-pod-list-label">设备选择</span>
-                  <div className="plan-run-pod-panel">
-                    <div className="plan-run-pod-toolbar">
-                      <label className="plan-run-pod-search">
-                        <span className="sr-only">搜索设备</span>
-                        <input
-                          type="search"
-                          className="plan-run-pod-search-input"
-                          aria-label="搜索设备"
-                          placeholder="搜索设备 ID / 名称"
-                          value={podSearch}
-                          onChange={(event) => setPodSearch(event.target.value)}
-                          disabled={runPlan.isPending}
-                        />
-                      </label>
-                      <span className="plan-run-pod-quota">
-                        {selectedPodIds.length} / {concurrency}
-                      </span>
-                    </div>
-                    <div className="plan-run-device-panel-header">
-                      <div>
-                        <strong>可选设备</strong>
-                        <span>在指定范围内按并发排队执行</span>
-                      </div>
-                    </div>
-                    <div
-                      className="plan-run-pod-list"
-                      role="group"
-                      aria-labelledby="plan-run-pod-list-label"
-                    >
-                      {visibleSelectablePods.length === 0 ? (
-                        <div className="plan-run-pod-empty">
-                          没有匹配的设备
-                        </div>
-                      ) : visibleSelectablePods.map((pod) => {
-                        const selected = selectedPodIds.includes(pod.pod_id);
-                        const disabled = (
-                          runPlan.isPending
-                          || (
-                            !selected
-                            && selectedPodIds.length >= concurrency
-                          )
-                        );
-                        const statusText = pod.local_state === "available"
-                          ? "可用"
-                          : "繁忙 · 将排队";
-                        return (
-                          <label
-                            key={pod.pod_id}
-                            className={[
-                              "plan-run-pod-option",
-                              selected ? "selected" : "",
-                              disabled ? "disabled" : "",
-                            ].filter(Boolean).join(" ")}
-                          >
-                            <input
-                              type="checkbox"
-                              name="pod_ids"
-                              value={pod.pod_id}
-                              checked={selected}
-                              disabled={disabled}
-                              aria-label={`${pod.pod_name} ${pod.pod_id}`}
-                              onChange={() => togglePod(pod.pod_id)}
-                            />
-                            <span>
-                              <strong>{formatPodIdentity(pod)}</strong>
-                              <code translate="no">{pod.pod_id}</code>
-                            </span>
-                            <em className={
-                              pod.local_state === "available"
-                                ? "available"
-                                : "busy"
-                            }
-                            >
-                              {statusText}
-                            </em>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <div className="plan-run-selected-strip">
-                      {selectedPodIds.length === 0 ? (
-                        <span className="plan-run-selected-empty">
-                          尚未选择设备
-                        </span>
-                      ) : selectedPodIds.map((podId) => (
-                        <button
-                          key={podId}
-                          type="button"
-                          className="plan-run-selected-chip"
-                          onClick={() => togglePod(podId)}
-                          disabled={runPlan.isPending}
-                        >
-                          <span>{podId}</span>
-                          <span aria-hidden="true">×</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+        <section className="plan-run-section">
+          <div className="plan-section-heading">
+            <div>
+              <span className="section-kicker">调度配置</span>
+              <h2>调度配置</h2>
             </div>
-          )}
+          </div>
+          <DeviceWaitTimeoutField
+            id="plan-run-device-wait-timeout-seconds"
+            value={executionDraft.device_wait_timeout_seconds}
+            onChange={(next) =>
+              changeConfiguration(() =>
+                setExecutionDraft({
+                  ...executionDraft,
+                  device_wait_timeout_seconds: next,
+                }))}
+            disabled={runPlan.isPending}
+          />
         </section>
 
         <section className="plan-run-section">

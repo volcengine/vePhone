@@ -39,9 +39,11 @@ class BatchScheduler:
         *,
         global_limit: int,
         start_after_business_id: str | None = None,
+        blocked_batch_ids: set[str] | None = None,
     ) -> ScheduleResult:
         if global_limit < 1:
             raise ValueError("global_limit_must_be_positive")
+        blocked_batch_ids = blocked_batch_ids or set()
         repository = SQLiteTaskRepository(self.db)
         repository.release_expired_leases(now)
         batches = list(
@@ -66,6 +68,16 @@ class BatchScheduler:
                 for task in batch.tasks
             ):
                 aggregate_batch_status(batch, now)
+                continue
+            if batch.id in blocked_batch_ids:
+                self._set_reason(
+                    [
+                        task
+                        for task in batch.tasks
+                        if task.execution_status == ExecutionStatus.QUEUED
+                    ],
+                    "waiting_for_pod_pool_refresh",
+                )
                 continue
             eligible_batches.append(batch)
         self.db.commit()

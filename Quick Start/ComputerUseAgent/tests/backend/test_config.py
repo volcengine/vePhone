@@ -45,6 +45,37 @@ def test_secret_accepts_32_utf8_bytes(tmp_path):
     assert len(settings.app_secret_key.encode()) == 32
 
 
+def test_worker_drain_timeout_defaults_to_30_seconds(tmp_path):
+    settings = Settings(
+        app_secret_key="test-secret-key-at-least-32-bytes",
+        app_data_dir=tmp_path,
+    )
+
+    assert settings.task_worker_drain_timeout_seconds == 30
+
+
+def test_worker_drain_timeout_must_be_positive(tmp_path):
+    with pytest.raises(ValidationError):
+        Settings(
+            app_secret_key="test-secret-key-at-least-32-bytes",
+            app_data_dir=tmp_path,
+            task_worker_drain_timeout_seconds=0,
+        )
+
+
+@pytest.mark.parametrize("timeout_seconds", [31, 60])
+def test_worker_drain_timeout_must_not_exceed_30_seconds(
+    tmp_path,
+    timeout_seconds,
+):
+    with pytest.raises(ValidationError):
+        Settings(
+            app_secret_key="test-secret-key-at-least-32-bytes",
+            app_data_dir=tmp_path,
+            task_worker_drain_timeout_seconds=timeout_seconds,
+        )
+
+
 def test_settings_loads_repository_env_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("APP_SECRET_KEY", raising=False)

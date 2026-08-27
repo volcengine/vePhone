@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type {
@@ -16,6 +16,7 @@ import type {
   TestPlanStatsResponse,
 } from "../api/types";
 import { ConfirmDialog } from "../components/confirm-dialog";
+import { BusinessLink as Link } from "../components/business-link";
 import { CopyButton } from "../components/copy-button";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
@@ -428,6 +429,7 @@ export function TestPlanListPage() {
                     <th>总执行次数</th>
                     <th>最近执行结果</th>
                     <th>最近执行</th>
+                    <th>定时调度</th>
                     <th>操作者</th>
                     <th>操作</th>
                   </tr>
@@ -528,6 +530,24 @@ export function TestPlanListPage() {
                           </div>
                         ) : (
                           <span className="case-empty-value">-</span>
+                        )}
+                      </td>
+                      <td>
+                        {plan.schedule ? (
+                          <Link
+                            to={`/test-plans/${plan.id}`}
+                            className={`schedule-status-badge ${plan.schedule.enabled ? "enabled" : "disabled"}`}
+                            title={
+                              plan.schedule.enabled
+                                ? `已启用 · 下次运行 ${formatChinaDateTime(plan.schedule.next_run_at)}`
+                                : "已禁用"
+                            }
+                          >
+                            <span className="dot" />
+                            {plan.schedule.enabled ? "已启用" : "已禁用"}
+                          </Link>
+                        ) : (
+                          <span className="case-empty-value">未配置</span>
                         )}
                       </td>
                       <td>{plan.created_by || <span className="case-empty-value">-</span>}</td>

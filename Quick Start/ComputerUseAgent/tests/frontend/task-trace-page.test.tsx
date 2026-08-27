@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 
@@ -95,6 +95,21 @@ const runtimePayload = {
         StepResult: { IsSuccess: false, Result: "断言失败：视频未自动播放" },
         Timestamp: "2026-07-26T16:00:02+08:00",
       },
+      {
+        Action: "screenshot",
+        Param: { mode: "screen" },
+        StepResult: {
+          IsSuccess: true,
+          Result: JSON.stringify({
+            status: "failure",
+            error: {
+              code: "7000003",
+              message: "screenshot command failed exit_code=255 stderr=",
+            },
+          }),
+        },
+        Timestamp: "2026-07-26T16:00:03+08:00",
+      },
     ],
   }],
   result: {
@@ -116,6 +131,12 @@ it("shows trace page with completed steps timeline for a failed task", async () 
 
   expect(await screen.findByText("执行步骤详情")).toBeVisible();
   expect(await screen.findByText("assert")).toBeVisible();
+  const screenshotCard = (await screen.findByText("screenshot"))
+    .closest(".trace-timeline-content");
+  expect(screenshotCard).not.toBeNull();
+  expect(within(screenshotCard as HTMLElement).getByText("失败")).toBeVisible();
+  expect(within(screenshotCard as HTMLElement).queryByText("成功"))
+    .not.toBeInTheDocument();
   expect(screen.queryByText("当前步骤")).not.toBeInTheDocument();
   expect(screen.queryByText("自动刷新中")).not.toBeInTheDocument();
 });
@@ -129,5 +150,5 @@ it("links from task details to the trace page via tab", async () => {
   renderApp("/tasks/task-1");
 
   const traceLink = await screen.findByRole("link", { name: /执行轨迹/ });
-  expect(traceLink).toHaveAttribute("href", "/tasks/task-1/trace");
+  expect(traceLink).toHaveAttribute("href", "/biz/biz_default/tasks/task-1/trace");
 });

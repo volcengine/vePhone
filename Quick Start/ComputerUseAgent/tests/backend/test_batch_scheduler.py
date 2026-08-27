@@ -11,7 +11,9 @@ from cua_platform.pods.models import DiscoveredPod
 from cua_platform.tasks.models import PodLease, Task, TaskBatch, TaskRunnerConfig
 from cua_platform.tasks.repository import SQLiteTaskRepository
 from cua_platform.tasks.scheduler import BatchScheduler
-from cua_platform.tasks.state_machine import ExecutionStatus, Verdict
+from cua_platform.tasks.service import TaskService
+from cua_platform.tasks.state_machine import ExecutionStatus, StartState, Verdict
+from cua_platform.time import FakeClock
 
 
 def _seed_batch(
@@ -346,6 +348,71 @@ def test_released_capacity_assigns_next_batch_child():
             assert second_wave == [remaining_id]
             active_task_ids = set(db.scalars(select(PodLease.task_id)))
             assert active_task_ids == {first_wave[1], remaining_id}
+    finally:
+        engine.dispose()
+
+
+def test_unknown_start_quarantine_blocks_device_until_expiry():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 7, 29, 8, 0, tzinfo=UTC)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            batch = _seed_batch(
+                db,
+                strategy="specified",
+                pod_ids=["pod-a"],
+                concurrency=2,
+                task_count=2,
+            )
+            _seed_pod(db, "pod-a", now)
+            uncertain, waiting = batch.tasks
+            uncertain.execution_status = ExecutionStatus.RUNNING
+            uncertain.start_state = StartState.DISPATCHING
+            uncertain.start_attempted_at = now - timedelta(seconds=10)
+            uncertain.runner_config.config_snapshot = {
+                "product_id": "product-1",
+                "pod_id": "pod-a",
+                "timeout_seconds": 120,
+            }
+            db.add(
+                PodLease(
+                    pod_id="product-1:pod-a",
+                    task_id=uncertain.id,
+                    worker_id="worker:test",
+                    expires_at=now + timedelta(seconds=30),
+                    version=1,
+                )
+            )
+            db.commit()
+
+            completed = TaskService(
+                SQLiteTaskRepository(db),
+                None,
+                clock=FakeClock(now),
+                execution_timeout=timedelta(seconds=60),
+            ).converge_worker_failure(uncertain.id)
+
+            assert completed is not None
+            assert completed.execution_status == ExecutionStatus.RESULT_READY
+            assert completed.failure_type == "start_outcome_unknown"
+            lease = db.scalar(
+                select(PodLease).where(PodLease.task_id == uncertain.id)
+            )
+            assert lease is not None
+            quarantine_until = now + timedelta(seconds=150)
+            assert lease.expires_at.replace(tzinfo=UTC) == quarantine_until
+
+            assert _schedule(db, quarantine_until - timedelta(microseconds=1)) == []
+            assert db.scalar(
+                select(PodLease).where(PodLease.task_id == uncertain.id)
+            ) is not None
+
+            assert _schedule(db, quarantine_until) == [waiting.id]
+            leases = list(db.scalars(select(PodLease)))
+            assert len(leases) == 1
+            assert leases[0].task_id == waiting.id
+            assert leases[0].pod_id == "product-1:pod-a"
     finally:
         engine.dispose()
 

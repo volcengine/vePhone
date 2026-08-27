@@ -11,9 +11,16 @@ from mua_platform.pods.models import (
     POD_STATUS_RUNNING,
     POD_STATUS_SHUTDOWN,
     DiscoveredPod,
+    PodHostAction as PodHostActionModel,
     PodPoolRefresh,
 )
-from mua_platform.pods.schemas import PodDetail, PodPoolItem, PodPoolSnapshot, PodSummary
+from mua_platform.pods.schemas import (
+    PodDetail,
+    PodHostAction,
+    PodPoolItem,
+    PodPoolSnapshot,
+    PodSummary,
+)
 from mua_platform.tasks.models import PodLease, Task
 from mua_platform.tasks.state_machine import ExecutionStatus
 
@@ -28,6 +35,8 @@ _ACTIVE_TASK_STATUSES = (
     ExecutionStatus.QUEUED,
     ExecutionStatus.RUNNING,
 )
+_ACTIVE_HOST_ACTION_STATUS = "running"
+_TERMINAL_HOST_ACTION_STATUSES = {"succeeded", "failed"}
 
 
 def utc_now() -> datetime:
@@ -162,8 +171,34 @@ class PodRepository:
                 pod_id = pod_by_lease_key.get(lease_key)
                 if pod_id is not None:
                     task_by_pod[pod_id] = task
+        active_action_by_pod = self._active_host_actions_for_pods(
+            product_id,
+            [row.pod_id for row in rows],
+        )
+        changed_actions = False
+        for row in rows:
+            active = active_action_by_pod.get(row.pod_id)
+            if active is not None and _host_action_done_by_status(
+                active.action,
+                row.pod_status_code,
+            ):
+                active.status = "succeeded"
+                active.task_result = 100
+                active.task_message = _pod_status_message(row.pod_status_code)
+                active.updated_at = now
+                active.finished_at = now
+                self.db.add(active)
+                active_action_by_pod.pop(row.pod_id, None)
+                changed_actions = True
+        if changed_actions:
+            self.db.commit()
         items = tuple(
-            self._to_pool_item(row, task_by_pod.get(row.pod_id), now)
+            self._to_pool_item(
+                row,
+                task_by_pod.get(row.pod_id),
+                now,
+                active_action_by_pod.get(row.pod_id),
+            )
             for row in rows
         )
         return PodPoolSnapshot(items=items, refreshed_at=refreshed_at)
@@ -174,7 +209,81 @@ class PodRepository:
             return None
         now = utc_now()
         task = self.db.scalar(_active_task_for_pod_stmt(row.product_id, row.pod_id))
-        return self._to_pool_item(row, task, now)
+        return self._to_pool_item(row, task, now, self.get_active_host_action(row.product_id, row.pod_id))
+
+    def get_active_host_action(
+        self,
+        product_id: str,
+        pod_id: str,
+    ) -> PodHostActionModel | None:
+        return self.db.scalar(
+            select(PodHostActionModel)
+            .where(
+                PodHostActionModel.product_id == product_id,
+                PodHostActionModel.pod_id == pod_id,
+                PodHostActionModel.status == _ACTIVE_HOST_ACTION_STATUS,
+            )
+            .order_by(PodHostActionModel.created_at.desc())
+            .limit(1)
+        )
+
+    def create_host_action(
+        self,
+        *,
+        product_id: str,
+        pod_id: str,
+        action: str,
+        request_id: str | None,
+        remote_task_id: str,
+    ) -> PodHostActionModel:
+        now = utc_now()
+        row = PodHostActionModel(
+            id=f"host_action_{uuid4().hex}",
+            product_id=product_id,
+            pod_id=pod_id,
+            action=action,
+            request_id=request_id,
+            remote_task_id=remote_task_id,
+            status=_ACTIVE_HOST_ACTION_STATUS,
+            task_result=None,
+            task_message=None,
+            created_at=now,
+            updated_at=now,
+            finished_at=None,
+        )
+        self.db.add(row)
+        self.db.commit()
+        return row
+
+    def update_host_action_status(
+        self,
+        *,
+        product_id: str,
+        pod_id: str,
+        remote_task_id: str,
+        request_id: str | None,
+        status: str,
+        task_result: int | None,
+        task_message: str | None,
+    ) -> None:
+        row = self.db.scalar(
+            select(PodHostActionModel).where(
+                PodHostActionModel.product_id == product_id,
+                PodHostActionModel.pod_id == pod_id,
+                PodHostActionModel.remote_task_id == remote_task_id,
+            )
+        )
+        if row is None:
+            return
+        row.request_id = request_id or row.request_id
+        row.status = status
+        row.task_result = task_result
+        row.task_message = task_message
+        row.updated_at = utc_now()
+        if status in _TERMINAL_HOST_ACTION_STATUSES:
+            row.finished_at = row.updated_at
+        self.db.add(row)
+        self.db.commit()
 
     def get_detail(self, product_id: str, pod_id: str) -> tuple[DiscoveredPod | None, PodDetail | None]:
         row = self.get(product_id, pod_id)
@@ -235,6 +344,25 @@ class PodRepository:
     def mark_assigned(self, row: DiscoveredPod, assigned_at: datetime) -> None:
         row.last_assigned_at = assigned_at
         self.db.add(row)
+
+    def update_pod_status(
+        self,
+        *,
+        product_id: str,
+        pod_id: str,
+        pod_status_code: int,
+        request_id: str | None,
+        checked_at: datetime,
+    ) -> None:
+        row = self.get(product_id, pod_id)
+        if row is None:
+            return
+        row.pod_status_code = pod_status_code
+        row.last_checked_at = checked_at
+        row.last_request_id = request_id
+        row.updated_at = checked_at
+        self.db.add(row)
+        self.db.commit()
 
     def record_temporary_failure(
         self,
@@ -451,6 +579,7 @@ class PodRepository:
         row: DiscoveredPod,
         task: Task | None,
         now: datetime,
+        active_host_action: PodHostActionModel | None = None,
     ) -> PodPoolItem:
         local_state = self._local_state(row, now)
         if local_state == "available" and task is not None:
@@ -488,10 +617,59 @@ class PodRepository:
             task_id=task.id if task is not None else None,
             task_status=task.execution_status.value if task is not None else None,
             task_scenario=task.scenario if task is not None else None,
+            active_host_action=_to_host_action(active_host_action),
             eip_address=None,
         )
+
+    def _active_host_actions_for_pods(
+        self,
+        product_id: str,
+        pod_ids: list[str],
+    ) -> dict[str, PodHostActionModel]:
+        if not pod_ids:
+            return {}
+        rows = list(
+            self.db.scalars(
+                select(PodHostActionModel)
+                .where(
+                    PodHostActionModel.product_id == product_id,
+                    PodHostActionModel.pod_id.in_(pod_ids),
+                    PodHostActionModel.status == _ACTIVE_HOST_ACTION_STATUS,
+                )
+                .order_by(PodHostActionModel.created_at.asc())
+            )
+        )
+        return {row.pod_id: row for row in rows}
 
 
 def _update_opt(row: Any, field: str, value: Any) -> None:
     if value is not None:
         setattr(row, field, value)
+
+
+def _to_host_action(row: PodHostActionModel | None) -> PodHostAction | None:
+    if row is None:
+        return None
+    return PodHostAction(
+        action=row.action,
+        request_id=row.request_id,
+        remote_task_id=row.remote_task_id,
+        status=row.status,
+        task_result=row.task_result,
+        task_message=row.task_message,
+    )
+
+
+def _host_action_done_by_status(action: str, pod_status_code: int) -> bool:
+    if action in {"power_on", "reboot"}:
+        return pod_status_code == POD_STATUS_RUNNING
+    if action == "power_off":
+        return pod_status_code == POD_STATUS_SHUTDOWN
+    return False
+
+
+def _pod_status_message(pod_status_code: int) -> str:
+    return {
+        POD_STATUS_RUNNING: "运行中",
+        POD_STATUS_SHUTDOWN: "已关机",
+    }.get(pod_status_code, "未知")

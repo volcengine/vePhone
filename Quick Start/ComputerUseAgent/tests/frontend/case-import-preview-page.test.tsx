@@ -82,6 +82,7 @@ it("renders the case import preview workflow", async () => {
 
   const table = screen.getByRole("table", { name: "用例导入预览" });
   expect(within(table).getAllByText("登录成功")).toHaveLength(2);
+  expect(within(table).getByText(/断言，登录成功/)).toBeVisible();
   expect(within(table).getByText("缺少标题")).toBeVisible();
   expect(within(table).getByText("疑似重复")).toBeVisible();
   expect(within(table).getByText("内容为空，需补充执行步骤")).toBeVisible();
@@ -99,7 +100,7 @@ it("links to the import preview from case library", async () => {
   renderApp("/cases");
 
   expect(await screen.findByRole("link", { name: "导入用例" }))
-    .toHaveAttribute("href", "/cases/import/preview");
+    .toHaveAttribute("href", "/biz/biz_default/cases/import/preview");
 });
 
 it("imports parsed cases after a clean preview", async () => {

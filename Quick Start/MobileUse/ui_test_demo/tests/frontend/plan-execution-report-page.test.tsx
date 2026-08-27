@@ -1,9 +1,12 @@
 import { HttpResponse, http } from "msw";
 import { screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 
 import type { PlanReportDetailResponse } from "../../web/api/types";
 import { renderApp, server, user } from "./setup";
+
+const STYLES = readFileSync("web/styles.css", "utf8");
 
 function detail(
   status: PlanReportDetailResponse["report_status"] = "success",
@@ -33,6 +36,7 @@ function detail(
       tos_endpoint: null,
       tos_region: null,
       timeout_seconds: 600,
+      device_wait_timeout_seconds: 75,
       use_base64_screenshot: false,
       max_step: 100,
       callback_info: {
@@ -46,6 +50,7 @@ function detail(
       mcp_json: '{"headers":{"Authorization":"***"}}',
       max_output_tokens: null,
       gps_info: null,
+      device_prepare_action: "none",
       request_headers: { configured: true, names: ["X-Env"] },
     },
     pass_count: 1,
@@ -57,6 +62,7 @@ function detail(
     tasks: [
       {
         task_id: "task_1",
+        remote_run_id: "run_1",
         case_id: "case_1",
         case_title: "登录",
         case_deleted: false,
@@ -67,9 +73,13 @@ function detail(
         started_at: "2026-07-29T12:03:05Z",
         finished_at: "2026-07-29T12:04:10Z",
         duration_seconds: 65,
+        input_tokens: 1234,
+        output_tokens: 56,
+        total_steps: 7,
       },
       {
         task_id: "task_unknown",
+        remote_run_id: null,
         case_id: "case_2",
         case_title: "异常数据",
         case_deleted: true,
@@ -80,6 +90,9 @@ function detail(
         started_at: null,
         finished_at: null,
         duration_seconds: null,
+        input_tokens: null,
+        output_tokens: null,
+        total_steps: null,
       },
     ],
     tasks_total: 12,
@@ -103,18 +116,32 @@ it("shows plain metrics, safe snapshots, unknown enums and task drill-down", asy
   expect(screen.queryByText("94.44%")).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.getAllByText("2026-07-29 20:03:00").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("01:05").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("1 分 5 秒").length).toBeGreaterThan(0);
+  expect(screen.getByRole("columnheader", { name: "输入 Token" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "输出 Token" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "执行步数" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "Run ID" })).toBeVisible();
+  expect(screen.getByText("run_1")).toBeVisible();
+  expect(screen.getByText("1,234")).toBeVisible();
+  expect(screen.getByText("56")).toBeVisible();
+  expect(screen.getByText("7")).toBeVisible();
+  expect(screen.getByText("设备等待超时")).toBeVisible();
+  expect(screen.getByText("75 s")).toBeVisible();
   expect(screen.getByRole("link", { name: "task_1" })).toHaveAttribute(
     "href",
-    "/tasks/task_1",
+    "/biz/biz_default/tasks/task_1",
+  );
+  expect(screen.getByText("登录").closest("td")).toHaveClass("plan-report-case-cell");
+  expect(STYLES).toMatch(
+    /\.plan-report-case-cell strong,\s*\.plan-report-case-cell code\s*\{[^}]*display:\s*block/s,
   );
   expect(screen.getByRole("link", { name: "查看用例 登录" }))
-    .toHaveAttribute("href", "/cases/case_1/edit");
+    .toHaveAttribute("href", "/biz/biz_default/cases/case_1/edit");
   expect(screen.queryByRole("link", { name: "查看用例 异常数据" }))
     .not.toBeInTheDocument();
   expect(screen.getByText("未知状态")).toBeVisible();
   expect(screen.getByText("未知结果")).toBeVisible();
-  expect(screen.getByText("runner_interrupted")).toBeVisible();
+  expect(screen.getByText("执行中断")).toBeVisible();
   expect(screen.getByText("已脱敏")).toBeVisible();
   expect(document.body.textContent).not.toContain("callback-secret");
   expect(document.body.textContent).not.toContain("mcp-secret");

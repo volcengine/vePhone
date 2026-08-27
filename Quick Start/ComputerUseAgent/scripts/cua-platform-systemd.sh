@@ -67,6 +67,8 @@ Environment=PYTHONPATH=${REPO_ROOT}/src
 Environment=PATH=${REPO_ROOT}/.venv/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=${REPO_ROOT}/.env
 ExecStart=${REPO_ROOT}/.venv/bin/uvicorn cua_platform.main:app --host 0.0.0.0 --port ${PORT}
+KillSignal=SIGTERM
+TimeoutStopSec=45
 Restart=always
 RestartSec=5
 StandardOutput=append:${STDOUT_LOG}

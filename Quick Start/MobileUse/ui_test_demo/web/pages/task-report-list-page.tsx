@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type {
   PlanReportListResponse,
+  PlanReportSummary,
   PlanReportStatsResponse,
   ReportStatus,
   TestPlan,
   TestPlanListResponse,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { CopyButton } from "../components/copy-button";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
@@ -26,6 +28,33 @@ const PAGE_SIZE = 10;
 type StatusFilter = ReportStatus | "all";
 type TimeFilter = "all" | "1d" | "3d" | "7d" | "30d" | "custom";
 type PresetTimeFilter = Exclude<TimeFilter, "all" | "custom">;
+type ReportDownloadFormat = "markdown" | "csv";
+
+const DOWNLOADABLE_REPORT_STATUSES: ReportStatus[] = [
+  "success",
+  "failure",
+  "exception",
+];
+
+const DOWNLOAD_FORMATS: Array<{
+  value: ReportDownloadFormat;
+  extension: string;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "markdown",
+    extension: "md",
+    label: "Markdown 报告",
+    description: "KPI、执行快照、子任务结果",
+  },
+  {
+    value: "csv",
+    extension: "csv",
+    label: "CSV 明细表",
+    description: "适合表格分析子任务结果",
+  },
+];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部结果" },
@@ -91,6 +120,11 @@ export function TaskReportListPage() {
   const [search, setSearch] = useState(urlParams.get("search") ?? "");
   const [planSearchInput, setPlanSearchInput] = useState("");
   const [planSearch, setPlanSearch] = useState("");
+  const [openDownloadMenu, setOpenDownloadMenu] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<{
+    executionId: string;
+    format: ReportDownloadFormat;
+  } | null>(null);
   const page = parsePage(urlParams.get("page"));
   const planId = urlParams.get("test_plan_id") ?? "all";
   const status = parseStatus(urlParams.get("status"));
@@ -132,6 +166,19 @@ export function TaskReportListPage() {
     );
     return () => window.clearTimeout(timer);
   }, [planSearchInput]);
+
+  useEffect(() => {
+    if (openDownloadMenu === null) return;
+    function closeDownloadMenuOnOutsideClick(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(".task-report-download-action")) return;
+      setOpenDownloadMenu(null);
+    }
+    window.addEventListener("pointerdown", closeDownloadMenuOnOutsideClick);
+    return () =>
+      window.removeEventListener("pointerdown", closeDownloadMenuOnOutsideClick);
+  }, [openDownloadMenu]);
 
   useEffect(() => {
     const nextSearch = searchInput.trim();
@@ -248,6 +295,29 @@ export function TaskReportListPage() {
         next.set("created_after", recentWindowStartIso(TIME_DAYS[value]));
       }
     }, { resetPage: true });
+  }
+
+  async function downloadReport(
+    report: PlanReportSummary,
+    format: ReportDownloadFormat,
+  ) {
+    const extension = format === "csv" ? "csv" : "md";
+    setOpenDownloadMenu(null);
+    setDownloading({ executionId: report.execution_id, format });
+    try {
+      const response = await api.download(
+        `/task-reports/${report.execution_id}/download?format=${format}`,
+      );
+      const blob = await response.blob();
+      const filename = filenameFromDisposition(
+        response.headers.get("Content-Disposition"),
+      ) ?? `mua-test-report-${report.task_batch_id}.${extension}`;
+      downloadBlob(filename, blob);
+    } catch {
+      // Keep the list stable; failed downloads can be retried from the same row.
+    } finally {
+      setDownloading(null);
+    }
   }
 
   return (
@@ -414,34 +484,63 @@ export function TaskReportListPage() {
                     <th>测试通过率</th>
                     <th>创建时间</th>
                     <th>总执行时长</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.data?.items.map((report) => (
-                    <tr key={report.execution_id}>
-                      <td>
-                        <div className="task-report-id-cell">
-                          <Link
-                            to={`/task-reports/${report.execution_id}`}
-                            className="task-report-id-link"
-                            translate="no"
-                          >
-                            {report.task_batch_id}
-                          </Link>
-                          <CopyButton value={report.task_batch_id} label="任务ID" />
-                        </div>
-                      </td>
-                      <td>
-                        <span className="task-report-plan-name" title={report.plan_name_snapshot}>
-                          {report.plan_name_snapshot}
-                        </span>
-                      </td>
-                      <td><ReportStatusBadge status={report.report_status} /></td>
-                      <td className="report-rate">{Math.round(report.pass_rate)}%</td>
-                      <td>{formatChinaDateTime(report.created_at)}</td>
-                      <td>{formatDurationSeconds(report.duration_seconds)}</td>
-                    </tr>
-                  ))}
+                  {reports.data?.items.map((report) => {
+                    const downloadMenuOpen = openDownloadMenu === report.execution_id;
+                    return (
+                      <tr
+                        key={report.execution_id}
+                        className={downloadMenuOpen ? "download-menu-open" : undefined}
+                      >
+                        <td>
+                          <div className="task-report-id-cell">
+                            <Link
+                              to={`/task-reports/${report.execution_id}`}
+                              className="task-report-id-link"
+                              translate="no"
+                            >
+                              {report.task_batch_id}
+                            </Link>
+                            <CopyButton value={report.task_batch_id} label="任务ID" />
+                          </div>
+                        </td>
+                        <td>
+                          <span className="task-report-plan-name" title={report.plan_name_snapshot}>
+                            {report.plan_name_snapshot}
+                          </span>
+                        </td>
+                        <td><ReportStatusBadge status={report.report_status} /></td>
+                        <td className="report-rate">{Math.round(report.pass_rate)}%</td>
+                        <td>{formatChinaDateTime(report.created_at)}</td>
+                        <td>{formatDurationSeconds(report.duration_seconds)}</td>
+                        <td
+                          className={`task-report-download-cell ${
+                            downloadMenuOpen ? "open" : ""
+                          }`}
+                        >
+                          <ReportDownloadAction
+                            report={report}
+                            open={downloadMenuOpen}
+                            downloading={
+                              downloading?.executionId === report.execution_id
+                            }
+                            onToggle={() =>
+                              setOpenDownloadMenu((current) =>
+                                current === report.execution_id
+                                  ? null
+                                  : report.execution_id
+                              )}
+                            onDownload={(format) => {
+                              void downloadReport(report, format);
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -467,6 +566,103 @@ export function TaskReportListPage() {
       </div>
     </div>
   );
+}
+
+function ReportDownloadAction({
+  report,
+  open,
+  downloading,
+  onToggle,
+  onDownload,
+}: {
+  report: PlanReportSummary;
+  open: boolean;
+  downloading: boolean;
+  onToggle: () => void;
+  onDownload: (format: ReportDownloadFormat) => void;
+}) {
+  if (!DOWNLOADABLE_REPORT_STATUSES.includes(report.report_status)) {
+    return (
+      <span className="task-report-download-disabled">
+        {report.report_status === "running" || report.report_status === "queued"
+          ? "完成后可下载"
+          : "不支持下载"}
+      </span>
+    );
+  }
+
+  return (
+    <div className={`task-report-download-action ${open ? "open" : ""}`}>
+      <button
+        type="button"
+        className="secondary-button task-report-download-button"
+        aria-label={downloading ? undefined : `下载报告 ${report.task_batch_id}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={downloading}
+        onClick={onToggle}
+      >
+        {downloading ? (
+          <>
+            <span className="task-report-download-spinner" aria-hidden="true" />
+            生成中...
+          </>
+        ) : (
+          <>
+            <DownloadIcon />
+            下载报告
+          </>
+        )}
+      </button>
+      {open && !downloading && (
+        <div className="task-report-download-menu" role="menu">
+          {DOWNLOAD_FORMATS.map((format) => (
+            <button
+              key={format.value}
+              type="button"
+              role="menuitem"
+              className="task-report-download-format"
+              onClick={() => onDownload(format.value)}
+            >
+              <span className={`task-report-download-file ${format.extension}`}>
+                {format.extension.toUpperCase()}
+              </span>
+              <span>
+                <strong>{format.label}</strong>
+                <small>{format.description}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg className="task-report-download-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function filenameFromDisposition(value: string | null): string | null {
+  const match = value?.match(/filename="?(?<filename>[^";]+)"?/);
+  return match?.groups?.filename ?? null;
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function ReportError({

@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { HttpResponse, delay, http } from "msw";
 import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 
@@ -121,6 +121,52 @@ it("does not render a top-right create task entry", async () => {
     .toBeVisible();
   expect(screen.queryByRole("link", { name: "新建任务" }))
     .not.toBeInTheDocument();
+});
+
+it("refreshes the task list and KPIs with visible pending feedback", async () => {
+  let taskRequests = 0;
+  let statsRequests = 0;
+  server.use(
+    http.get("/api/v1/tasks", async () => {
+      taskRequests += 1;
+      if (taskRequests > 1) await delay(80);
+      return HttpResponse.json({
+        items: [
+          makeTask({
+            id: taskRequests > 1 ? "task_after_refresh" : "task_before_refresh",
+          }),
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      });
+    }),
+    http.get("/api/v1/tasks/stats", async () => {
+      statsRequests += 1;
+      if (statsRequests > 1) await delay(80);
+      return HttpResponse.json({
+        total: statsRequests > 1 ? 2 : 1,
+        running: 0,
+        queued: 0,
+        pass_rate: 100,
+      });
+    }),
+  );
+
+  renderApp("/tasks");
+
+  expect(await screen.findByText("task_before_refresh")).toBeVisible();
+  expect(screen.getByTestId("metric-total")).toHaveTextContent("1");
+
+  await user.click(screen.getByRole("button", { name: "刷新" }));
+
+  const refreshButton = screen.getByRole("button", { name: "刷新中..." });
+  expect(refreshButton).toBeDisabled();
+  expect(await screen.findByText("task_after_refresh")).toBeVisible();
+  expect(screen.getByTestId("metric-total")).toHaveTextContent("2");
+  expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled();
+  expect(taskRequests).toBeGreaterThanOrEqual(2);
+  expect(statsRequests).toBeGreaterThanOrEqual(2);
 });
 
 it("keeps global KPIs when task filters have no matches", async () => {
@@ -435,7 +481,7 @@ it("shows zero elapsed time for queued tasks even when timestamps exist", async 
   renderApp("/tasks");
 
   const row = (await screen.findByText("task_queued_duration")).closest("tr") as HTMLElement;
-  expect(cellFor(row, "耗时")).toHaveTextContent("00:00");
+  expect(cellFor(row, "耗时")).toHaveTextContent("0 秒");
 });
 
 it("paginates using backend total", async () => {

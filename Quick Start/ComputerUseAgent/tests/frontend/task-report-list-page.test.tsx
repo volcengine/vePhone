@@ -1,4 +1,4 @@
-import { HttpResponse, http } from "msw";
+import { HttpResponse, delay, http } from "msw";
 import { screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
@@ -163,7 +163,7 @@ it("syncs list filters with the URL while keeping report stats global", async ()
     /\.task-report-filter-bar\s*\{[^}]*overflow:\s*visible/s,
   );
   expect(STYLES).toMatch(
-    /\.task-report-table\s*\{[^}]*min-width:\s*1120px/s,
+    /\.task-report-table\s*\{[^}]*min-width:\s*1260px/s,
   );
   expect(STYLES).toMatch(
     /\.task-report-table th:first-child,\s*\.task-report-table td:first-child\s*\{[^}]*width:\s*360px/s,
@@ -209,7 +209,7 @@ it("syncs list filters with the URL while keeping report stats global", async ()
   expect(screen.queryByText("94.44%")).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.getByText("2026-07-29 20:03:00")).toBeVisible();
-  expect(screen.getByText("01:05")).toBeVisible();
+  expect(screen.getByText("1 分 5 秒")).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "重置筛选" }));
   await waitFor(() => {
@@ -251,6 +251,141 @@ it("copies the full report task id from the list", async () => {
 
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(report.task_batch_id));
 });
+
+
+it("downloads terminal reports from the list with selectable formats", async () => {
+  const requests: URL[] = [];
+  const createObjectURL = vi.fn(() => "blob:report-download");
+  const revokeObjectURL = vi.fn();
+  const click = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => undefined);
+  Object.defineProperty(URL, "createObjectURL", {
+    value: createObjectURL,
+    configurable: true,
+  });
+  Object.defineProperty(URL, "revokeObjectURL", {
+    value: revokeObjectURL,
+    configurable: true,
+  });
+  const reports: PlanReportListResponse["items"] = [
+    report,
+    {
+      ...report,
+      execution_id: "execution_failure",
+      task_batch_id: "batch_failure",
+      report_status: "failure",
+      pass_rate: 75,
+    },
+    {
+      ...report,
+      execution_id: "execution_exception",
+      task_batch_id: "batch_exception",
+      report_status: "exception",
+      pass_rate: 60,
+    },
+    {
+      ...report,
+      execution_id: "execution_running",
+      task_batch_id: "batch_running",
+      report_status: "running",
+      pass_rate: 40,
+    },
+    {
+      ...report,
+      execution_id: "execution_cancelled",
+      task_batch_id: "batch_cancelled",
+      report_status: "cancelled",
+      pass_rate: 0,
+    },
+  ];
+  server.use(
+    http.get("/api/v1/test-plans", () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 50 })),
+    http.get("/api/v1/task-reports", () =>
+      HttpResponse.json({
+        items: reports,
+        total: reports.length,
+        page: 1,
+        page_size: 10,
+      } satisfies PlanReportListResponse)),
+    http.get("/api/v1/task-reports/stats", () =>
+      HttpResponse.json({
+        report_count: reports.length,
+        success_count: 1,
+        failure_count: 1,
+        average_pass_rate: 54,
+      } satisfies PlanReportStatsResponse)),
+    http.get("/api/v1/task-reports/:executionId/download", async ({ request }) => {
+      requests.push(new URL(request.url));
+      await delay(80);
+      return HttpResponse.text("报告ID,任务批次ID\nexecution_1,batch_1\n", {
+        headers: {
+          "Content-Disposition": 'attachment; filename="cua-test-report-batch_1.csv"',
+          "Content-Type": "text/csv; charset=utf-8",
+        },
+      });
+    }),
+  );
+
+  renderApp("/task-reports");
+
+  const downloadButton = await screen.findByRole("button", {
+    name: `下载报告 ${report.task_batch_id}`,
+  });
+  expect(screen.getByRole("button", { name: "下载报告 batch_failure" }))
+    .toBeVisible();
+  expect(screen.getByRole("button", { name: "下载报告 batch_exception" }))
+    .toBeVisible();
+  expect(screen.queryByRole("button", { name: "下载报告 batch_running" }))
+    .not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "下载报告 batch_cancelled" }))
+    .not.toBeInTheDocument();
+  expect(screen.getByText("完成后可下载")).toBeVisible();
+  expect(screen.getByText("不支持下载")).toBeVisible();
+
+  await user.click(downloadButton);
+
+  expect(downloadButton.closest(".task-report-download-action"))
+    .toHaveClass("open");
+  expect(downloadButton.closest("td"))
+    .toHaveClass("task-report-download-cell", "open");
+  expect(downloadButton.closest("tr"))
+    .toHaveClass("download-menu-open");
+  expect(STYLES).toMatch(
+    /\.task-report-table tr\.download-menu-open\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*40/s,
+  );
+  expect(STYLES).toMatch(
+    /\.task-report-download-cell\.open\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*50/s,
+  );
+  expect(STYLES).toMatch(
+    /\.task-report-download-action\.open\s*\{[^}]*z-index:\s*30/s,
+  );
+  expect(STYLES).toMatch(
+    /\.task-report-download-menu\s*\{[^}]*background:\s*var\(--mua-card\)/s,
+  );
+  expect(screen.getByRole("menuitem", { name: /Markdown 报告/ })).toBeVisible();
+  await user.click(screen.getByRole("heading", { name: "测试报告" }));
+  expect(screen.queryByRole("menuitem", { name: /Markdown 报告/ }))
+    .not.toBeInTheDocument();
+  expect(downloadButton).toHaveAttribute("aria-expanded", "false");
+
+  await user.click(downloadButton);
+  expect(screen.getByRole("menuitem", { name: /Markdown 报告/ })).toBeVisible();
+  await user.click(screen.getByRole("menuitem", { name: /CSV 明细表/ }));
+
+  expect(await screen.findByRole("button", { name: "生成中..." }))
+    .toBeDisabled();
+  await waitFor(() => expect(requests).toHaveLength(1));
+  expect(requests[0].pathname).toBe("/api/v1/task-reports/execution_1/download");
+  expect(requests[0].searchParams.get("format")).toBe("csv");
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalled());
+  expect(click).toHaveBeenCalled();
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:report-download");
+  expect(screen.queryByText("测试报告已开始下载")).not.toBeInTheDocument();
+  click.mockRestore();
+});
+
 
 it("keeps global report KPIs when report filters have no matches", async () => {
   const listUrls: URL[] = [];

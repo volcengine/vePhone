@@ -274,7 +274,7 @@ describe("设备池页面", () => {
     const leasedRow = screen.getByRole("row", { name: /Leased Phone/ });
     expect(within(leasedRow).getByText("执行中")).toBeVisible();
     expect(within(leasedRow).getByRole("link", { name: "task-running" }))
-      .toHaveAttribute("href", "/tasks/task-running");
+      .toHaveAttribute("href", "/biz/biz_default/tasks/task-running");
     expect(within(leasedRow).getByText("test-scenario")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: /删除|重启|关机/ }),

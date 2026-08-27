@@ -8,6 +8,22 @@ import { expectCsrf, renderApp, server, user } from "./setup";
 
 const STYLES = readFileSync("web/styles.css", "utf8");
 
+it("does not apply read-only cursor styles to case selection checkboxes", () => {
+  expect(STYLES).not.toMatch(/input:read-only,\s*input\[readonly\]\s*\{/);
+  expect(STYLES).toMatch(
+    /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\):read-only,\s*input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\)\[readonly\]\s*\{[^}]*cursor:\s*not-allowed;/s,
+  );
+});
+
+it("keeps bulk execution configuration sections visually separated", () => {
+  expect(STYLES).toMatch(
+    /\.execute-dialog-panel\.wide\s+\.modal-body\s*>\s*\.plan-run-section\s*\+\s*\.plan-run-section\s*\{[^}]*margin-top:\s*1\.25rem;/s,
+  );
+  expect(STYLES).toMatch(
+    /\.execute-dialog-panel\.wide\s+\.modal-body\s*>\s*\.execution-config-fields\s*\{[^}]*margin-top:\s*1\.25rem;/s,
+  );
+});
+
 function makeCase(overrides: Partial<TestCase>): TestCase {
   const item = {
     id: "case_alpha",
@@ -405,6 +421,38 @@ it("confirms deletion before removing a case", async () => {
   await waitFor(() => expect(screen.queryByText("case_delete")).not.toBeInTheDocument());
 });
 
+it("explains when a single case delete is blocked by a test plan", async () => {
+  const items = [makeCase({ id: "case_bound", title: "已绑定计划用例" })];
+  server.use(
+    http.get("/api/v1/cases", () => HttpResponse.json(listOf(items))),
+    http.get("/api/v1/cases/tags", () => HttpResponse.json({ items: ["P0"] })),
+    http.get("/api/v1/cases/modules", () => HttpResponse.json({ items: ["登录"] })),
+    http.delete("/api/v1/cases/case_bound", ({ request }) => {
+      expectCsrf(request);
+      return HttpResponse.json(
+        {
+          error: {
+            code: "case_has_test_plans",
+            message: "Test case is bound to an active test plan",
+          },
+        },
+        { status: 409 },
+      );
+    }),
+  );
+
+  renderApp("/cases");
+
+  const row = (await screen.findByText("case_bound")).closest("tr") as HTMLElement;
+  await user.click(within(row).getByRole("button", { name: "删除用例" }));
+  await user.click(screen.getByRole("button", { name: "确认删除" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "删除用例" });
+  expect(within(dialog).getByRole("alert")).toHaveTextContent(
+    "该用例已绑定测试计划，请先从测试计划中移除后再删除。",
+  );
+});
+
 it("supports bulk action bar, export and delete confirmation", async () => {
   let items = [
     makeCase({ id: "case_bulk_a", title: "批量用例 A", tags: ["P0"] }),
@@ -600,12 +648,21 @@ it("creates a task batch from selected cases", async () => {
   await user.click(screen.getByRole("checkbox", { name: /批量执行 A/ }));
   await user.click(screen.getByRole("checkbox", { name: /批量执行 B/ }));
   await user.click(screen.getByRole("button", { name: "批量执行" }));
+  await user.click(await screen.findByRole("radio", { name: "指定设备" }));
+  const waitInput = screen.getByLabelText("设备不可用后最大等待时间（秒）");
+  await user.clear(waitInput);
+  await user.type(waitInput, "90");
+  await user.click(screen.getByRole("checkbox", { name: /CUA Online 1.*i-online-1/ }));
+  await user.click(screen.getByRole("checkbox", { name: /CUA Online 2.*i-online-2/ }));
   await user.click(screen.getByRole("button", { name: "开始执行" }));
 
   await waitFor(() => expect(batchPayload).toMatchObject({
     selection_mode: "multi_cases",
     case_ids: ["case_batch_a", "case_batch_b"],
+    device_strategy: "specified",
+    pod_ids: ["i-online-1", "i-online-2"],
     concurrency: 2,
+    device_wait_timeout_seconds: 90,
   }));
 });
 

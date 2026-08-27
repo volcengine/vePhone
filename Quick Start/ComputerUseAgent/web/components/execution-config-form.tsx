@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
+
 import type { AgentRuntimeOptions } from "../api/types";
 
 export type ExecuteConfig = {
   pod_id: string | null;
   timeout_seconds: number | null;
+  device_wait_timeout_seconds: number;
   agent_config_mode: "global" | "custom" | "case_default";
   agent_options?: AgentRuntimeOptions | null;
 };
@@ -25,6 +28,7 @@ export type CustomExecutionForm = {
 
 export type ExecutionConfigDraft = {
   timeout_seconds: number;
+  device_wait_timeout_seconds: number;
   customTimeout: boolean;
   agent_config_mode: "global" | "custom" | "case_default";
   custom: CustomExecutionForm;
@@ -32,6 +36,7 @@ export type ExecutionConfigDraft = {
 
 export const DEFAULT_EXECUTION_CONFIG: ExecutionConfigDraft = {
   timeout_seconds: 120,
+  device_wait_timeout_seconds: 300,
   customTimeout: false,
   agent_config_mode: "global",
   custom: {
@@ -68,6 +73,92 @@ const AGENT_CONFIG_OPTIONS = [
   { value: "custom", label: "自定义本次执行配置" },
   { value: "case_default", label: "用例默认配置" },
 ] as const;
+const CLEARABLE_CUSTOM_FIELDS = new Set<keyof CustomExecutionForm>([
+  "max_output_tokens",
+  "system_prompt",
+  "callback_info",
+  "output_schema",
+  "mcp_json",
+  "request_headers",
+]);
+const DEVICE_WAIT_TIMEOUT_MIN = 1;
+const DEVICE_WAIT_TIMEOUT_MAX = 86400;
+
+function clampDeviceWaitTimeout(value: number): number {
+  return Math.max(
+    DEVICE_WAIT_TIMEOUT_MIN,
+    Math.min(DEVICE_WAIT_TIMEOUT_MAX, value),
+  );
+}
+
+export function DeviceWaitTimeoutField({
+  id,
+  name = "device_wait_timeout_seconds",
+  value,
+  onChange,
+  disabled = false,
+  wrapperClassName = "plan-run-field plan-run-schedule-timeout",
+  labelClassName,
+  inputClassName,
+  hintClassName,
+}: {
+  id: string;
+  name?: string;
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  wrapperClassName?: string;
+  labelClassName?: string;
+  inputClassName?: string;
+  hintClassName?: string;
+}) {
+  const [inputValue, setInputValue] = useState(String(value));
+
+  useEffect(() => {
+    setInputValue(String(value));
+  }, [value]);
+
+  function commit(raw: string) {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    onChange(clampDeviceWaitTimeout(parsed));
+  }
+
+  function resetIfEmptyOrInvalid() {
+    if (inputValue.trim() === "" || !Number.isFinite(Number(inputValue))) {
+      setInputValue(String(value));
+      return;
+    }
+    commit(inputValue);
+  }
+
+  return (
+    <label className={wrapperClassName}>
+      <span className={labelClassName}>设备不可用后最大等待时间（秒）</span>
+      <input
+        id={id}
+        name={name}
+        autoComplete="off"
+        className={inputClassName}
+        type="number"
+        aria-label="设备不可用后最大等待时间（秒）"
+        min={DEVICE_WAIT_TIMEOUT_MIN}
+        max={DEVICE_WAIT_TIMEOUT_MAX}
+        value={inputValue}
+        onChange={(event) => {
+          const next = event.target.value;
+          setInputValue(next);
+          if (next.trim() !== "") commit(next);
+        }}
+        onBlur={resetIfEmptyOrInvalid}
+        disabled={disabled}
+      />
+      <small className={hintClassName}>
+        平台会定期刷新设备状态；超过该时间且设备仍不可用时，剩余任务将失败。
+      </small>
+    </label>
+  );
+}
 
 export function createExecutionConfigDraft(): ExecutionConfigDraft {
   return {
@@ -118,6 +209,7 @@ export function buildExecuteConfig(
       config: {
         pod_id: null,
         timeout_seconds: null,
+        device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
         agent_config_mode: "global",
         agent_options: null,
       },
@@ -129,6 +221,7 @@ export function buildExecuteConfig(
       config: {
         pod_id: null,
         timeout_seconds: null,
+        device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
         agent_config_mode: "case_default",
         agent_options: null,
       },
@@ -176,6 +269,7 @@ export function buildExecuteConfig(
     config: {
       pod_id: null,
       timeout_seconds: draft.custom.timeout_seconds,
+      device_wait_timeout_seconds: draft.device_wait_timeout_seconds,
       agent_config_mode: "custom",
       agent_options: options,
     },
@@ -228,6 +322,31 @@ export function ExecutionConfigFields({
     });
   }
 
+  function clearCustom(field: keyof CustomExecutionForm) {
+    updateCustom(field as never, "" as never);
+  }
+
+  function fieldHeading(field: keyof CustomExecutionForm, label: string, inputId: string) {
+    const canClear = CLEARABLE_CUSTOM_FIELDS.has(field)
+      && String(value.custom[field] ?? "").trim().length > 0
+      && !disabled;
+    return (
+      <div className="execution-config-field-heading">
+        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {canClear && (
+          <button
+            type="button"
+            className="text-button execution-config-clear"
+            onClick={() => clearCustom(field)}
+          >
+            清除
+            <span className="sr-only">{` ${label}`}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   function renderNumberField(
     field: "max_step" | "timeout_seconds" | "retry_limit",
     label: string,
@@ -237,7 +356,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <input
           id={inputId}
           name={inputId}
@@ -268,7 +387,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <input
           id={inputId}
           name={inputId}
@@ -291,7 +410,7 @@ export function ExecutionConfigFields({
     const inputId = `${idPrefix}-custom-${field}`;
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={inputId}>{label}</label>
+        {fieldHeading(field, label, inputId)}
         <textarea
           id={inputId}
           name={inputId}
@@ -398,12 +517,11 @@ export function ExecutionConfigFields({
                 10,
               )}
               <div className="form-group">
-                <label
-                  className="form-label"
-                  htmlFor={`${idPrefix}-custom-max-output-tokens`}
-                >
-                  最大输出 Token
-                </label>
+                {fieldHeading(
+                  "max_output_tokens",
+                  "最大输出 Token",
+                  `${idPrefix}-custom-max-output-tokens`,
+                )}
                 <input
                   id={`${idPrefix}-custom-max-output-tokens`}
                   name={`${idPrefix}-custom-max-output-tokens`}

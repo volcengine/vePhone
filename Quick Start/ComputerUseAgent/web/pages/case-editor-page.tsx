@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 import { useEffect, useState } from "react";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   CaseBoundTestPlan,
   CaseBoundTestPlanListResponse,
@@ -13,6 +14,7 @@ import type {
   TestCaseCreate,
 } from "../api/types";
 import { CaseExecutionRecords } from "../components/case-execution-records";
+import { BusinessLink as Link } from "../components/business-link";
 import { ConfirmDialog } from "../components/confirm-dialog";
 import { ExecuteDialog, type ExecuteConfig } from "../components/execute-dialog";
 import {
@@ -119,7 +121,7 @@ function XIcon() {
 }
 
 export function CaseEditorPage() {
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const { caseId } = useParams<{ caseId: string }>();
@@ -337,6 +339,11 @@ export function CaseEditorPage() {
     if (cid) {
       executeMutation.mutate({ cid, config });
     }
+  }
+
+  function enableDefaultConfig() {
+    setDefaultConfigEnabled(true);
+    setDefaultConfigDialogOpen(true);
   }
 
   const defaultSummary = {
@@ -630,7 +637,7 @@ export function CaseEditorPage() {
                     <button
                       type="button"
                       className="case-default-edit-button"
-                      onClick={() => setDefaultConfigEnabled(true)}
+                      onClick={enableDefaultConfig}
                     >
                       启用配置
                     </button>

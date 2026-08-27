@@ -47,9 +47,10 @@ class VolcengineStreamTokenGateway:
             configuration.sk = config.secret_access_key
             configuration.region = "cn-north-1"
             configuration.auto_retry = False
-            api = volcenginesdkcore.UniversalApi(
-                volcenginesdkcore.ApiClient(configuration)
-            )
+            api_client = volcenginesdkcore.ApiClient(configuration)
+            for name, value in (config.request_headers or {}).items():
+                api_client.set_default_header(name, value)
+            api = volcenginesdkcore.UniversalApi(api_client)
             response = api.do_call(
                 volcenginesdkcore.UniversalInfo(
                     method="POST",

@@ -36,6 +36,11 @@ class PlanExecutionCreate(BaseModel):
     device_strategy: Literal["automatic", "specified"]
     pod_ids: list[str] = Field(default_factory=list, max_length=20)
     concurrency: int = Field(ge=1, le=20)
+    device_wait_timeout_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        le=86400,
+    )
     timeout_seconds: int | None = Field(
         default=None,
         ge=1,
@@ -74,6 +79,7 @@ class PlanExecutionCreate(BaseModel):
             device_strategy=self.device_strategy,
             pod_ids=list(self.pod_ids),
             concurrency=self.concurrency,
+            device_wait_timeout_seconds=self.device_wait_timeout_seconds,
             timeout_seconds=self.timeout_seconds,
             agent_config_mode=self.agent_config_mode,
             agent_options=(

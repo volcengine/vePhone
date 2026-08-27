@@ -9,6 +9,12 @@ class ExecutionStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class StartState(StrEnum):
+    PENDING = "pending"
+    DISPATCHING = "dispatching"
+    ATTACHED = "attached"
+
+
 class Verdict(StrEnum):
     PASS = "pass"
     FAIL = "fail"

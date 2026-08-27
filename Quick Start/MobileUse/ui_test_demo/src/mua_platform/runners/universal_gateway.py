@@ -158,6 +158,29 @@ class RemoteCancel:
     request_id: str | None
 
 
+@dataclass(frozen=True)
+class RemoteHostAction:
+    request_id: str | None
+    task_id: str | None
+
+
+@dataclass(frozen=True)
+class RemoteHostTaskInfo:
+    request_id: str | None
+    task_id: str | None
+    task_action: str | None
+    task_result: int | None
+    task_message: str | None
+    jobs: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class RemotePodStatus:
+    request_id: str | None
+    pod_id: str | None
+    online: int | None
+
+
 @dataclass(frozen=True, slots=True)
 class GatewayTraceAttempt:
     stable_key: str
@@ -195,6 +218,8 @@ ResponseValidator = Callable[[Mapping[str, Any]], None]
 
 _SERVICE = "ipaas"
 _VERSION = "2023-08-01"
+_ACEP_SERVICE = "ACEP"
+_ACEP_VERSION = "2025-05-01"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _RETRYABLE_CODES: frozenset[RemoteErrorCode] = frozenset(
     {"rate_limited", "remote_timeout", "remote_unavailable"}
@@ -377,6 +402,211 @@ class UniversalGateway:
         )
         return RemoteCancel(True, _response_request_id(response))
 
+    async def reset_host(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemoteHostAction:
+        return await self._host_action(
+            config,
+            action="ResetPod",
+            body={"ProductId": product_id, "PodIdList": [pod_id]},
+            trace_key=trace_key,
+        )
+
+    async def reboot_host(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemoteHostAction:
+        return await self._host_action(
+            config,
+            action="RebootPod",
+            body={
+                "ProductId": product_id,
+                "PodId": pod_id,
+                "ResourcePolicy": "Persist",
+            },
+            trace_key=trace_key,
+        )
+
+    async def power_on_pod(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemoteHostAction:
+        return await self._host_action(
+            config,
+            action="PowerOnPod",
+            body={"ProductId": product_id, "PodId": pod_id},
+            trace_key=trace_key,
+        )
+
+    async def power_off_pod(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemoteHostAction:
+        return await self._host_action(
+            config,
+            action="PowerOffPod",
+            body={"ProductId": product_id, "PodId": pod_id},
+            trace_key=trace_key,
+        )
+
+    async def _host_action(
+        self,
+        config: RunnerConfig,
+        *,
+        action: str,
+        body: Mapping[str, Any],
+        trace_key: str | None,
+    ) -> RemoteHostAction:
+        response = await self._invoke(
+            config,
+            UniversalRequest(
+                service=_ACEP_SERVICE,
+                action=action,
+                version=_ACEP_VERSION,
+                method="POST",
+                body=body,
+            ),
+            retry_get=False,
+            trace_key=trace_key,
+        )
+        result = _mapping(response.get("Result"))
+        if action in {"PowerOnPod", "PowerOffPod", "ResetPod"} and not result:
+            result = response
+        if action in {"PowerOnPod", "PowerOffPod"}:
+            success = _pod_action_success(result, body.get("PodId"))
+            if success is not True:
+                raise UniversalRemoteError(
+                    "request_rejected" if success is False else "response_invalid",
+                    _response_request_id(response),
+                    retryable=False,
+                    response_received=True,
+                )
+        elif _host_action_failed(result):
+            raise UniversalRemoteError(
+                "request_rejected",
+                _response_request_id(response),
+                retryable=False,
+                response_received=True,
+            )
+        task_id = result.get("TaskId")
+        return RemoteHostAction(
+            _response_request_id(response),
+            task_id if isinstance(task_id, str) else None,
+        )
+
+    async def get_task_info(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        task_id: str,
+        trace_key: str | None = None,
+    ) -> RemoteHostTaskInfo:
+        response = await self._invoke(
+            config,
+            UniversalRequest(
+                service=_ACEP_SERVICE,
+                action="GetTaskInfo",
+                version=_ACEP_VERSION,
+                method="GET",
+                body={"ProductId": product_id, "TaskId": task_id},
+            ),
+            retry_get=True,
+            trace_key=trace_key,
+        )
+        result = _mapping(response.get("Result")) or response
+        jobs = result.get("Jobs")
+        return RemoteHostTaskInfo(
+            request_id=_response_request_id(response),
+            task_id=_string_or_none(result.get("TaskId")),
+            task_action=_string_or_none(result.get("TaskAction")),
+            task_result=_int_or_none(result.get("TaskResult")),
+            task_message=_string_or_none(result.get("TaskMessage")),
+            jobs=[dict(item) for item in jobs if isinstance(item, Mapping)]
+            if isinstance(jobs, list)
+            else [],
+        )
+
+    async def detail_pod_status(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemotePodStatus:
+        response = await self._invoke(
+            config,
+            UniversalRequest(
+                service=_ACEP_SERVICE,
+                action="DetailPod",
+                version=_ACEP_VERSION,
+                method="GET",
+                body={"ProductId": product_id, "PodId": pod_id},
+            ),
+            retry_get=True,
+            trace_key=trace_key,
+        )
+        result = _mapping(response.get("Result")) or response
+        return RemotePodStatus(
+            request_id=_response_request_id(response),
+            pod_id=_string_or_none(result.get("PodId")),
+            online=_int_or_none(result.get("Online")),
+        )
+
+    async def list_pod_status(
+        self,
+        config: RunnerConfig,
+        *,
+        product_id: str,
+        pod_id: str,
+        trace_key: str | None = None,
+    ) -> RemotePodStatus:
+        response = await self._invoke(
+            config,
+            UniversalRequest(
+                service=_ACEP_SERVICE,
+                action="ListPod",
+                version=_ACEP_VERSION,
+                method="POST",
+                body={"ProductId": product_id, "PodIdList": [pod_id]},
+            ),
+            retry_get=True,
+            trace_key=trace_key,
+        )
+        result = _mapping(response.get("Result"))
+        rows = response.get("Row")
+        if not isinstance(rows, list):
+            rows = result.get("Row")
+        row: Mapping[str, Any] = {}
+        if isinstance(rows, list):
+            for item in rows:
+                if isinstance(item, Mapping) and item.get("PodId") == pod_id:
+                    row = item
+                    break
+        return RemotePodStatus(
+            request_id=_response_request_id(response),
+            pod_id=_string_or_none(row.get("PodId")),
+            online=_int_or_none(row.get("Online")),
+        )
+
     async def _invoke(
         self,
         config: RunnerConfig,
@@ -473,6 +703,12 @@ class UniversalGateway:
             "ListAgentRunCurrentStep": "mobile.step",
             "GetAgentResult": "mobile.result",
             "CancelTask": "mobile.cancel",
+            "ResetPod": "mobile.device.reset",
+            "RebootPod": "mobile.device.reboot",
+            "PowerOnPod": "mobile.device.power_on",
+            "PowerOffPod": "mobile.device.power_off",
+            "GetTaskInfo": "mobile.device.task",
+            "ListPod": "mobile.device.status",
         }.get(action, "mobile.call")
         call_number = self._trace_call_counts.get(action, 0) + 1
         self._trace_call_counts[action] = call_number
@@ -484,6 +720,38 @@ def _validate_start_response(response: Mapping[str, Any]) -> None:
     run_id = result.get("RunId")
     if not isinstance(run_id, str) or not run_id:
         raise _invalid_response(_response_request_id(response))
+
+
+def _host_action_failed(result: Mapping[str, Any]) -> bool:
+    jobs = result.get("Jobs")
+    if not isinstance(jobs, list):
+        return False
+    for job in jobs:
+        if not isinstance(job, Mapping):
+            continue
+        status = job.get("Status")
+        if isinstance(status, int) and not isinstance(status, bool) and status < 0:
+            return True
+    return False
+
+
+def _pod_action_success(result: Mapping[str, Any], pod_id: object) -> bool | None:
+    details = result.get("Details")
+    if not isinstance(details, list):
+        return None
+    for item in details:
+        if isinstance(item, Mapping) and item.get("PodId") == pod_id:
+            success = item.get("Success")
+            return success if isinstance(success, bool) else None
+    return None
+
+
+def _string_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _int_or_none(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def call_universal(
@@ -512,7 +780,9 @@ def call_universal(
                 version=request.version,
                 content_type="application/json",
             ),
-            volcenginesdkcore.Flatten(request.body).flat(),
+            request.body
+            if request.method == "POST"
+            else volcenginesdkcore.Flatten(request.body).flat(),
         )
     except UniversalRemoteError:
         raise
@@ -572,7 +842,7 @@ def _normalize_response(
 ) -> Mapping[str, Any]:
     if isinstance(response, Mapping):
         return response
-    if action == "CancelTask" and response is None:
+    if action in {"CancelTask", "RebootPod"} and response is None:
         return {}
     raise _invalid_response(None)
 

@@ -643,6 +643,71 @@ def test_batch_schema_is_added_without_rebuilding_current_tasks():
         engine.dispose()
 
 
+def test_task_start_state_migration_preserves_unknown_dispatch_boundary():
+    engine = create_engine("sqlite://")
+    now = datetime(2026, 8, 25, 8, 0, tzinfo=UTC)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE test_cases (id VARCHAR(40) PRIMARY KEY)"))
+            connection.execute(text("INSERT INTO test_cases (id) VALUES ('case_start_state')"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE tasks (
+                        id VARCHAR(40) PRIMARY KEY,
+                        case_id VARCHAR(40) NOT NULL,
+                        script_version_id VARCHAR(40),
+                        runner_type VARCHAR(32) NOT NULL,
+                        scenario VARCHAR(32) NOT NULL,
+                        execution_status VARCHAR(15) NOT NULL,
+                        verdict VARCHAR(12),
+                        failure_type VARCHAR(64),
+                        idempotency_key VARCHAR(255) NOT NULL,
+                        request_fingerprint VARCHAR NOT NULL,
+                        remote_run_id VARCHAR,
+                        version INTEGER NOT NULL,
+                        created_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, case_id, runner_type, scenario, execution_status,
+                        idempotency_key, request_fingerprint, remote_run_id,
+                        version, created_at
+                    ) VALUES
+                        ('queued', 'case_start_state', 'mock', 'queued', 'queued',
+                         'q', '{}', NULL, 1, :now),
+                        ('unknown', 'case_start_state', 'mock', 'unknown', 'running',
+                         'u', '{}', NULL, 1, :now),
+                        ('attached', 'case_start_state', 'mock', 'attached', 'running',
+                         'a', '{}', 'run-1', 1, :now)
+                    """
+                ),
+                {"now": now},
+            )
+
+        Base.metadata.create_all(engine)
+        ensure_schema_migrations(engine)
+
+        columns = {column["name"] for column in inspect(engine).get_columns("tasks")}
+        assert {"start_state", "start_attempted_at"} <= columns
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT id, start_state FROM tasks ORDER BY id")
+            ).all()
+        assert rows == [
+            ("attached", "attached"),
+            ("queued", "pending"),
+            ("unknown", "dispatching"),
+        ]
+    finally:
+        engine.dispose()
+
+
 def test_test_plan_schema_and_tag_registry_are_added():
     engine = create_engine("sqlite://")
     try:

@@ -1,13 +1,16 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Query, Request, Response, status
+from sqlalchemy import select
 
 from mua_platform.api.deps import CsrfSession, CurrentBusiness, CurrentUser, Database
 from mua_platform.api.errors import api_error
 from mua_platform.cases.service import CaseService
+from mua_platform.runners.universal_gateway import UniversalGateway
 from mua_platform.settings.repository import SettingRepository
 from mua_platform.settings.schemas import RunnerExecutionSettingsError
 from mua_platform.settings.service import SettingsService
+from mua_platform.tasks.models import Task
 from mua_platform.tasks.state_machine import ExecutionStatus
 from mua_platform.test_plans.executions import (
     PlanExecutionConcurrencyError,
@@ -17,17 +20,33 @@ from mua_platform.test_plans.executions import (
     PlanExecutionService,
 )
 from mua_platform.test_plans.reports import PlanReportService
+from mua_platform.test_plans.schedule_runner import ScheduleTrigger
+from mua_platform.test_plans.schedule_service import (
+    ScheduleAlreadyExistsError,
+    ScheduleNotFoundError,
+    ScheduleService,
+)
+from mua_platform.test_plans.scheduling import (
+    describe_cron,
+    preview_next_runs,
+)
 from mua_platform.test_plans.schemas import (
     CreatorListResponse,
+    CronPreviewResponse,
     PlanReportDetail,
     PlanReportListResponse,
     PlanReportStats,
     ReportStatus,
+    ScheduleEventListResponse,
+    ScheduleEventResponse,
     TagListResponse,
     TagResponse,
     TestPlanCaseListResponse,
     TestPlanListResponse,
     TestPlanResponse,
+    TestPlanScheduleCreate,
+    TestPlanScheduleResponse,
+    TestPlanScheduleUpdate,
     TestPlanStatsResponse,
     TestPlanWrite,
 )
@@ -370,11 +389,54 @@ def list_task_reports(
 
 
 @router.get(
+    "/task-reports/{execution_id}/download",
+)
+def download_task_report(
+    execution_id: str,
+    db: Database,
+    _user: CurrentUser,
+    business: CurrentBusiness,
+    format: str = Query("markdown"),
+) -> Response:
+    try:
+        download = PlanReportService(db).get_download(
+            execution_id,
+            file_format=format,
+            business_id=business.id,
+        )
+    except ValueError as exc:
+        if str(exc) == "task_report_download_unavailable":
+            raise api_error(
+                409,
+                "task_report_download_unavailable",
+                "Task report is not available for download",
+            ) from exc
+        raise api_error(
+            422,
+            "unsupported_report_download_format",
+            "Unsupported task report download format",
+        ) from exc
+    if download is None:
+        raise api_error(
+            404,
+            "task_report_not_found",
+            "Task report not found",
+        )
+    content, media_type, filename = download
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
     "/task-reports/{execution_id}",
     response_model=PlanReportDetail,
 )
-def get_task_report(
+async def get_task_report(
     execution_id: str,
+    request: Request,
     db: Database,
     _user: CurrentUser,
     business: CurrentBusiness,
@@ -394,6 +456,7 @@ def get_task_report(
             "task_report_not_found",
             "Task report not found",
         )
+    await _refresh_report_task_metrics(detail, request, db)
     return detail
 
 
@@ -441,7 +504,8 @@ async def create_test_plan_execution(
             runner_type=runner_config.mode,
             config_snapshot=snapshot,
             device_wait_timeout_seconds=(
-                request.app.state.settings.device_wait_timeout_seconds
+                payload.device_wait_timeout_seconds
+                or request.app.state.settings.device_wait_timeout_seconds
             ),
             business_id=business.id,
         )
@@ -478,6 +542,179 @@ async def create_test_plan_execution(
     return service.response(result)
 
 
+@router.get(
+    "/test-plans/schedule/preview",
+    response_model=CronPreviewResponse,
+)
+def preview_cron(
+    cron: str = Query(..., min_length=1, max_length=100),
+    timezone: str = Query("UTC", min_length=1, max_length=64),
+    count: int = Query(5, ge=1, le=20),
+):
+    try:
+        next_runs = preview_next_runs(
+            cron, timezone, datetime.now(UTC), count
+        )
+        return CronPreviewResponse(
+            next_runs=next_runs,
+            human_description=describe_cron(cron),
+        )
+    except ValueError as exc:
+        raise api_error(422, "invalid_cron", str(exc)) from exc
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_schedule(
+    plan_id: str,
+    payload: TestPlanScheduleCreate,
+    db: Database,
+    user: CurrentUser,
+    business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).create(
+            plan_id, payload, created_by=user.username,
+            business_id=business.id,
+        )
+    except ScheduleAlreadyExistsError as exc:
+        raise api_error(
+            409, "schedule_already_exists",
+            "A schedule already exists for this test plan",
+        ) from exc
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.get(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+)
+def get_schedule(plan_id: str, db: Database, _user: CurrentUser, _business: CurrentBusiness):
+    schedule = ScheduleService(db).get(plan_id)
+    if schedule is None:
+        raise _not_found()
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.put(
+    "/test-plans/{plan_id}/schedule",
+    response_model=TestPlanScheduleResponse,
+)
+def update_schedule(
+    plan_id: str, payload: TestPlanScheduleUpdate,
+    db: Database, _user: CurrentUser, _business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).update(plan_id, payload)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.delete(
+    "/test-plans/{plan_id}/schedule",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_schedule(
+    plan_id: str, db: Database, _user: CurrentUser,
+    _business: CurrentBusiness, _csrf: CsrfSession,
+):
+    if not ScheduleService(db).delete(plan_id):
+        raise _not_found()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/enable",
+    response_model=TestPlanScheduleResponse,
+)
+def enable_schedule(
+    plan_id: str, db: Database, _user: CurrentUser,
+    _business: CurrentBusiness, _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).set_enabled(plan_id, True)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/disable",
+    response_model=TestPlanScheduleResponse,
+)
+def disable_schedule(
+    plan_id: str, db: Database, _user: CurrentUser,
+    _business: CurrentBusiness, _csrf: CsrfSession,
+):
+    try:
+        schedule = ScheduleService(db).set_enabled(plan_id, False)
+    except ScheduleNotFoundError as exc:
+        raise _not_found() from exc
+    return TestPlanScheduleResponse.model_validate(schedule)
+
+
+@router.post(
+    "/test-plans/{plan_id}/schedule/run",
+    response_model=PlanExecutionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def run_schedule_now(
+    plan_id: str, request: Request, db: Database,
+    user: CurrentUser, business: CurrentBusiness,
+    _csrf: CsrfSession,
+):
+    schedule = ScheduleService(db).get(plan_id)
+    if schedule is None:
+        raise _not_found()
+    trigger = ScheduleTrigger(
+        db, request.app.state.settings, request.app.state.setting_cipher,
+    )
+    execution_id = trigger.run_once(schedule, trigger_type="manual")
+    if execution_id is None:
+        raise api_error(
+            409, "schedule_run_skipped",
+            "Schedule run was skipped (active execution or trigger failed)",
+        )
+    from mua_platform.test_plans.models import PlanExecution
+    from mua_platform.tasks.models import TaskBatch
+
+    execution = db.get(PlanExecution, execution_id)
+    if execution is None:
+        raise api_error(409, "schedule_run_failed", "Execution was not created")
+    batch = db.get(TaskBatch, execution.task_batch_id)
+    result = type(
+        "Result", (),
+        {"execution": execution, "batch": batch, "disposition": "created"},
+    )()
+    return PlanExecutionService.response(result)
+
+
+@router.get(
+    "/test-plans/{plan_id}/schedule/events",
+    response_model=ScheduleEventListResponse,
+)
+def list_schedule_events(
+    plan_id: str, db: Database, _user: CurrentUser, _business: CurrentBusiness,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+):
+    events, total = ScheduleService(db).list_events(
+        plan_id, page=page, page_size=page_size,
+    )
+    return ScheduleEventListResponse(
+        items=[ScheduleEventResponse.model_validate(e) for e in events],
+        total=total, page=page, page_size=page_size,
+    )
+
+
 def _not_found():
     return api_error(
         404,
@@ -493,6 +730,133 @@ def _require_report_page_size(page_size: int) -> None:
             "invalid_page_size",
             "Page size must be 10, 20, or 50",
         )
+
+
+async def _refresh_report_task_metrics(
+    detail: PlanReportDetail,
+    request: Request,
+    db: Database,
+) -> None:
+    task_ids = [task.task_id for task in detail.tasks]
+    if not task_ids:
+        return
+    rows = db.execute(
+        select(
+            Task.id,
+            Task.runner_type,
+            Task.remote_run_id,
+            Task.business_id,
+        ).where(Task.id.in_(task_ids))
+    )
+    task_runtime = {row.id: row for row in rows}
+    gateway = UniversalGateway()
+    settings_service = SettingsService(
+        SettingRepository(
+            db,
+            request.app.state.setting_cipher,
+            request.app.state.settings.runner_setting_defaults(),
+        )
+    )
+    for task in detail.tasks:
+        row = task_runtime.get(task.task_id)
+        if (
+            row is None
+            or row.runner_type != "mobile_use"
+            or not row.remote_run_id
+        ):
+            continue
+        try:
+            model = db.get(Task, row.id)
+            if model is None:
+                continue
+            config = settings_service.get_runner_config(
+                row.business_id
+            ).with_execution_snapshot(model.runner_config_snapshot)
+            remote = await gateway.get_result(config, row.remote_run_id)
+        except Exception:
+            continue
+        payload = _payload(remote.payload)
+        _apply_remote_metrics(task, payload)
+        if model.remote_thread_id:
+            try:
+                thread_detail = await gateway.detail_task_by_thread(
+                    config,
+                    thread_id=model.remote_thread_id,
+                    run_id=row.remote_run_id,
+                )
+            except Exception:
+                continue
+            thread_payload = _payload(thread_detail.payload)
+            thread_steps = _thread_step_count(thread_payload)
+            if thread_steps is not None:
+                task.total_steps = thread_steps
+
+
+def _apply_remote_metrics(task, payload: dict) -> None:
+    usage = payload.get("Usage")
+    if isinstance(usage, dict):
+        task.input_tokens = _safe_int(usage.get("in_tokens"))
+        task.output_tokens = _safe_int(usage.get("out_tokens"))
+    steps = _remote_total_steps(payload)
+    if steps is not None:
+        task.total_steps = steps
+    duration_ms = _remote_duration_ms(payload)
+    if duration_ms is not None:
+        task.duration_seconds = max(0, duration_ms // 1000)
+
+
+def _remote_total_steps(payload: dict) -> int | None:
+    for key in ("TotalSteps", "total_steps", "TotalStep", "StepCount"):
+        value = _safe_int(payload.get(key))
+        if value is not None:
+            return value
+    for key in ("Results", "RunSteps", "Steps"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return len(value)
+    return None
+
+
+def _remote_duration_ms(payload: dict) -> int | None:
+    for key in ("DurationMs", "duration_ms"):
+        value = _safe_int(payload.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _thread_step_count(payload: dict) -> int | None:
+    steps = payload.get("RunSteps")
+    if not isinstance(steps, list):
+        return None
+    total = 0
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        results = step.get("Results")
+        if isinstance(results, list):
+            total += len([item for item in results if isinstance(item, dict)])
+    return total
+
+
+def _payload(value: object) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    result = value.get("Result")
+    return result if isinstance(result, dict) else value
+
+
+def _safe_int(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
 
 
 def _write_error(exc: Exception):

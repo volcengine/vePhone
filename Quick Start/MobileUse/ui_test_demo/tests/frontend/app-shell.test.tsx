@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { MemoryRouter } from "react-router";
@@ -133,7 +133,7 @@ it("creates a business from a modal and writes its default execution config", as
     },
   });
   const userEventApi = userEvent.setup();
-  let settingsBusinessId = "";
+  let settingsPutCalls = 0;
 
   server.use(
     http.get("/api/v1/business-spaces", () =>
@@ -159,6 +159,19 @@ it("creates a business from a modal and writes its default execution config", as
         name: "支付业务",
         description: "支付回归",
         task_concurrency_limit: 4,
+        runner_settings: {
+          mode: "mobile_use",
+          mobile_use: {
+            product_id: "product-pay",
+            account_id: "2100000000000000000",
+            access_key_id: "AKLT00000000WXYZ",
+            secret_access_key: "secret-value",
+            tos_bucket: "pay-bucket",
+            tos_region: "cn-beijing",
+            timeout_seconds: 120,
+            max_step: 100,
+          },
+        },
       });
       return HttpResponse.json(
         {
@@ -173,20 +186,9 @@ it("creates a business from a modal and writes its default execution config", as
         { status: 201 },
       );
     }),
-    http.put("/api/v1/settings/runner", async ({ request }) => {
-      settingsBusinessId = request.headers.get("X-Business-Id") ?? "";
-      expect(await request.json()).toMatchObject({
-        mode: "mobile_use",
-        mobile_use: {
-          product_id: "product-pay",
-          account_id: "2100000000000000000",
-          access_key_id: "AKLT00000000WXYZ",
-          secret_access_key: "secret-value",
-          tos_bucket: "pay-bucket",
-          tos_region: "cn-beijing",
-        },
-      });
-      return HttpResponse.json({ mode: "mobile_use", mobile_use: {} });
+    http.put("/api/v1/settings/runner", () => {
+      settingsPutCalls += 1;
+      return HttpResponse.json({}, { status: 500 });
     }),
   );
 
@@ -217,8 +219,10 @@ it("creates a business from a modal and writes its default execution config", as
   await userEventApi.type(within(dialog).getByLabelText("TOS Region"), "cn-beijing");
   await userEventApi.click(within(dialog).getByRole("button", { name: "创建业务" }));
 
-  await waitFor(() => expect(settingsBusinessId).toBe("biz_pay"));
-  expect(screen.queryByRole("dialog", { name: "新建业务空间" })).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog", { name: "新建业务空间" })).not.toBeInTheDocument(),
+  );
+  expect(settingsPutCalls).toBe(0);
 });
 
 it("allows editing the default business concurrency limit", async () => {
@@ -327,6 +331,69 @@ it("does not create a business when default execution config is incomplete", asy
   await userEventApi.click(within(dialog).getByRole("button", { name: "创建业务" }));
 
   expect(await within(dialog).findByText(/默认执行配置必须完整/)).toBeInTheDocument();
+  expect(createCalls).toBe(0);
+});
+
+it("shows unsupported request header names when creating a business", async () => {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  const userEventApi = userEvent.setup();
+  let createCalls = 0;
+
+  server.use(
+    http.get("/api/v1/business-spaces", () =>
+      HttpResponse.json({
+        items: [
+          {
+            id: "biz_default",
+            name: "默认业务",
+            description: null,
+            is_default: true,
+            task_concurrency_limit: 4,
+            archived_at: null,
+            created_by: "system",
+          },
+        ],
+      })),
+    http.post("/api/v1/business-spaces", () => {
+      createCalls += 1;
+      return HttpResponse.json({}, { status: 500 });
+    }),
+  );
+
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <BusinessProvider>
+          <AppShell user={user}>
+            <div>content</div>
+          </AppShell>
+        </BusinessProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await userEventApi.click(await screen.findByRole("button", { name: "当前业务：默认业务" }));
+  await userEventApi.click(screen.getByRole("button", { name: "新建业务" }));
+  const dialog = screen.getByRole("dialog", { name: "新建业务空间" });
+  await userEventApi.type(within(dialog).getByLabelText("业务名称"), "Header 业务");
+  await userEventApi.type(within(dialog).getByLabelText("Product ID"), "product-header");
+  await userEventApi.type(within(dialog).getByLabelText("Access Key ID"), "AKLT00000000WXYZ");
+  await userEventApi.type(within(dialog).getByLabelText("Secret Access Key"), "secret-value");
+  await userEventApi.type(within(dialog).getByLabelText("TOS Bucket"), "header-bucket");
+  await userEventApi.type(within(dialog).getByLabelText("TOS Region"), "cn-beijing");
+  fireEvent.change(within(dialog).getByLabelText("请求 Header（JSON 对象）"), {
+    target: { value: '{"Authorization":"Bearer token"}' },
+  });
+  await userEventApi.click(within(dialog).getByRole("button", { name: "创建业务" }));
+
+  expect(
+    await within(dialog).findByText("请求 Header 包含不允许覆盖的保留字段：Authorization"),
+  ).toBeInTheDocument();
   expect(createCalls).toBe(0);
 });
 

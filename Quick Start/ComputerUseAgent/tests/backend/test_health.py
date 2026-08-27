@@ -24,6 +24,17 @@ def test_health_endpoints(client):
     }
 
 
+def test_draining_worker_fails_readiness_but_not_liveness(client):
+    client.app.state.task_worker.begin_drain()
+
+    ready = client.get("/health/ready")
+    live = client.get("/health/live")
+
+    assert ready.status_code == 503
+    assert ready.json()["checks"]["worker"] == "not_ready"
+    assert live.status_code == 200
+
+
 def test_readiness_reports_not_ready_when_database_check_fails(client, monkeypatch):
     def raise_database_error(_engine):
         raise SQLAlchemyError("database unavailable")
@@ -162,6 +173,7 @@ def test_built_spa_serves_deep_links_without_masking_api(settings, tmp_path, mon
 
     assert deep_link.status_code == 200
     assert "mua-spa" in deep_link.text
+    assert "no-cache" in deep_link.headers["cache-control"]
     assert asset.status_code == 200
     assert api_root.status_code == 404
     assert health_root.status_code == 404

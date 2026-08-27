@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from fastapi import APIRouter, Request, Response, status
 
 from mua_platform.api.deps import AdminUser, CsrfSession, CurrentUser, Database
@@ -16,7 +18,15 @@ from mua_platform.auth.schemas import (
 from mua_platform.auth.service import AuthService
 
 router = APIRouter(prefix="/api/v1")
-SESSION_MAX_AGE_SECONDS = 12 * 60 * 60
+
+
+def _auth_service(request: Request, db: Database) -> AuthService:
+    return AuthService(
+        db,
+        session_lifetime=timedelta(
+            seconds=request.app.state.settings.auth_session_lifetime_seconds
+        ),
+    )
 
 
 def set_auth_cookies(
@@ -25,13 +35,14 @@ def set_auth_cookies(
     auth_session: AuthSession,
 ) -> None:
     secure = request.app.state.settings.app_env == "production"
+    max_age = request.app.state.settings.auth_session_lifetime_seconds
     response.set_cookie(
         "session",
         auth_session.id,
         httponly=True,
         samesite="lax",
         secure=secure,
-        max_age=SESSION_MAX_AGE_SECONDS,
+        max_age=max_age,
     )
     response.set_cookie(
         "csrf",
@@ -39,7 +50,7 @@ def set_auth_cookies(
         httponly=False,
         samesite="lax",
         secure=secure,
-        max_age=SESSION_MAX_AGE_SECONDS,
+        max_age=max_age,
     )
 
 
@@ -56,7 +67,7 @@ def setup_admin(
     db: Database,
 ) -> UserResponse:
     try:
-        user, auth_session = AuthService(db).create_admin(
+        user, auth_session = _auth_service(request, db).create_admin(
             credentials.username,
             credentials.password,
         )
@@ -93,7 +104,10 @@ def login(
             headers={"Retry-After": str(retry_after)},
         )
     try:
-        result = AuthService(db).login(credentials.username, credentials.password)
+        result = _auth_service(request, db).login(
+            credentials.username,
+            credentials.password,
+        )
     except ValueError as exc:
         if str(exc) == "user_disabled":
             raise api_error(403, "user_disabled", "User is disabled") from exc

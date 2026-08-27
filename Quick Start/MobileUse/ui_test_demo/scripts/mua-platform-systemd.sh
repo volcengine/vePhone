@@ -54,6 +54,8 @@ EnvironmentFile=${REPO_ROOT}/.env
 ExecStart=${REPO_ROOT}/.venv/bin/uvicorn mua_platform.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=45
 StandardOutput=append:${STDOUT_LOG}
 StandardError=append:${STDERR_LOG}
 

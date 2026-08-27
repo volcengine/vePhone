@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from mua_platform.tasks.models import Task, TaskRunnerConfig
+from mua_platform.tasks.models import Task, TaskEvent, TaskRunnerConfig
 from mua_platform.tasks.state_machine import ExecutionStatus
 
 
@@ -139,6 +139,57 @@ def test_runtime_skips_thread_detail_while_task_is_running(
         "GetAgentResult",
         "ListAgentRunTaskByThread",
     ]
+
+
+def test_runtime_reports_device_prepare_current_phase(authenticated_client):
+    case_id = _create_case(authenticated_client, "正在重启设备")
+    with authenticated_client.app.state.session_factory() as db:
+        task = Task(
+            id="task_device_prepare_running",
+            case_id=case_id,
+            runner_type="mobile_use",
+            scenario="正在重启设备",
+            execution_status=ExecutionStatus.RUNNING,
+            idempotency_key="device-prepare-running",
+            request_fingerprint="{}",
+            created_by="admin",
+        )
+        task.runner_config = TaskRunnerConfig(
+            config_snapshot={
+                "product_id": "prod-runtime",
+                "pod_id": "pod-runtime",
+                "tos_bucket": "mua-test",
+                "tos_region": "cn-beijing",
+                "device_prepare_action": "reboot",
+            },
+        )
+        task.events = [
+            TaskEvent(
+                id="event_device_prepare_running",
+                sequence=1,
+                event_type="device_prepare_started",
+                payload={
+                    "action": "reboot",
+                    "product_id": "prod-runtime",
+                    "pod_id": "pod-runtime",
+                },
+            )
+        ]
+        db.add(task)
+        db.commit()
+
+    response = authenticated_client.get(
+        "/api/v1/tasks/task_device_prepare_running/runtime"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["current_phase"] == {
+        "type": "device_prepare",
+        "status": "running",
+        "action": "reboot",
+        "product_id": "prod-runtime",
+        "pod_id": "pod-runtime",
+    }
 
 
 def test_runtime_uses_local_mock_trace_assets(authenticated_client):

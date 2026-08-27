@@ -188,6 +188,107 @@ describe("设置页", () => {
     expect(screen.getByText("设置已保存。")).toBeVisible();
   });
 
+  it("支持显式清除可选 CUA 运行配置", async () => {
+    let updateBody: unknown;
+    vi.spyOn(window, "confirm").mockImplementation(() => {
+      throw new Error("native confirm should not be used");
+    });
+    useSettings({
+      ...configuredSettings,
+      mobile_use: {
+        ...configuredSettings.mobile_use,
+        callback_info: { url: "https://callback.example.com" },
+        output_schema: '{"type":"object"}',
+        system_prompt: "custom system prompt",
+        mcp_json: '{"mcpServers":{}}',
+        max_output_tokens: 2048,
+        request_headers: { configured: true, names: ["X-Env"] },
+      },
+    });
+    server.use(
+      http.put("/api/v1/settings/runner", async ({ request }) => {
+        expectCsrf(request);
+        updateBody = await request.json();
+        return HttpResponse.json({
+          ...configuredSettings,
+          mobile_use: {
+            ...configuredSettings.mobile_use,
+            request_headers: { configured: false, names: [] },
+          },
+        });
+      }),
+    );
+
+    renderApp("/settings");
+
+    await screen.findByRole("heading", { name: "CUA 运行配置" });
+    async function clearField(label: string) {
+      await user.click(screen.getByRole("button", { name: `清除 ${label}` }));
+      const dialog = await screen.findByRole("dialog", { name: "清除配置" });
+      expect(within(dialog).getByText(`确认清除 ${label}？`)).toBeVisible();
+      await user.click(within(dialog).getByRole("button", { name: "清除" }));
+    }
+
+    await clearField("MaxOutputTokens");
+    await clearField("SystemPrompt");
+    await clearField("CallbackInfo");
+    await clearField("OutputSchema");
+    await clearField("McpJson");
+    await clearField("请求 Header（JSON 对象）");
+    await user.click(screen.getByRole("button", { name: "保存所有更改" }));
+
+    await waitFor(() =>
+      expect(updateBody).toEqual({
+        mode: "mobile_use",
+        mobile_use: {
+          max_output_tokens: null,
+          system_prompt: null,
+          callback_info: null,
+          output_schema: null,
+          mcp_json: null,
+          request_headers: null,
+        },
+      }),
+    );
+  });
+
+  it("保存 CUA 运行配置失败时使用弹窗展示错误", async () => {
+    useSettings();
+    server.use(
+      http.put("/api/v1/settings/runner", async ({ request }) => {
+        expectCsrf(request);
+        return HttpResponse.json(
+          {
+            error: {
+              code: "runner_config_invalid",
+              message: "CUA AccountId 配置无效，请检查后重新保存。",
+              request_id: "req-settings-save-42",
+              details: { field: "account_id" },
+            },
+          },
+          { status: 400 },
+        );
+      }),
+    );
+
+    renderApp("/settings");
+
+    await screen.findByRole("heading", { name: "CUA 运行配置" });
+    await user.clear(screen.getByLabelText("CUA AccountId"));
+    await user.type(screen.getByLabelText("CUA AccountId"), "bad-account");
+    await user.click(screen.getByRole("button", { name: "保存所有更改" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "保存失败" });
+    expect(within(dialog).getByText("CUA AccountId 配置无效，请检查后重新保存。")).toBeVisible();
+    expect(within(dialog).getByText(/req-settings-save-42/)).toBeVisible();
+    expect(
+      document.querySelector(".settings-feedback [role='alert']"),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "我知道了" }));
+    expect(screen.queryByRole("dialog", { name: "保存失败" })).not.toBeInTheDocument();
+  });
+
   it("缺少 CUA 运行配置时只标出三个必填字段", async () => {
     useSettings({
       mode: "mock",
@@ -223,7 +324,8 @@ describe("设置页", () => {
     await screen.findByRole("heading", { name: "CUA 运行配置" });
     await user.click(screen.getByRole("button", { name: "保存所有更改" }));
 
-    expect(await screen.findByText("请补齐 CUA 运行配置。")).toBeVisible();
+    const dialog = await screen.findByRole("dialog", { name: "保存失败" });
+    expect(within(dialog).getByText("请补齐 CUA 运行配置。")).toBeVisible();
     expect(screen.getByText("Access Key ID 为必填项")).toBeVisible();
     expect(screen.getByText("Secret Access Key 为必填项")).toBeVisible();
     expect(screen.getByText("CUA AccountId 为必填项")).toBeVisible();

@@ -2,11 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from mua_platform.settings.schemas import RunnerSettingsUpdate
+
 
 class BusinessSpaceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=1000)
     task_concurrency_limit: int = Field(default=4, ge=1, le=8)
+    runner_settings: RunnerSettingsUpdate | None = None
 
     @field_validator("name")
     @classmethod

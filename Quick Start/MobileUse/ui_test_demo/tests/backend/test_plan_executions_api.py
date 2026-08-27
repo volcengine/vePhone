@@ -139,6 +139,29 @@ def test_run_single_case_plan_creates_ordered_atomic_snapshot(
         )
 
 
+def test_run_plan_uses_payload_device_wait_timeout(authenticated_client):
+    _configure_runner(authenticated_client)
+    case_id = _create_case(authenticated_client, "等待超时计划用例")
+    plan = _create_plan(authenticated_client, "等待超时计划", [case_id])
+
+    response = authenticated_client.post(
+        f"/api/v1/test-plans/{plan['id']}/executions",
+        json=_run_payload(
+            device_wait_timeout_seconds=75,
+            idempotency_key="plan-run-device-wait",
+        ),
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["batch"]["device_wait_timeout_seconds"] == 75
+    assert body["config_snapshot"]["device_wait_timeout_seconds"] == 75
+    with authenticated_client.app.state.session_factory() as db:
+        batch = db.get(TaskBatch, body["task_batch_id"])
+        assert batch is not None
+        assert batch.device_wait_timeout_seconds == 75
+
+
 def test_run_plan_preserves_case_order_and_custom_specified_config(
     authenticated_client,
 ):

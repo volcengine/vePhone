@@ -110,10 +110,16 @@ running -> cancelled
 2. 后端写入任务、批次、配置快照和幂等键。
 3. `BatchScheduler` 把满足条件的 queued 任务推给 `TaskWorker`。
 4. `TaskWorker` 根据任务的 `runner_type` 创建 Runner。
-5. Runner 产生事件，`TaskService` 将事件收敛为任务状态、步骤、结果、资产和 Trace。
-6. 前端通过任务详情、报告和 Trace 页面读取持久化结果。
+5. 远端启动前，任务先从 `start_state=pending` 原子切换为 `dispatching`。
+6. 远端返回 RunId 后，任务切换为 `start_state=attached`，后续只能通过原 `remote_run_id` 轮询或取消。
+7. Runner 产生事件，`TaskService` 将事件收敛为任务状态、步骤、结果、资产和 Trace。
+8. 前端通过任务详情、报告和 Trace 页面读取持久化结果。
 
 证据不足、结构化输出非法、must 断言缺失或自然语言成功描述都不能生成通过结论。
+
+服务收到 `SIGTERM` 后进入 draining：readiness 返回未就绪，scheduler 不再分配新任务，Worker 最多等待 `TASK_WORKER_DRAIN_TIMEOUT_SECONDS` 秒。排空超时只取消本地协程；已保存 `remote_run_id` 的远端任务保持 `running`，由新进程启动后恢复轮询。
+
+如果任务处于 `dispatching` 且没有 RunId，系统认为远端启动结果未知，终结为 `start_outcome_unknown` 并保留隔离租约，避免静默重复提交远端任务。
 
 ## Runner 抽象
 
@@ -150,7 +156,8 @@ Pod 模块负责把真实设备执行从“配置问题”变成“任务调度�
 2. `pods/service.py` 将设备写入 `discovered_pods`，并记录 last seen、状态、冷却等信息。
 3. 创建任务时根据设备策略选择 Pod。
 4. 执行前通过本地 `pod_leases` 做单实例互斥。
-5. 任务终态、取消、中断或启动清理时释放租约。
+5. 任务终态、取消、中断或安全的启动重排时释放租约。
+6. 启动结果未知时不释放租约，而是延长为隔离租约，直到可能的远端执行窗口结束。
 
 该机制不提供云机启停、重建或多实例 fencing。
 

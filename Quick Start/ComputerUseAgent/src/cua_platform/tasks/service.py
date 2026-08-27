@@ -1,5 +1,9 @@
+import asyncio
 import logging
+import math
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from numbers import Real
 from typing import Any
 
 from cua_platform.cases.models import TestCase
@@ -13,10 +17,16 @@ from cua_platform.runners.base import (
 )
 from cua_platform.tasks.models import Task
 from cua_platform.tasks.repository import TaskRepository
-from cua_platform.tasks.state_machine import ExecutionStatus, Verdict
+from cua_platform.tasks.state_machine import ExecutionStatus, StartState, Verdict
 from cua_platform.time import Clock, SystemClock
 
 logger = logging.getLogger("cua_platform.tasks")
+LEASE_SAFETY_INTERVAL = timedelta(seconds=30)
+RUNNER_TIMEOUT_MAX_SECONDS = 86400
+
+
+class AttachedLeaseUnavailable(RuntimeError):
+    pass
 
 
 def _log(level: int, event: str, **fields: object) -> None:
@@ -24,6 +34,23 @@ def _log(level: int, event: str, **fields: object) -> None:
         logger.log(level, event, extra=fields)
     except Exception:
         pass
+
+
+def _snapshot_execution_timeout(
+    snapshot: object,
+    fallback: timedelta,
+) -> timedelta:
+    if not isinstance(snapshot, Mapping):
+        return fallback
+    timeout = snapshot.get("timeout_seconds")
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, Real)
+        or not 0 < timeout <= RUNNER_TIMEOUT_MAX_SECONDS
+        or not math.isfinite(timeout)
+    ):
+        return fallback
+    return timedelta(seconds=timeout)
 
 
 class TaskService:
@@ -93,26 +120,124 @@ class TaskService:
             timedelta(seconds=30),
         )
         recoverable = self.repository.list_recoverable()
-        recoverable_ids: list[str] = []
-        finalized_count = 0
+        recovered_ids: list[str] = []
+        resumed_count = 0
+        requeued_count = 0
+        unknown_count = 0
+        failed_count = 0
         for task in recoverable:
             if (
-                task.execution_status == ExecutionStatus.RUNNING
-                and task.remote_run_id is None
+                task.execution_status == ExecutionStatus.QUEUED
+                and task.cancel_requested_at is not None
             ):
-                self.repository.finalize_interrupted(task.id, "internal_error")
-                finalized_count += 1
+                self.repository.request_cancel(task.id, current_time)
                 continue
-            recoverable_ids.append(task.id)
+            if (
+                task.execution_status == ExecutionStatus.RUNNING
+                and task.start_state == StartState.PENDING
+                and task.remote_run_id is None
+                and task.cancel_requested_at is not None
+            ):
+                self.repository.finalize_cancel(task.id)
+                continue
+            if task.execution_status == ExecutionStatus.QUEUED:
+                recovered_ids.append(task.id)
+                continue
+            if task.remote_run_id is not None:
+                if task.start_state != StartState.ATTACHED:
+                    task = self.repository.repair_start_attached(task.id)
+                recovered_ids.append(task.id)
+                resumed_count += 1
+                _log(
+                    logging.INFO,
+                    "task_recovery_resumed",
+                    task_id=task.id,
+                    remote_run_id=task.remote_run_id,
+                    start_state=task.start_state.value,
+                )
+                continue
+            if task.start_state == StartState.PENDING:
+                self.repository.requeue_before_dispatch(task.id)
+                recovered_ids.append(task.id)
+                requeued_count += 1
+                _log(
+                    logging.INFO,
+                    "task_recovery_requeued",
+                    task_id=task.id,
+                    start_state=task.start_state.value,
+                )
+                continue
+            if task.start_state == StartState.DISPATCHING:
+                self._finalize_start_outcome_unknown(task.id)
+                unknown_count += 1
+                continue
+            self.repository.finalize_interrupted(task.id, "internal_error")
+            failed_count += 1
         _log(
             logging.INFO,
             "task_recovery_completed",
             released_count=released_count,
             recovered_lease_count=recovered_lease_count,
             recoverable_count=len(recoverable),
-            finalized_count=finalized_count,
+            finalized_count=unknown_count + failed_count,
+            resumed_count=resumed_count,
+            requeued_count=requeued_count,
+            unknown_count=unknown_count,
+            failed_count=failed_count,
         )
-        return recoverable_ids
+        return recovered_ids
+
+    def converge_worker_failure(
+        self,
+        task_id: str,
+        *,
+        worker_id: str = "worker:default",
+    ) -> Task | None:
+        task = self.repository.get(task_id)
+        if task is None:
+            return None
+        if task.execution_status == ExecutionStatus.QUEUED:
+            return self.repository.finalize_preclaim_failure(task_id)
+        if task.execution_status != ExecutionStatus.RUNNING:
+            return task
+        if task.remote_run_id is not None:
+            try:
+                if task.start_state != StartState.ATTACHED:
+                    task = self.repository.repair_start_attached(task_id)
+                ensured = self.repository.ensure_attached_lease(
+                    task_id,
+                    worker_id,
+                    self.clock.now(),
+                    timedelta(seconds=30),
+                )
+            except Exception as exc:
+                _log(
+                    logging.WARNING,
+                    "task_worker_failure_lease_ensure_failed",
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    reason="repository_error",
+                )
+                raise AttachedLeaseUnavailable(
+                    f"attached_lease_unavailable:{task_id}"
+                ) from exc
+            if not ensured:
+                _log(
+                    logging.WARNING,
+                    "task_worker_failure_lease_ensure_failed",
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    reason="ownership_conflict",
+                )
+                raise AttachedLeaseUnavailable(
+                    f"attached_lease_unavailable:{task_id}"
+                )
+            return task
+        if task.start_state == StartState.PENDING:
+            return self.repository.requeue_before_dispatch(task_id)
+        if task.start_state == StartState.DISPATCHING:
+            return self._finalize_start_outcome_unknown(task_id)
+        return self.repository.finalize_interrupted(task_id, "internal_error")
 
     async def execute_or_resume(
         self,
@@ -131,10 +256,6 @@ class TaskService:
         if task.execution_status != ExecutionStatus.RUNNING:
             return task
 
-        now = self.clock.now()
-        execution_timed_out = _deadline_reached(now, task.deadline_at)
-        if task.cancel_requested_at is None and execution_timed_out:
-            task = self.repository.request_cancel(task_id, now)
         if task.remote_run_id is None:
             return task
 
@@ -146,6 +267,7 @@ class TaskService:
         if task.cancel_requested_at is None:
             return await self._poll_running(task, handle, worker_id)
 
+        now = self.clock.now()
         cancel_deadline = task.cancel_requested_at + self.cancel_confirm_timeout
         if task.last_polled_at is not None and _deadline_reached(now, cancel_deadline):
             return self.repository.finalize_cancel(task_id)
@@ -161,8 +283,6 @@ class TaskService:
             )
         except Exception:
             return self.repository.finalize_cancel(task_id)
-        if outcome == "terminal" and execution_timed_out:
-            return self.repository.finalize_interrupted(task_id, "runner_interrupted")
         if outcome == "terminal":
             return self.repository.finalize_cancel(task_id)
         if outcome in {"rejected", "timeout"}:
@@ -211,6 +331,7 @@ class TaskService:
 
     async def _execute_claimed(self, task: Task, worker_id: str) -> Task:
         runner = self._required_runner()
+        dispatch_started = False
         try:
             case = self._execution_case(task)
             content = task.prompt_snapshot or case.content_markdown
@@ -220,10 +341,19 @@ class TaskService:
                 title=case.title,
                 content_markdown=content,
             )
+            dispatching = self.repository.mark_start_dispatching(
+                task.id,
+                self.clock.now(),
+            )
+            if dispatching is None:
+                return self.repository.refresh(task.id)
+            dispatch_started = True
             self.repository.end_transaction()
             handle = await runner.start(
                 request,
-                idempotency_key=task.start_idempotency_key or f"start:{task.id}",
+                idempotency_key=(
+                    dispatching.start_idempotency_key or f"start:{dispatching.id}"
+                ),
             )
             self.repository.save_run_handle(task.id, handle)
             _log(
@@ -234,7 +364,11 @@ class TaskService:
                 run_id=handle.run_id,
                 thread_id=handle.thread_id,
             )
+        except asyncio.CancelledError:
+            raise
         except RunnerFailure as exc:
+            if dispatch_started and exc.start_outcome_unknown:
+                return self._finalize_start_outcome_unknown(task.id)
             return self._record_runner_failure(
                 task.id,
                 failure_type=exc.failure_type,
@@ -242,6 +376,8 @@ class TaskService:
                 request_id=exc.request_id,
             )
         except Exception:
+            if dispatch_started:
+                return self._finalize_start_outcome_unknown(task.id)
             return self._record_runner_interrupted(task.id)
 
         return await self._poll_running(
@@ -249,6 +385,35 @@ class TaskService:
             handle,
             worker_id,
         )
+
+    def _finalize_start_outcome_unknown(self, task_id: str) -> Task:
+        task = self.repository.refresh(task_id)
+        now = self.clock.now()
+        started_at = task.start_attempted_at or now
+        quarantine_duration = max(
+            self.execution_timeout,
+            _snapshot_execution_timeout(
+                task.runner_config_snapshot,
+                self.execution_timeout,
+            ),
+        )
+        quarantine_until = (
+            max(_utc_naive(started_at), _utc_naive(now))
+            + quarantine_duration
+            + LEASE_SAFETY_INTERVAL
+        ).replace(tzinfo=UTC)
+        completed = self.repository.finalize_start_outcome_unknown(
+            task_id,
+            quarantine_until,
+        )
+        _log(
+            logging.WARNING,
+            "task_start_outcome_unknown",
+            task_id=task_id,
+            start_state=StartState.DISPATCHING.value,
+            quarantine_until=quarantine_until.isoformat(),
+        )
+        return completed
 
     async def _poll_running(
         self,
@@ -263,10 +428,7 @@ class TaskService:
             terminal = False
             while not terminal:
                 current = self.repository.refresh(task.id)
-                if current.cancel_requested_at is not None or _deadline_reached(
-                    self.clock.now(),
-                    current.deadline_at,
-                ):
+                if current.cancel_requested_at is not None:
                     return await self.execute_or_resume(
                         task.id,
                         worker_id=worker_id,
@@ -286,11 +448,6 @@ class TaskService:
                     after_sequence=last_sequence,
                 )
                 current = self.repository.refresh(task.id)
-                if _deadline_reached(self.clock.now(), current.deadline_at):
-                    return await self.execute_or_resume(
-                        task.id,
-                        worker_id=worker_id,
-                    )
 
                 terminal = page.terminal
                 for event in page.events:

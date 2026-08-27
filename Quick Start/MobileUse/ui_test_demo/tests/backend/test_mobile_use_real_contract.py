@@ -17,9 +17,10 @@ from mua_platform.runners.base import (
     RunRequest,
     RunnerEvent,
 )
-from mua_platform.runners.mobile_use import MobileUseRunner
+from mua_platform.runners.mobile_use import MobileUseRunner, _runner_failure
 from mua_platform.runners.universal_gateway import (
     RemoteRun,
+    UniversalRemoteError,
     UniversalGateway,
     UniversalRequest,
     call_universal,
@@ -211,6 +212,32 @@ def test_real_contract_fixtures_preserve_universal_wrappers_and_enums():
     assert cancel_accepted["Result"] is None
 
 
+def test_transport_failure_during_start_marks_outcome_unknown():
+    failure = _runner_failure(
+        UniversalRemoteError(
+            "transport_error",
+            None,
+            retryable=True,
+            response_received=False,
+        )
+    )
+
+    assert failure.start_outcome_unknown is True
+
+
+def test_remote_rejection_during_start_is_known_failure():
+    failure = _runner_failure(
+        UniversalRemoteError(
+            "invalid_parameter",
+            "req-rejected",
+            retryable=False,
+            response_received=True,
+        )
+    )
+
+    assert failure.start_outcome_unknown is False
+
+
 def test_real_contract_sdk_spy_preserves_start_action_and_body(monkeypatch):
     calls = []
     configurations = []
@@ -318,6 +345,7 @@ async def test_real_contract_start_and_pass_lifecycle_use_raw_fixtures():
     pending_page = await runner.poll(handle, after_sequence=1)
     terminal_page = await runner.poll(handle, after_sequence=1)
 
+    assert call.requests[0].body["Timeout"] == 120
     assert handle == RunHandle(
         "task-real-contract",
         "mobile_use",

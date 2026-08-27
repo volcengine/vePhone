@@ -9,7 +9,11 @@ from cua_platform.cases.models import TestCase as CaseModel
 from cua_platform.db import _TAG_COLOR_CANDIDATES
 from cua_platform.tasks.models import Task, TaskBatch
 from cua_platform.tasks.state_machine import ExecutionStatus, Verdict
-from cua_platform.test_plans.models import PlanExecution, TagColorRegistry
+from cua_platform.test_plans import models as plan_models
+from cua_platform.test_plans.models import (
+    PlanExecution,
+    TagColorRegistry,
+)
 from cua_platform.test_plans.schemas import TestPlanWrite as PlanWrite
 
 
@@ -507,6 +511,54 @@ def test_plan_list_treats_assertion_failure_as_failure(
         if item["id"] == plan["id"]
     )
     assert item["latest_execution"]["report_status"] == "failure"
+
+
+def test_plan_list_latest_execution_running_when_some_children_finished_and_queued(
+    authenticated_client,
+):
+    case_ids = [
+        _create_case(authenticated_client, "部分完成用例 1"),
+        _create_case(authenticated_client, "部分完成用例 2"),
+    ]
+    plan = _create_plan(
+        authenticated_client,
+        "部分完成仍排队计划",
+        case_ids=case_ids,
+    )
+    execution_id = _seed_execution(
+        authenticated_client,
+        plan,
+        [Verdict.PASS, Verdict.PASS],
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        execution = db.get(PlanExecution, execution_id)
+        assert execution is not None
+        batch = db.get(TaskBatch, execution.task_batch_id)
+        assert batch is not None
+        batch.execution_status = ExecutionStatus.QUEUED
+        batch.verdict = None
+        queued_task = db.scalar(
+            select(Task)
+            .where(Task.batch_id == batch.id)
+            .order_by(Task.batch_position.desc())
+        )
+        assert queued_task is not None
+        queued_task.execution_status = ExecutionStatus.QUEUED
+        queued_task.verdict = None
+        queued_task.started_at = None
+        queued_task.finished_at = None
+        db.commit()
+
+    response = authenticated_client.get("/api/v1/test-plans")
+
+    assert response.status_code == 200, response.text
+    item = next(
+        item
+        for item in response.json()["items"]
+        if item["id"] == plan["id"]
+    )
+    assert item["latest_execution"]["report_status"] == "running"
 
 
 def test_plan_cases_use_backend_pagination_and_preserve_order(
@@ -1051,6 +1103,38 @@ def test_remove_case_from_plan_rejects_last_case(authenticated_client):
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "test_plan_requires_one_case"
+
+
+def test_remove_middle_case_from_plan_reorders_positions(authenticated_client):
+    case_ids = [
+        _create_case(authenticated_client, f"重排用例 {index}")
+        for index in range(6)
+    ]
+    plan = _create_plan(
+        authenticated_client,
+        "重排计划",
+        case_ids=case_ids,
+    )
+
+    response = authenticated_client.delete(
+        f"/api/v1/test-plans/{plan['id']}/cases/{case_ids[2]}"
+    )
+
+    assert response.status_code == 204, response.text
+    expected_case_ids = case_ids[:2] + case_ids[3:]
+    detail = authenticated_client.get(f"/api/v1/test-plans/{plan['id']}")
+    assert detail.status_code == 200
+    assert detail.json()["case_ids"] == expected_case_ids
+    with authenticated_client.app.state.session_factory() as db:
+        rows = db.execute(
+            select(plan_models.TestPlanCase.case_id, plan_models.TestPlanCase.position)
+            .where(plan_models.TestPlanCase.plan_id == plan["id"])
+            .order_by(plan_models.TestPlanCase.position)
+        ).all()
+    assert [case_id for case_id, _position in rows] == expected_case_ids
+    assert [position for _case_id, position in rows] == list(
+        range(len(expected_case_ids))
+    )
 
 
 def test_unknown_plan_routes_return_stable_not_found(authenticated_client):

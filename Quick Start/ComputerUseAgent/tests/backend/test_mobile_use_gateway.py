@@ -135,6 +135,48 @@ async def test_gateway_uses_ui_test_demo_execution_contract():
 
 
 @pytest.mark.asyncio
+async def test_gateway_uses_cua_agent_type_for_thread_queries():
+    calls: list[UniversalRequest] = []
+
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        calls.append(request)
+        return {"ResponseMetadata": {"RequestId": f"req_{request.action}"}}
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    await gateway.list_task_by_thread(
+        mobile_config(),
+        thread_id="cua-thread-1",
+        run_id="run-1",
+    )
+    await gateway.detail_task_by_thread(
+        mobile_config(),
+        thread_id="cua-thread-1",
+        run_id="run-1",
+    )
+
+    assert [(call.action, call.body) for call in calls] == [
+        (
+            "ListAgentRunTaskByThread",
+            {
+                "AgentType": "cua",
+                "ProductId": "product-1",
+                "ThreadId": "cua-thread-1",
+                "RunId": "run-1",
+            },
+        ),
+        (
+            "DetailAgentRunTaskByThread",
+            {
+                "AgentType": "cua",
+                "ThreadId": "cua-thread-1",
+                "RunId": "run-1",
+            },
+        ),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_gateway_accepts_top_level_start_payload_returned_by_sdk():
     def invoke(
         _config: RunnerConfig,

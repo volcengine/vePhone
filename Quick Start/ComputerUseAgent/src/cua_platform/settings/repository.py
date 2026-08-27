@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
@@ -64,3 +64,9 @@ class SettingRepository:
             )
         self.db.flush()
         return updated_at
+
+    def delete_many(self, keys: set[str]) -> None:
+        if not keys:
+            return
+        self.db.execute(delete(Setting).where(Setting.key.in_(keys)))
+        self.db.flush()

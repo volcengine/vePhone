@@ -106,9 +106,9 @@ it("shows the case execution records table with task ids, results and time", asy
   // Created time rendered in China timezone.
   expect(within(passRow as HTMLElement).getByText("2026-07-28 11:30:00")).toBeVisible();
   // Elapsed time between start and finish.
-  expect(within(passRow as HTMLElement).getByText("01:05")).toBeVisible();
+  expect(within(passRow as HTMLElement).getByText("1 分 5 秒")).toBeVisible();
   expect(within(passRow as HTMLElement).getByRole("link", { name: "查看" }))
-    .toHaveAttribute("href", "/tasks/task_pass");
+    .toHaveAttribute("href", "/biz/biz_default/tasks/task_pass");
 
   const failRow = screen.getByText("task_fail").closest("tr");
   expect(within(failRow as HTMLElement).getByText("失败")).toBeVisible();

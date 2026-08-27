@@ -17,6 +17,7 @@ TRACE_ATTRIBUTE_KEYS = frozenset(
         "runner_type",
         "pod_id",
         "product_id",
+        "remote_task_id",
     }
 )
 MAX_TRACE_ATTRIBUTE_STRING_LENGTH = 256

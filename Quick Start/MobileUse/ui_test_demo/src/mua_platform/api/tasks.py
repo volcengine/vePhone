@@ -77,7 +77,8 @@ async def create_task_batch(
             runner_type=runner_config.mode,
             config_snapshot=snapshot,
             device_wait_timeout_seconds=(
-                request.app.state.settings.device_wait_timeout_seconds
+                payload.device_wait_timeout_seconds
+                or request.app.state.settings.device_wait_timeout_seconds
             ),
         )
     except ValueError as exc:
@@ -238,6 +239,7 @@ async def get_task_runtime(
         "current_step": None,
         "thread_groups": [],
         "thread_steps": [],
+        "current_phase": _current_phase(task),
         "trace": TraceService(TraceRepository(db))
         .get(task_id, "tree", True)
         .model_dump(mode="json"),
@@ -436,6 +438,24 @@ def _get_task(db: Database, task_id: str, business_id: str) -> Task:
     return task
 
 
+def _current_phase(task: Task) -> dict | None:
+    if task.execution_status != ExecutionStatus.RUNNING:
+        return None
+    latest = max(task.events, key=lambda event: event.sequence, default=None)
+    if latest is None or latest.event_type != "device_prepare_started":
+        return None
+    action = latest.payload.get("action")
+    if action not in {"reset", "reboot"}:
+        return None
+    return {
+        "type": "device_prepare",
+        "status": "running",
+        "action": action,
+        "product_id": latest.payload.get("product_id"),
+        "pod_id": latest.payload.get("pod_id"),
+    }
+
+
 def _optional_filter(value: str | None) -> str | None:
     if value is None:
         return None
@@ -581,6 +601,15 @@ def _merge_remote_result(
     struct_output = payload.get("StructOutput")
     if isinstance(struct_output, dict):
         assets["struct_output"] = struct_output
+    _merge_int_asset(assets, payload, "duration_ms", "DurationMs", "duration_ms")
+    _merge_string_asset(assets, payload, "duration_fmt", "DurationFmt", "duration_fmt")
+    _merge_int_asset(
+        assets,
+        payload,
+        "avg_step_duration_sec",
+        "AvgStepDurationSec",
+        "avg_step_duration_sec",
+    )
 
 
 def _filter_result_assets_for_run(assets: dict, run_id: str | None) -> dict:
@@ -605,3 +634,29 @@ def _filter_screenshots_for_run(
         for key, value in screenshots.items()
         if isinstance(key, str) and key.startswith(prefix)
     }
+
+
+def _merge_int_asset(
+    target: dict,
+    payload: dict,
+    key: str,
+    *sources: str,
+) -> None:
+    for source in sources:
+        value = payload.get(source)
+        if isinstance(value, int) and not isinstance(value, bool):
+            target[key] = value
+            return
+
+
+def _merge_string_asset(
+    target: dict,
+    payload: dict,
+    key: str,
+    *sources: str,
+) -> None:
+    for source in sources:
+        value = payload.get(source)
+        if isinstance(value, str) and value.strip():
+            target[key] = value.strip()
+            return

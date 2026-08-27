@@ -10,14 +10,13 @@ import {
   useState,
 } from "react";
 import {
-  Link,
   useBlocker,
   useLocation,
-  useNavigate,
   useParams,
 } from "react-router";
 
 import { ApiError, api } from "../api/client";
+import { useBusinessNavigate } from "../business-context";
 import type {
   ModuleListResponse,
   TagOption,
@@ -33,6 +32,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "../components/multi-select";
+import { BusinessLink as Link } from "../components/business-link";
 import { ConfirmDialog } from "../components/confirm-dialog";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
@@ -135,7 +135,7 @@ function friendlyError(error: unknown): string {
 }
 
 export function TestPlanEditorPage() {
-  const navigate = useNavigate();
+  const navigate = useBusinessNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const { planId } = useParams<{ planId: string }>();

@@ -35,6 +35,7 @@ export function ExecuteDialog({
   errorMessage = "",
   showDeviceSelection = true,
   allowCaseDefault = false,
+  showDeviceWaitTimeout = false,
 }: {
   open: boolean;
   caseTitle: string;
@@ -44,6 +45,7 @@ export function ExecuteDialog({
   errorMessage?: string;
   showDeviceSelection?: boolean;
   allowCaseDefault?: boolean;
+  showDeviceWaitTimeout?: boolean;
 }) {
   const [podId, setPodId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExecutionConfigDraft>(
@@ -162,6 +164,7 @@ export function ExecuteDialog({
             }}
             disabled={Boolean(isPending)}
             allowCaseDefault={allowCaseDefault}
+            showDeviceWaitTimeout={showDeviceWaitTimeout}
           />
           {formError && (
             <p className="form-error" role="alert">{formError}</p>

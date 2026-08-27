@@ -141,9 +141,10 @@ APP_DATA_DIR=./data
 APP_SECRET_KEY=replace-with-a-stable-random-string-at-least-32-bytes
 APP_BASE_URL=http://127.0.0.1:8000
 TASK_WORKER_CONCURRENCY=16
+TASK_WORKER_DRAIN_TIMEOUT_SECONDS=30
 ```
 
-What these five settings do:
+What these settings do:
 
 | Setting | Suggested value | Purpose |
 | --- | --- | --- |
@@ -152,6 +153,7 @@ What these five settings do:
 | `APP_SECRET_KEY` | A stable random string with at least 32 bytes | Encrypts saved cloud credentials and other sensitive settings. Keep it unchanged after deployment. |
 | `APP_BASE_URL` | `http://127.0.0.1:8000` or the real access URL | Tells the app its own access address. Update it when host, port, domain, or reverse proxy changes. |
 | `TASK_WORKER_CONCURRENCY` | `16` | Controls how many tasks the backend can process at once. Restart the service after changing it in `.env`. |
+| `TASK_WORKER_DRAIN_TIMEOUT_SECONDS` | `30` | Maximum time the backend waits for active local Worker tasks during `SIGTERM`; valid range is `1..30`. |
 
 Concurrency notes:
 
@@ -286,6 +288,7 @@ Important constraints:
 - Do not run multiple containers or processes writing to the same SQLite database.
 - `APP_DATA_DIR` must be persistent, not a disposable container layer or temporary directory.
 - `APP_SECRET_KEY` must stay stable across upgrades, migrations, and restarts.
+- During restart, readiness returns `503` while the Worker is draining or recovering. Tasks with a saved `remote_run_id` resume polling after startup instead of starting another remote run.
 - `make dev` uses `--reload` and is meant for local development. For production, run `uvicorn` directly under a process manager.
 
 ### Devbox `systemd --user` deployment

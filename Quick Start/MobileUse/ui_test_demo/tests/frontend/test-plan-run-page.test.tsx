@@ -247,6 +247,21 @@ it("removes run test type selection and exposes stable execution controls", asyn
   const concurrency = screen.getByLabelText("设备并发数");
   expect(concurrency).toHaveAttribute("name", "concurrency");
   expect(concurrency).toHaveAttribute("autocomplete", "off");
+  const deviceHeading = screen.getByRole("heading", {
+    name: "配置并发和设备范围",
+  });
+  const schedulingHeading = screen.getByRole("heading", { name: "调度配置" });
+  const executionHeading = screen.getByRole("heading", {
+    name: "配置本次 Agent 运行参数",
+  });
+  expect(
+    deviceHeading.compareDocumentPosition(schedulingHeading)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    schedulingHeading.compareDocumentPosition(executionHeading)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 
   await user.click(screen.getByRole("radio", { name: "自定义本次计划配置" }));
   expect(screen.queryByLabelText("ThreadId")).not.toBeInTheDocument();
@@ -391,6 +406,12 @@ it("submits specified devices and shared custom execution fields", async () => {
   fireEvent.change(screen.getByLabelText("设备并发数"), {
     target: { value: "2" },
   });
+  const deviceWaitTimeout = screen.getByLabelText(
+    "设备不可用后最大等待时间（秒）",
+  );
+  await user.clear(deviceWaitTimeout);
+  expect(deviceWaitTimeout).toHaveValue(null);
+  await user.type(deviceWaitTimeout, "90");
   await user.click(await screen.findByLabelText("pod_1 pod_1"));
   await user.click(screen.getByLabelText("回归设备 2 pod_2"));
   await user.click(screen.getByRole("radio", { name: "自定义本次计划配置" }));
@@ -413,6 +434,7 @@ it("submits specified devices and shared custom execution fields", async () => {
     device_strategy: "specified",
     pod_ids: ["pod_1", "pod_2"],
     concurrency: 2,
+    device_wait_timeout_seconds: 90,
     timeout_seconds: 789,
     agent_config_mode: "custom",
     agent_options: expect.objectContaining({

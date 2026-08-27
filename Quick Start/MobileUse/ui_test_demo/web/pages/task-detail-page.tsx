@@ -3,6 +3,7 @@ import { NavLink, Outlet, useParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type { Task } from "../api/types";
+import { useBusinessPath } from "../business-context";
 import { PageHeader } from "../components/page-header";
 import { StatusBadge } from "../components/status-badge";
 
@@ -34,6 +35,7 @@ function mapStatus(status: string) {
 
 export function TaskDetailPage() {
   const { taskId } = useParams();
+  const businessPath = useBusinessPath();
   const task = useQuery({
     enabled: Boolean(taskId),
     queryKey: ["task", taskId],
@@ -77,11 +79,11 @@ export function TaskDetailPage() {
       />
 
       <nav className="detail-tabs detail-tabs-full" aria-label="任务详情导航">
-        <NavLink end to={`/tasks/${item.id}`}>
+        <NavLink end to={businessPath(`/tasks/${item.id}`)}>
           <FileTextIcon />
           概览
         </NavLink>
-        <NavLink to={`/tasks/${item.id}/trace`}>
+        <NavLink to={businessPath(`/tasks/${item.id}/trace`)}>
           <ActivityIcon />
           执行轨迹
         </NavLink>

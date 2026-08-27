@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from dataclasses import replace
 from pathlib import Path
@@ -7,9 +8,17 @@ from cua_platform.main import create_app
 from cua_platform.runners.base import PollResult, RunnerEvent
 from cua_platform.runners.mock import MockRunner
 
+for logger_name in ("cua_platform.task_worker", "cua_platform.pod_leases"):
+    controlled_logger = logging.getLogger(logger_name)
+    controlled_logger.setLevel(logging.INFO)
+    controlled_logger.addHandler(logging.StreamHandler())
+
 
 class ControlledRunner(MockRunner):
     async def start(self, request, idempotency_key):
+        start_log = Path(os.environ["E2E_RUNNER_START_LOG"])
+        with start_log.open("a", encoding="utf-8") as stream:
+            stream.write(f"{request.task_id}\n")
         normalized = replace(
             request,
             steps=request.steps

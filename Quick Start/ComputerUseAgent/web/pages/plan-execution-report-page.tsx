@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
 import type {
@@ -7,6 +7,7 @@ import type {
   PlanReportTask,
   ReportStatus,
 } from "../api/types";
+import { BusinessLink as Link } from "../components/business-link";
 import { MetricCard } from "../components/metric-card";
 import { PageHeader } from "../components/page-header";
 import { PaginationControls } from "../components/pagination-controls";
@@ -39,6 +40,25 @@ function MetricIcon({ path }: { path: string }) {
 
 function formatKpiPercent(value: number): string {
   return `${Math.round(value)}%`;
+}
+
+function formatTaskMetric(value: number | null | undefined): string {
+  return value == null ? "-" : new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatTaskDuration(value: number | null): string {
+  if (value == null || !Number.isFinite(value) || value < 0) return "-";
+  const totalSeconds = Math.floor(value);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours} 小时 ${String(minutes).padStart(2, "0")} 分 ${
+      String(seconds).padStart(2, "0")
+    } 秒`;
+  }
+  if (minutes > 0) return `${minutes} 分 ${seconds} 秒`;
+  return `${seconds} 秒`;
 }
 
 function taskStatus(task: PlanReportTask): string {
@@ -239,12 +259,16 @@ export function PlanExecutionReportPage() {
                 <thead>
                   <tr>
                     <th>任务 ID</th>
+                    <th>Run ID</th>
                     <th>用例</th>
                     <th>状态</th>
                     <th>结果</th>
                     <th>失败类型</th>
                     <th>创建时间</th>
                     <th>执行时长</th>
+                    <th>输入 Token</th>
+                    <th>输出 Token</th>
+                    <th>执行步数</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -256,6 +280,11 @@ export function PlanExecutionReportPage() {
                         </Link>
                       </td>
                       <td>
+                        {task.remote_run_id ? (
+                          <code translate="no">{task.remote_run_id}</code>
+                        ) : "-"}
+                      </td>
+                      <td className="plan-report-case-cell">
                         <strong>{task.case_title}</strong>
                         <code translate="no">{task.case_id}</code>
                         {!task.case_deleted && (
@@ -282,7 +311,10 @@ export function PlanExecutionReportPage() {
                         ) : "-"}
                       </td>
                       <td>{formatChinaDateTime(task.created_at)}</td>
-                      <td>{formatDurationSeconds(task.duration_seconds)}</td>
+                      <td>{formatTaskDuration(task.duration_seconds)}</td>
+                      <td>{formatTaskMetric(task.input_tokens)}</td>
+                      <td>{formatTaskMetric(task.output_tokens)}</td>
+                      <td>{formatTaskMetric(task.total_steps)}</td>
                     </tr>
                   ))}
                 </tbody>

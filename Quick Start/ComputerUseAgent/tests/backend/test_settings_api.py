@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from cua_platform.pods.schemas import ListPodPage
 from cua_platform.runners.universal_gateway import UniversalRemoteError
+from cua_platform.settings.repository import SettingRepository
 
 
 COMPUTER_USE_CONFIG = {
@@ -97,6 +98,65 @@ def test_runner_settings_are_replace_only_and_masked(authenticated_client):
         "configured": True,
         "names": ["X-Env", "X-Secret"],
     }
+
+
+def test_runner_settings_clear_optional_fields_with_null(authenticated_client):
+    saved = authenticated_client.put(
+        "/api/v1/settings/runner",
+        json={
+            "mode": "mobile_use",
+            "mobile_use": {
+                **COMPUTER_USE_CONFIG,
+                "callback_info": {"url": "https://callback.example.com"},
+                "output_schema": '{"type":"object"}',
+                "system_prompt": "custom system prompt",
+                "mcp_json": '{"mcpServers":{}}',
+                "max_output_tokens": 2048,
+                "request_headers": {"X-Env": "test"},
+            },
+        },
+    )
+    assert saved.status_code == 200, saved.text
+
+    cleared = authenticated_client.put(
+        "/api/v1/settings/runner",
+        json={
+            "mode": "mobile_use",
+            "mobile_use": {
+                "callback_info": None,
+                "output_schema": None,
+                "system_prompt": None,
+                "mcp_json": None,
+                "max_output_tokens": None,
+                "request_headers": None,
+            },
+        },
+    )
+
+    assert cleared.status_code == 200, cleared.text
+    mobile_use = cleared.json()["mobile_use"]
+    assert mobile_use["callback_info"] is None
+    assert mobile_use["output_schema"] is None
+    assert mobile_use["system_prompt"] is None
+    assert mobile_use["mcp_json"] is None
+    assert mobile_use["max_output_tokens"] is None
+    assert mobile_use["request_headers"] == {"configured": False, "names": []}
+    with authenticated_client.app.state.session_factory() as db:
+        values = SettingRepository(
+            db,
+            authenticated_client.app.state.setting_cipher,
+            authenticated_client.app.state.settings.runner_setting_defaults(),
+        ).list_decrypted()
+    assert "None" not in values.values()
+    for field in (
+        "callback_info",
+        "output_schema",
+        "system_prompt",
+        "mcp_json",
+        "max_output_tokens",
+        "request_headers",
+    ):
+        assert f"runner.mobile_use.{field}" not in values
 
 
 def test_runner_settings_are_scoped_by_business(authenticated_client):

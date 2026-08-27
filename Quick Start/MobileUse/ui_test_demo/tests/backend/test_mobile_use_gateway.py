@@ -135,6 +135,224 @@ async def test_gateway_uses_ui_test_demo_execution_contract():
 
 
 @pytest.mark.asyncio
+async def test_gateway_calls_pod_prepare_actions():
+    calls: list[UniversalRequest] = []
+
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        calls.append(request)
+        if request.action == "GetTaskInfo":
+            return {
+                "ResponseMetadata": {"RequestId": f"req_{request.action}"},
+                "Result": {
+                    "TaskId": request.body["TaskId"],
+                    "TaskAction": "ResetPod",
+                    "TaskResult": 100,
+                    "Jobs": [
+                        {
+                            "PodId": "pod-1",
+                            "JobId": f"job_{request.action}",
+                            "Status": 100,
+                        }
+                    ],
+                },
+            }
+        response = {
+            "ResponseMetadata": {"RequestId": f"req_{request.action}"},
+        }
+        if request.action in {"PowerOnPod", "PowerOffPod"}:
+            response["Result"] = {
+                "Details": [{"PodId": "pod-1", "Success": True, "ErrMsg": ""}],
+            }
+        elif request.action != "RebootPod":
+            response["Result"] = {
+                    "TaskId": f"task_{request.action}",
+                    "TaskAction": request.action,
+                    "Jobs": [
+                        {
+                            "PodId": "pod-1",
+                            "JobId": f"job_{request.action}",
+                            "Status": 10,
+                        }
+                    ],
+                }
+        return response
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    reset = await gateway.reset_host(mobile_config(), product_id="product-1", pod_id="pod-1")
+    reboot = await gateway.reboot_host(mobile_config(), product_id="product-1", pod_id="pod-1")
+    power_on = await gateway.power_on_pod(mobile_config(), product_id="product-1", pod_id="pod-1")
+    power_off = await gateway.power_off_pod(mobile_config(), product_id="product-1", pod_id="pod-1")
+    info = await gateway.get_task_info(
+        mobile_config(),
+        product_id="product-1",
+        task_id="task_ResetPod",
+    )
+
+    assert reset.request_id == "req_ResetPod"
+    assert reset.task_id == "task_ResetPod"
+    assert reboot.request_id == "req_RebootPod"
+    assert reboot.task_id is None
+    assert power_on.request_id == "req_PowerOnPod"
+    assert power_on.task_id is None
+    assert power_off.request_id == "req_PowerOffPod"
+    assert power_off.task_id is None
+    assert info.request_id == "req_GetTaskInfo"
+    assert info.task_result == 100
+    assert info.jobs == [{"PodId": "pod-1", "JobId": "job_GetTaskInfo", "Status": 100}]
+    assert [(item.method, item.action, item.service, item.version) for item in calls] == [
+        ("POST", "ResetPod", "ACEP", "2025-05-01"),
+        ("POST", "RebootPod", "ACEP", "2025-05-01"),
+        ("POST", "PowerOnPod", "ACEP", "2025-05-01"),
+        ("POST", "PowerOffPod", "ACEP", "2025-05-01"),
+        ("GET", "GetTaskInfo", "ACEP", "2025-05-01"),
+    ]
+    assert calls[0].body == {
+        "ProductId": "product-1",
+        "PodIdList": ["pod-1"],
+    }
+    assert calls[1].body == {
+        "ProductId": "product-1",
+        "PodId": "pod-1",
+        "ResourcePolicy": "Persist",
+    }
+    assert calls[2].body == {
+        "ProductId": "product-1",
+        "PodId": "pod-1",
+    }
+    assert calls[3].body == {
+        "ProductId": "product-1",
+        "PodId": "pod-1",
+    }
+    assert calls[4].body == {
+        "ProductId": "product-1",
+        "TaskId": "task_ResetPod",
+    }
+
+
+@pytest.mark.asyncio
+async def test_gateway_accepts_top_level_power_action_details_without_request_id():
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        assert request.action == "PowerOnPod"
+        return {
+            "AccountId": "account-1",
+            "ProductId": request.body["ProductId"],
+            "Details": [
+                {
+                    "PodId": request.body["PodId"],
+                    "Success": True,
+                    "ErrMsg": "",
+                }
+            ],
+        }
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    result = await gateway.power_on_pod(
+        mobile_config(),
+        product_id="product-1",
+        pod_id="pod-1",
+    )
+
+    assert result.request_id is None
+    assert result.task_id is None
+
+
+@pytest.mark.asyncio
+async def test_gateway_accepts_top_level_reset_task_returned_by_sdk():
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        assert request.action == "ResetPod"
+        return {
+            "TaskId": "task-reset-top-level",
+            "TaskAction": "ResetPod",
+            "Jobs": [
+                {
+                    "PodId": request.body["PodIdList"][0],
+                    "JobId": "job-reset-top-level",
+                    "Status": 10,
+                }
+            ],
+        }
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    result = await gateway.reset_host(
+        mobile_config(),
+        product_id="product-1",
+        pod_id="pod-1",
+    )
+
+    assert result.request_id is None
+    assert result.task_id == "task-reset-top-level"
+
+
+@pytest.mark.asyncio
+async def test_gateway_accepts_empty_reboot_response_from_sdk():
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object] | None:
+        assert request.action == "RebootPod"
+        return None
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    result = await gateway.reboot_host(
+        mobile_config(),
+        product_id="product-1",
+        pod_id="pod-1",
+    )
+
+    assert result.request_id is None
+    assert result.task_id is None
+
+
+@pytest.mark.asyncio
+async def test_gateway_list_pod_status_selects_requested_pod_from_page():
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        assert request.action == "ListPod"
+        return {
+            "Row": [
+                {"ProductId": "product-1", "PodId": "other-pod", "Online": 1},
+                {"ProductId": "product-1", "PodId": request.body["PodIdList"][0], "Online": 2},
+            ]
+        }
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    status = await gateway.list_pod_status(
+        mobile_config(),
+        product_id="product-1",
+        pod_id="pod-1",
+    )
+
+    assert status.pod_id == "pod-1"
+    assert status.online == 2
+
+
+@pytest.mark.asyncio
+async def test_gateway_rejects_failed_host_prepare_job():
+    def invoke(_config: RunnerConfig, request: UniversalRequest) -> Mapping[str, object]:
+        return {
+            "ResponseMetadata": {"RequestId": "req_prepare_failed"},
+            "Result": {
+                "TaskId": "task_ResetPod",
+                "TaskAction": request.action,
+                "Jobs": [{"PodId": "pod-1", "Status": -1}],
+            },
+        }
+
+    gateway = UniversalGateway(call=invoke, sleep=AsyncMock())
+
+    with pytest.raises(UniversalRemoteError) as exc:
+        await gateway.reset_host(
+            mobile_config(),
+            product_id="product-1",
+            pod_id="pod-1",
+        )
+
+    assert exc.value.code == "request_rejected"
+    assert exc.value.request_id == "req_prepare_failed"
+
+
+@pytest.mark.asyncio
 async def test_gateway_accepts_top_level_start_payload_returned_by_sdk():
     def invoke(
         _config: RunnerConfig,
@@ -656,6 +874,49 @@ def test_call_universal_rejects_non_mapping_response(monkeypatch):
     assert caught.value.code == "response_invalid"
     assert caught.value.retryable is False
     assert caught.value.response_received is True
+
+
+def test_call_universal_preserves_post_json_arrays(monkeypatch):
+    calls = []
+
+    class Configuration:
+        pass
+
+    class UniversalApi:
+        def __init__(self, _client: object) -> None:
+            pass
+
+        def do_call(self, _info: object, body: object) -> dict:
+            calls.append(body)
+            return {"ResponseMetadata": {"RequestId": "req-post"}}
+
+    class Flatten:
+        def __init__(self, body: object) -> None:
+            self.body = body
+
+        def flat(self) -> dict:
+            return {"PodIdList.1": "pod-1"}
+
+    fake_sdk = type(
+        "FakeSdk",
+        (),
+        {
+            "Configuration": Configuration,
+            "ApiClient": staticmethod(lambda configuration: configuration),
+            "UniversalApi": UniversalApi,
+            "UniversalInfo": staticmethod(lambda **kwargs: kwargs),
+            "Flatten": Flatten,
+        },
+    )
+    monkeypatch.setitem(__import__("sys").modules, "volcenginesdkcore", fake_sdk)
+    body = {"ProductId": "product-1", "PodIdList": ["pod-1"]}
+
+    call_universal(
+        mobile_config(),
+        UniversalRequest("ACEP", "ResetPod", "2025-05-01", "POST", body),
+    )
+
+    assert calls == [body]
 
 
 @pytest.mark.asyncio

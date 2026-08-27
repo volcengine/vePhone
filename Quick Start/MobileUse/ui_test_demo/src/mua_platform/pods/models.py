@@ -84,6 +84,34 @@ class DiscoveredPod(Base):
         return _REMOTE_STATUS_LABELS.get(self.pod_status_code, "unknown")
 
 
+class PodHostAction(Base):
+    __tablename__ = "pod_host_actions"
+    __table_args__ = (
+        UniqueConstraint(
+            "product_id",
+            "remote_task_id",
+            name="unique_pod_host_action_remote_task",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    product_id: Mapped[str] = mapped_column(String(255), index=True)
+    pod_id: Mapped[str] = mapped_column(String(255), index=True)
+    action: Mapped[str] = mapped_column(String(16))
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    remote_task_id: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    task_result: Mapped[int | None] = mapped_column(Integer)
+    task_message: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        onupdate=utc_now,
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+
 _REMOTE_STATUS_LABELS: dict[int, str] = {
     POD_STATUS_BOOTING: "booting",
     POD_STATUS_RUNNING: "running",

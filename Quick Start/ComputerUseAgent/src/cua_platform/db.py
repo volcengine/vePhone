@@ -321,6 +321,8 @@ def _rebuild_tasks_for_current_schema(engine: Engine) -> None:
                         recording_url TEXT,
                         result_assets JSON DEFAULT '{}',
                         start_idempotency_key VARCHAR(255),
+                        start_state VARCHAR(11) NOT NULL DEFAULT 'pending',
+                        start_attempted_at DATETIME,
                         cancel_requested_at DATETIME,
                         deadline_at DATETIME,
                         last_polled_at DATETIME,
@@ -347,8 +349,9 @@ def _rebuild_tasks_for_current_schema(engine: Engine) -> None:
                         idempotency_key, request_fingerprint, remote_run_id,
                         remote_thread_id, remote_status_code, remote_step_id,
                         recording_url, result_assets, start_idempotency_key,
-                        cancel_requested_at, deadline_at, last_polled_at, version,
-                        created_at, started_at, finished_at
+                        start_state, start_attempted_at, cancel_requested_at,
+                        deadline_at, last_polled_at, version, created_at,
+                        started_at, finished_at
                     )
                     SELECT
                         id,
@@ -363,8 +366,9 @@ def _rebuild_tasks_for_current_schema(engine: Engine) -> None:
                         idempotency_key, request_fingerprint, remote_run_id,
                         remote_thread_id, remote_status_code, remote_step_id,
                         recording_url, COALESCE(result_assets, '{}'),
-                        start_idempotency_key, cancel_requested_at, deadline_at,
-                        last_polled_at, version, created_at, started_at, finished_at
+                        start_idempotency_key, start_state, start_attempted_at,
+                        cancel_requested_at, deadline_at, last_polled_at, version,
+                        created_at, started_at, finished_at
                     FROM tasks
                     """
                 )
@@ -401,9 +405,11 @@ def ensure_schema_migrations(engine: Engine) -> None:
     from cua_platform.tasks.models import TaskBatch
     from cua_platform.test_plans.models import (
         PlanExecution,
+        ScheduleEvent,
         TagColorRegistry,
         TestPlan,
         TestPlanCase,
+        TestPlanSchedule,
     )
 
     BusinessSpace.__table__.create(engine, checkfirst=True)
@@ -476,6 +482,7 @@ def ensure_schema_migrations(engine: Engine) -> None:
                     )
 
     if _table_exists(engine, "tasks"):
+        added_start_state = not _column_exists(engine, "tasks", "start_state")
         task_alterations = [
             ("business_id", "ALTER TABLE tasks ADD COLUMN business_id VARCHAR(40) DEFAULT 'biz_default'"),
             ("batch_id", "ALTER TABLE tasks ADD COLUMN batch_id VARCHAR(40)"),
@@ -489,6 +496,8 @@ def ensure_schema_migrations(engine: Engine) -> None:
             ("remote_step_id", "ALTER TABLE tasks ADD COLUMN remote_step_id VARCHAR"),
             ("recording_url", "ALTER TABLE tasks ADD COLUMN recording_url TEXT"),
             ("result_assets", "ALTER TABLE tasks ADD COLUMN result_assets JSON DEFAULT '{}'"),
+            ("start_state", "ALTER TABLE tasks ADD COLUMN start_state VARCHAR(11) NOT NULL DEFAULT 'pending'"),
+            ("start_attempted_at", "ALTER TABLE tasks ADD COLUMN start_attempted_at DATETIME"),
             ("created_by", "ALTER TABLE tasks ADD COLUMN created_by VARCHAR(100) DEFAULT 'system'"),
             ("review_result", "ALTER TABLE tasks ADD COLUMN review_result VARCHAR(12)"),
             ("reviewed_by", "ALTER TABLE tasks ADD COLUMN reviewed_by VARCHAR(100)"),
@@ -499,6 +508,24 @@ def ensure_schema_migrations(engine: Engine) -> None:
             for col_name, ddl in task_alterations:
                 if not _column_exists(engine, "tasks", col_name):
                     connection.execute(sql_text(ddl))
+            if added_start_state:
+                attached_condition = (
+                    "remote_run_id IS NOT NULL"
+                    if _column_exists(engine, "tasks", "remote_run_id")
+                    else "0"
+                )
+                connection.execute(
+                    sql_text(
+                        f"""
+                        UPDATE tasks
+                        SET start_state = CASE
+                            WHEN {attached_condition} THEN 'attached'
+                            WHEN execution_status = 'running' THEN 'dispatching'
+                            ELSE 'pending'
+                        END
+                        """
+                    )
+                )
             connection.execute(
                 sql_text(
                     "UPDATE tasks SET business_id = 'biz_default' "
@@ -646,6 +673,8 @@ def ensure_schema_migrations(engine: Engine) -> None:
     TestPlanCase.__table__.create(engine, checkfirst=True)
     PlanExecution.__table__.create(engine, checkfirst=True)
     TagColorRegistry.__table__.create(engine, checkfirst=True)
+    TestPlanSchedule.__table__.create(engine, checkfirst=True)
+    ScheduleEvent.__table__.create(engine, checkfirst=True)
     _register_existing_case_tags(engine)
 
 

@@ -57,6 +57,34 @@ def test_markdown_fenced_json_content_is_parsed_with_result_assets():
     assert parsed.result_assets["avg_step_duration_sec"] == 18
 
 
+def test_malformed_fenced_json_content_keeps_explicit_pass_evidence():
+    parsed = parse_agent_result(
+        {
+            "IsSuccess": 1,
+            "Content": """页面中的图片清晰可见。
+
+```json
+{
+  "verdict": "pass",
+  "summary": "成功打开 WPS 文档页面并查看到图片。",
+  "evidence": [
+    "证据1：页面标题为"文字文稿"，确认成功打开目标页面",
+    "证据2：页面出现弹窗"Inviting you to log in"，点击 X 后关闭"
+  ]
+}
+```""",
+        }
+    )
+
+    assert parsed.verdict == "pass"
+    assert parsed.failure_type is None
+    assert parsed.summary == "成功打开 WPS 文档页面并查看到图片。"
+    assert parsed.evidence == (
+        '证据1：页面标题为"文字文稿"，确认成功打开目标页面',
+        '证据2：页面出现弹窗"Inviting you to log in"，点击 X 后关闭',
+    )
+
+
 def test_unstructured_content_is_preserved_as_failed_evidence():
     parsed = parse_agent_result(
         {

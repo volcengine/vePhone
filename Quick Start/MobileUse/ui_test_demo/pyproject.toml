@@ -6,6 +6,7 @@ dependencies = [
   "alembic>=1.16,<2",
   "argon2-cffi>=23.1,<24",
   "cryptography>=45,<46",
+  "croniter>=3.0,<4.0",
   "fastapi>=0.116,<0.117",
   "pydantic-settings>=2.10,<3",
   "sqlalchemy>=2.0,<2.1",

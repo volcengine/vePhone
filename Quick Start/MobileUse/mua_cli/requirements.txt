@@ -1,0 +1,9 @@
+# 官方全家桶 SDK: install.sh 默认只从中精简安装 volcenginesdkcore (81 个文件),
+# 完整安装约 5-10 分钟, 精简安装约 1 分钟, 两者运行行为完全一致
+volcengine-python-sdk>=5.0.0
+
+# 图片 EXIF GPS 元数据解析 (定位来源之一, 不装则自动跳过该来源)
+Pillow>=9.0
+
+# macOS 系统级精确定位 (仅系统定位来源需要; 不装则自动走其余 5 个定位来源)
+pyobjc-framework-CoreLocation>=10.0; sys_platform == "darwin"

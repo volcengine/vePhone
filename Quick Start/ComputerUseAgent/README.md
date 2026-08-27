@@ -118,6 +118,7 @@ credentials.
 | `TASK_EXECUTION_TIMEOUT_SECONDS` | `600` | Local timeout for one task. |
 | `CANCEL_CONFIRM_TIMEOUT_SECONDS` | `30` | Maximum wait time for cancel confirmation. |
 | `DEVICE_WAIT_TIMEOUT_SECONDS` | `300` | Maximum wait time when a specified node is unavailable. |
+| `TASK_WORKER_DRAIN_TIMEOUT_SECONDS` | `30` | Maximum time to let active Worker tasks finish during shutdown. Range: 1-30 seconds. |
 | `TASK_WORKER_CONCURRENCY` | `16` | Global backend worker concurrency limit. |
 
 ### CUA Settings

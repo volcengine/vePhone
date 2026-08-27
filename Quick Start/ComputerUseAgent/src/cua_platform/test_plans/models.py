@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -123,6 +124,89 @@ class TagColorRegistry(Base):
     tag_name: Mapped[str] = mapped_column(String(32), primary_key=True)
     foreground_color: Mapped[str] = mapped_column(String(7), unique=True)
     background_color: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )
+
+
+class TestPlanSchedule(Base):
+    __tablename__ = "test_plan_schedules"
+    __table_args__ = (
+        Index("ix_schedule_enabled_next_run", "enabled", "next_run_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    business_id: Mapped[str] = mapped_column(
+        String(40),
+        default="biz_default",
+        server_default="biz_default",
+        index=True,
+    )
+    test_plan_id: Mapped[str] = mapped_column(
+        ForeignKey("test_plans.id"),
+        unique=True,
+        index=True,
+    )
+    cron_expr: Mapped[str] = mapped_column(String(100))
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="1",
+    )
+    next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_skip_reason: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+    )
+    execution_config: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+    )
+
+
+class ScheduleEvent(Base):
+    __tablename__ = "schedule_events"
+    __table_args__ = (
+        Index("ix_schedule_events_schedule_created", "schedule_id", "created_at"),
+        Index("ix_schedule_events_business_created", "business_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    schedule_id: Mapped[str] = mapped_column(
+        ForeignKey("test_plan_schedules.id", ondelete="CASCADE"),
+        index=True,
+    )
+    business_id: Mapped[str] = mapped_column(
+        String(40),
+        default="biz_default",
+        server_default="biz_default",
+    )
+    event_type: Mapped[str] = mapped_column(String(20))
+    trigger_type: Mapped[str] = mapped_column(String(20))
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    fired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    plan_execution_id: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True,
+    )
+    skip_reason: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

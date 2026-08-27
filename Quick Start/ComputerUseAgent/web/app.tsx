@@ -1,9 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { AppShell } from "./components/app-shell";
-import { BusinessProvider } from "./business-context";
+import {
+  BusinessProvider,
+  businessPath,
+  defaultBusiness,
+  useBusinessContext,
+} from "./business-context";
 import { SetupPage } from "./pages/setup-page";
 import { LoginPage } from "./pages/login-page";
 import { TaskListPage } from "./pages/task-list-page";
@@ -18,39 +23,73 @@ import { CasesPage } from "./pages/cases-page";
 import { CaseImportPreviewPage } from "./pages/case-import-preview-page";
 import { CaseEditorPage } from "./pages/case-editor-page";
 import { UsersPage } from "./pages/users-page";
+import { TestPlanDetailPage } from "./pages/test-plan-detail-page";
+import { TestPlanRunPage } from "./pages/test-plan-run-page";
+import { TestPlanListPage } from "./pages/test-plan-list-page";
+import { TestPlanEditorPage } from "./pages/test-plan-editor-page";
+import { TaskReportListPage } from "./pages/task-report-list-page";
+import { PlanExecutionReportPage } from "./pages/plan-execution-report-page";
 import { api, subscribeUnauthorized } from "./api/client";
 import type { SetupStatus, User } from "./api/types";
 import { initializeThemePreference } from "./utils/theme";
 
 initializeThemePreference();
 
-const TestPlanDetailPage = lazy(() =>
-  import("./pages/test-plan-detail-page").then((module) => ({
-    default: module.TestPlanDetailPage,
-  })));
-const TestPlanRunPage = lazy(() =>
-  import("./pages/test-plan-run-page").then((module) => ({
-    default: module.TestPlanRunPage,
-  })));
-const TestPlanListPage = lazy(() =>
-  import("./pages/test-plan-list-page").then((module) => ({
-    default: module.TestPlanListPage,
-  })));
-const TestPlanEditorPage = lazy(() =>
-  import("./pages/test-plan-editor-page").then((module) => ({
-    default: module.TestPlanEditorPage,
-  })));
-const TaskReportListPage = lazy(() =>
-  import("./pages/task-report-list-page").then((module) => ({
-    default: module.TaskReportListPage,
-  })));
-const PlanExecutionReportPage = lazy(() =>
-  import("./pages/plan-execution-report-page").then((module) => ({
-    default: module.PlanExecutionReportPage,
-  })));
+function LegacyRedirect() {
+  const location = useLocation();
+  const businessContext = useBusinessContext();
+  const businessId = businessContext?.selectedBusinessId ?? defaultBusiness().id;
+  return (
+    <Navigate
+      to={`${businessPath(businessId, location.pathname)}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
 
-function PageLoadingFallback() {
-  return <div className="route-loading">加载中...</div>;
+function BusinessRoutes({ user }: { user: User }) {
+  const businessContext = useBusinessContext();
+  const rootPath = businessContext?.businessPath("/tasks") ?? "/tasks";
+  return (
+    <AppShell user={user}>
+      <Routes>
+        <Route index element={<Navigate to="tasks" replace />} />
+        <Route path="tasks">
+          <Route index element={<TaskListPage />} />
+          <Route path="new" element={<CreateTaskPage />} />
+          <Route path=":taskId" element={<TaskDetailPage />}>
+            <Route index element={<TaskOverviewPage />} />
+            <Route path="report" element={<TaskReportPage />} />
+            <Route path="trace" element={<TaskTracePage />} />
+          </Route>
+        </Route>
+        <Route path="cases">
+          <Route index element={<CasesPage />} />
+          <Route path="new" element={<CaseEditorPage />} />
+          <Route path="import/preview" element={<CaseImportPreviewPage />} />
+          <Route path=":caseId/edit" element={<CaseEditorPage />} />
+        </Route>
+        <Route path="test-plans">
+          <Route index element={<TestPlanListPage />} />
+          <Route path="new" element={<TestPlanEditorPage />} />
+          <Route path=":planId" element={<TestPlanDetailPage />} />
+          <Route path=":planId/run" element={<TestPlanRunPage />} />
+          <Route path=":planId/edit" element={<TestPlanEditorPage />} />
+        </Route>
+        <Route path="task-reports">
+          <Route index element={<TaskReportListPage />} />
+          <Route path=":executionId" element={<PlanExecutionReportPage />} />
+        </Route>
+        <Route path="pods" element={<PodPoolPage />} />
+        <Route
+          path="users"
+          element={user.role === "admin" ? <UsersPage /> : <Navigate to={rootPath} replace />}
+        />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="tasks" replace />} />
+      </Routes>
+    </AppShell>
+  );
 }
 
 function AuthGate() {
@@ -91,7 +130,7 @@ function AuthGate() {
         onAuthenticated={(user) => {
           queryClient.setQueryData(["me"], user);
           queryClient.setQueryData(["setup-status"], { initialized: true });
-          navigate("/tasks", { replace: true });
+          navigate(businessPath(defaultBusiness().id, "/tasks"), { replace: true });
         }}
       />
     );
@@ -106,7 +145,7 @@ function AuthGate() {
       <LoginPage
         onAuthenticated={(user) => {
           queryClient.setQueryData(["me"], user);
-          navigate("/tasks", { replace: true });
+          navigate(businessPath(defaultBusiness().id, "/tasks"), { replace: true });
         }}
       />
     );
@@ -114,93 +153,10 @@ function AuthGate() {
 
   return (
     <BusinessProvider>
-      <AppShell user={me.data}>
-        <Routes>
-        <Route index element={<Navigate to="/tasks" replace />} />
-        <Route path="tasks">
-          <Route index element={<TaskListPage />} />
-          <Route path="new" element={<CreateTaskPage />} />
-          <Route path=":taskId" element={<TaskDetailPage />}>
-            <Route index element={<TaskOverviewPage />} />
-            <Route path="report" element={<TaskReportPage />} />
-            <Route path="trace" element={<TaskTracePage />} />
-          </Route>
-        </Route>
-        <Route path="cases">
-          <Route index element={<CasesPage />} />
-          <Route path="new" element={<CaseEditorPage />} />
-          <Route path="import/preview" element={<CaseImportPreviewPage />} />
-          <Route path=":caseId/edit" element={<CaseEditorPage />} />
-        </Route>
-        <Route path="test-plans">
-          <Route
-            index
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TestPlanListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="new"
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TestPlanEditorPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":planId"
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TestPlanDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":planId/run"
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TestPlanRunPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":planId/edit"
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TestPlanEditorPage />
-              </Suspense>
-            }
-          />
-        </Route>
-        <Route path="task-reports">
-          <Route
-            index
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <TaskReportListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":executionId"
-            element={
-              <Suspense fallback={<PageLoadingFallback />}>
-                <PlanExecutionReportPage />
-              </Suspense>
-            }
-          />
-        </Route>
-        <Route path="pods" element={<PodPoolPage />} />
-        <Route
-          path="users"
-          element={me.data.role === "admin" ? <UsersPage /> : <Navigate to="/tasks" replace />}
-        />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/tasks" replace />} />
-        </Routes>
-      </AppShell>
+      <Routes>
+        <Route path="biz/:businessId/*" element={<BusinessRoutes user={me.data} />} />
+        <Route path="*" element={<LegacyRedirect />} />
+      </Routes>
     </BusinessProvider>
   );
 }

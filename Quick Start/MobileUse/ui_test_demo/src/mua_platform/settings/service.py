@@ -34,12 +34,22 @@ _FIELDS = (
     "max_output_tokens",
     "gps_info",
     "request_headers",
+    "device_prepare_action",
 )
 _REQUIRED_MOBILE_USE_FIELDS = (
     "access_key_id",
     "secret_access_key",
     "product_id",
 )
+_CLEARABLE_MOBILE_USE_FIELDS = {
+    "callback_info",
+    "output_schema",
+    "system_prompt",
+    "mcp_json",
+    "max_output_tokens",
+    "gps_info",
+    "request_headers",
+}
 
 
 class RunnerSettingsValidationError(ValueError):
@@ -98,6 +108,7 @@ class SettingsService:
                 "max_output_tokens": config.max_output_tokens,
                 "gps_info": config.gps_info,
                 "request_headers": _header_state(config.request_headers),
+                "device_prepare_action": config.device_prepare_action,
             },
         }
 
@@ -108,17 +119,26 @@ class SettingsService:
         business_id: str | None = None,
     ) -> dict[str, Any]:
         self.validate_runner(payload, business_id)
+        submitted_fields = (
+            payload.mobile_use.model_fields_set
+            if payload.mobile_use is not None
+            else set()
+        )
+        clear_keys = {
+            self._setting_key(f"runner.mobile_use.{field}", business_id)
+            for field in submitted_fields
+            if getattr(payload.mobile_use, field) is None
+            and field in _CLEARABLE_MOBILE_USE_FIELDS
+        }
         changed_values = {
             self._setting_key(f"runner.mobile_use.{field}", business_id): _serialize_field(
                 field,
                 getattr(payload.mobile_use, field),
             )
-            for field in (
-                payload.mobile_use.model_fields_set
-                if payload.mobile_use is not None
-                else ()
-            )
+            for field in submitted_fields
+            if getattr(payload.mobile_use, field) is not None
         }
+        self.repository.delete_many(clear_keys)
         self.repository.set_many(
             {
                 self._setting_key("runner.mode", business_id): payload.mode,
@@ -149,7 +169,15 @@ class SettingsService:
         if payload.mobile_use is not None:
             for field in payload.mobile_use.model_fields_set:
                 value = getattr(payload.mobile_use, field)
-                if value is None or (isinstance(value, str) and not value.strip()):
+                if value is None:
+                    if field in _CLEARABLE_MOBILE_USE_FIELDS:
+                        merged[field] = None
+                        continue
+                    raise RunnerSettingsValidationError(
+                        "runner_setting_value_invalid",
+                        {"field": field},
+                    )
+                if isinstance(value, str) and not value.strip():
                     raise RunnerSettingsValidationError(
                         "runner_setting_value_invalid",
                         {"field": field},
@@ -260,6 +288,8 @@ def _deserialize_field(field: str, value: str | None) -> Any:
 
 
 def _serialize_field(field: str, value: Any) -> str:
+    if value is None:
+        raise ValueError("setting_value_must_not_be_none")
     if isinstance(value, str):
         return value.strip()
     if field in {"callback_info", "request_headers"}:
