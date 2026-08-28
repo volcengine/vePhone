@@ -181,6 +181,8 @@ mua run
 4. 完成后回到控制台点"**重新连接**"，任务继续执行。
 
 > 📎 官方文档：[步骤四：使用手机扫码完成人脸识别验证](https://docs.volcengine.com/docs/6394/2603617)
+>
+> 如果想要接入自己的业务系统，可以参考：[通过接口接入业务系统，实现人脸识别验证](https://bytedance.larkoffice.com/docx/SJmsdaMrRoU7p8xmtp5cvmyNnnh)
 
 ### 任务报错怎么办？
 
