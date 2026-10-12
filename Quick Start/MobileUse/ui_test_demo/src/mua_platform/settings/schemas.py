@@ -1,11 +1,12 @@
 import json
 import re
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 RunnerMode = Literal["mock", "mobile_use"]
+AgentRunMode = Literal["AgentRun", "ScriptRun", "ChainRun"]
 DevicePrepareAction = Literal["none", "reset", "reboot"]
 _TOS_REGION = re.compile(r"^[a-z]{2}-[a-z]+(?:-\d+)?$")
 _RESERVED_REQUEST_HEADERS = {
@@ -84,6 +85,9 @@ class AgentRuntimeOptions(BaseModel):
     gps_info: str | None = None
     request_headers: dict[str, str] | None = None
     device_prepare_action: DevicePrepareAction | None = None
+    run_mode: AgentRunMode | None = None
+    script_id: int | None = Field(default=None, gt=0)
+    chain_id: int | None = Field(default=None, gt=0)
 
     @field_validator("output_schema", "mcp_json")
     @classmethod
@@ -100,6 +104,11 @@ class AgentRuntimeOptions(BaseModel):
         value: dict[str, str] | None,
     ) -> dict[str, str] | None:
         return validate_request_headers(value)
+
+    @model_validator(mode="after")
+    def validate_run_asset_binding(self) -> Self:
+        _validate_run_asset_binding(self.run_mode, self.script_id, self.chain_id)
+        return self
 
 
 class RunnerConfig(BaseModel):
@@ -129,6 +138,9 @@ class RunnerConfig(BaseModel):
     gps_info: str | None = None
     request_headers: dict[str, str] | None = None
     device_prepare_action: DevicePrepareAction = "none"
+    run_mode: AgentRunMode | None = None
+    script_id: int | None = Field(default=None, gt=0)
+    chain_id: int | None = Field(default=None, gt=0)
 
     @classmethod
     def mock(cls) -> "RunnerConfig":
@@ -169,6 +181,9 @@ class RunnerConfig(BaseModel):
             "gps_info": self.gps_info,
             "request_headers": self.request_headers,
             "device_prepare_action": self.device_prepare_action,
+            "run_mode": self.run_mode,
+            "script_id": self.script_id,
+            "chain_id": self.chain_id,
         })
 
     def with_execution_snapshot(self, snapshot: dict[str, Any]) -> "RunnerConfig":
@@ -197,18 +212,45 @@ class RunnerConfig(BaseModel):
                 "gps_info",
                 "request_headers",
                 "device_prepare_action",
+                "run_mode",
+                "script_id",
+                "chain_id",
             )
         }
-        return self.model_copy(
-            update={
+        return type(self)(
+            **{
+                **self.model_dump(),
                 "mode": "mobile_use",
                 **{key: value for key, value in fields.items() if value is not None},
             }
         )
 
+    @model_validator(mode="after")
+    def validate_run_asset_binding(self) -> Self:
+        _validate_run_asset_binding(self.run_mode, self.script_id, self.chain_id)
+        return self
+
 
 def _without_none(values: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
+
+
+def _validate_run_asset_binding(
+    run_mode: AgentRunMode | None,
+    script_id: int | None,
+    chain_id: int | None,
+) -> None:
+    if run_mode in (None, "AgentRun"):
+        if script_id is not None or chain_id is not None:
+            raise ValueError("agent_run_rejects_asset_binding")
+        return
+    if run_mode == "ScriptRun":
+        if script_id is None or chain_id is not None:
+            raise ValueError("script_run_requires_only_script_id")
+        return
+    if run_mode == "ChainRun":
+        if chain_id is None or script_id is not None:
+            raise ValueError("chain_run_requires_only_chain_id")
 
 
 def validate_request_headers(

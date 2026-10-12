@@ -76,7 +76,7 @@ class TaskBatchService:
         if payload.timeout_seconds is not None:
             snapshot["timeout_seconds"] = payload.timeout_seconds
         if payload.agent_config_mode == "custom" and payload.agent_options:
-            snapshot.update(payload.agent_options)
+            snapshot.update(payload.agent_options.model_dump(exclude_none=True))
 
         batch = TaskBatch(
             id=batch_id,

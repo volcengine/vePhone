@@ -484,7 +484,7 @@ def test_run_plan_rejects_concurrency_above_case_count(
         assert db.scalar(select(func.count()).select_from(TaskBatch)) == 0
 
 
-def test_run_plan_rejects_more_specified_pods_than_concurrency(
+def test_run_plan_allows_more_specified_pods_than_concurrency(
     authenticated_client,
 ):
     _configure_runner(authenticated_client)
@@ -508,15 +508,46 @@ def test_run_plan_rejects_more_specified_pods_than_concurrency(
         ),
     )
 
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["device_strategy_snapshot"] == "specified"
+    assert body["pod_ids_snapshot"] == ["pod-a", "pod-b"]
+    assert body["concurrency_snapshot"] == 1
+    with authenticated_client.app.state.session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(PlanExecution)) == 1
+        assert db.scalar(select(func.count()).select_from(TaskBatch)) == 1
+
+
+def test_run_plan_rejects_concurrency_above_specified_pod_count(
+    authenticated_client,
+):
+    _configure_runner(authenticated_client)
+    case_ids = [
+        _create_case(authenticated_client, f"指定设备并发拒绝用例 {index}")
+        for index in range(3)
+    ]
+    plan = _create_plan(
+        authenticated_client,
+        "指定设备并发拒绝计划",
+        case_ids,
+    )
+
+    response = authenticated_client.post(
+        f"/api/v1/test-plans/{plan['id']}/executions",
+        json=_run_payload(
+            device_strategy="specified",
+            pod_ids=["pod-a"],
+            concurrency=2,
+            idempotency_key="pod-concurrency-overflow",
+        ),
+    )
+
     assert response.status_code == 422
     assert response.json()["error"]["code"] == (
-        "pod_count_exceeds_concurrency"
+        "concurrency_exceeds_pod_count"
     )
     with authenticated_client.app.state.session_factory() as db:
-        assert (
-            db.scalar(select(func.count()).select_from(PlanExecution))
-            == 0
-        )
+        assert db.scalar(select(func.count()).select_from(PlanExecution)) == 0
         assert db.scalar(select(func.count()).select_from(TaskBatch)) == 0
 
 

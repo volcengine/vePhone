@@ -59,8 +59,8 @@ class PlanExecutionCreate(BaseModel):
         if self.device_strategy == "specified":
             if not self.pod_ids:
                 raise ValueError("specified_strategy_requires_pod_ids")
-            if len(self.pod_ids) > self.concurrency:
-                raise ValueError("pod_count_exceeds_concurrency")
+            if self.concurrency > len(self.pod_ids):
+                raise ValueError("concurrency_exceeds_pod_count")
         return self
 
     def to_batch(

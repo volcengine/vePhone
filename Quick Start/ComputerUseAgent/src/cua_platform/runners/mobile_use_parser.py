@@ -159,46 +159,29 @@ def parse_agent_result(payload: object) -> ParsedResult:
             recording_url=_safe_string(data.get("RecordingUrl")),
             result_assets=_result_assets(data),
         )
+    if is_success in {1, 3}:
+        output = _structured_output(data)
+        if output is None and is_success == 1:
+            output = _relaxed_structured_output(data)
+        summary = _success_summary(data, output)
+        evidence = _success_evidence(summary, output)
+        return ParsedResult(
+            remote_terminal=True,
+            remote_state=remote_state,
+            remote_status_code=remote_status_code,
+            remote_step_id=remote_step_id,
+            remote_thread_id=remote_thread_id,
+            verdict="pass",
+            failure_type=None,
+            reason=_safe_output_string(output, "reason"),
+            summary=summary,
+            evidence=evidence,
+            evidence_complete=True,
+            recording_url=_safe_string(data.get("RecordingUrl")),
+            result_assets=_result_assets(data),
+        )
 
-    output = _structured_output(data)
-    if output is None and is_success == 1:
-        output = _relaxed_structured_output(data)
-    if output is None:
-        return _evidence_missing(remote_state, data)
-
-    verdict_raw = output.get("verdict")
-    if verdict_raw is None:
-        verdict_raw = _verdict_from_status(output.get("status") or output.get("Status"))
-    if verdict_raw not in {"pass", "fail", "inconclusive"}:
-        return _evidence_missing(remote_state, data)
-
-    verdict: Verdict = "fail" if verdict_raw == "inconclusive" else verdict_raw
-    summary = output.get("summary")
-    if summary is None:
-        summary = output.get("reason") or output.get("Reason")
-    safe_summary = summary if isinstance(summary, str) else None
-    evidence = _string_tuple(output.get("evidence"))
-    reason = output.get("reason")
-    safe_reason = reason if isinstance(reason, str) else None
-    evidence_complete = bool(evidence)
-
-    failure_type = None if verdict == "pass" else "assertion_failed"
-
-    return ParsedResult(
-        remote_terminal=True,
-        remote_state=remote_state,
-        remote_status_code=remote_status_code,
-        remote_step_id=remote_step_id,
-        remote_thread_id=remote_thread_id,
-        verdict=verdict,
-        failure_type=failure_type,
-        reason=safe_reason,
-        summary=safe_summary,
-        evidence=evidence,
-        evidence_complete=evidence_complete,
-        recording_url=_safe_string(data.get("RecordingUrl")),
-        result_assets=_result_assets(data),
-    )
+    return _INVALID_RESULT
 
 
 def _step_payload(payload: object) -> Mapping[str, Any] | None:
@@ -374,17 +357,102 @@ def _relaxed_evidence(text: str) -> list[str]:
     return evidence
 
 
-def _verdict_from_status(value: object) -> Verdict | None:
-    if not isinstance(value, str):
+def _success_summary(
+    payload: Mapping[str, Any],
+    output: Mapping[str, Any] | None,
+) -> str | None:
+    if output is not None:
+        for key in ("summary", "reason", "Reason"):
+            value = _safe_output_string(output, key)
+            if value:
+                return value
+    return _content_summary(payload) or "执行成功，但未返回 Content。"
+
+
+def _success_evidence(
+    summary: str | None,
+    output: Mapping[str, Any] | None,
+) -> tuple[str, ...]:
+    if output is not None:
+        evidence = _string_tuple(output.get("evidence"))
+        if not evidence:
+            evidence = _schema_data_evidence(output.get("data"))
+        if evidence:
+            return evidence
+    return (summary,) if summary else ()
+
+
+def _safe_output_string(output: Mapping[str, Any] | None, key: str) -> str | None:
+    if output is None:
         return None
-    normalized = value.strip().lower()
-    if normalized == "pass":
-        return "pass"
-    if normalized == "fail":
-        return "fail"
-    if normalized in {"skip", "inconclusive"}:
-        return "fail"
-    return None
+    value = output.get(key)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _schema_data_evidence(value: object) -> tuple[str, ...]:
+    if not isinstance(value, Mapping):
+        return ()
+    evidence: list[str] = []
+
+    stop_reason = value.get("stopReason")
+    if isinstance(stop_reason, str) and stop_reason.strip():
+        evidence.append(stop_reason.strip())
+
+    for item in value.get("candidates") or ():
+        if not isinstance(item, Mapping):
+            continue
+        parts = [
+            text
+            for text in (item.get("nickname"), item.get("stage"), item.get("sourceContent"))
+            if isinstance(text, str) and text.strip()
+        ]
+        detail = " | ".join(parts)
+        item_evidence = item.get("evidence")
+        if isinstance(item_evidence, str) and item_evidence.strip():
+            detail = f"{detail} | {item_evidence.strip()}" if detail else item_evidence.strip()
+        if detail:
+            evidence.append(f"候选：{detail}")
+
+    for item in value.get("reaches") or ():
+        if not isinstance(item, Mapping):
+            continue
+        contact = item.get("contact")
+        channel = item.get("channel")
+        actions = item.get("actions")
+        action_text = "/".join(str(a) for a in actions) if isinstance(actions, list) else ""
+        segments = [text for text in (contact, channel, action_text) if text]
+        detail = " | ".join(segments)
+        result = item.get("result")
+        if isinstance(result, str) and result.strip():
+            detail = f"{detail} | 结果：{result.strip()}" if detail else f"结果：{result.strip()}"
+        script = item.get("scriptContent")
+        if isinstance(script, str) and script.strip():
+            detail = f"{detail} | 话术：{script.strip()}" if detail else f"话术：{script.strip()}"
+        fail_reason = item.get("failReason")
+        if isinstance(fail_reason, str) and fail_reason.strip():
+            detail = f"{detail} | 失败原因：{fail_reason.strip()}" if detail else f"失败原因：{fail_reason.strip()}"
+        if detail:
+            evidence.append(f"触达：{detail}")
+
+    for item in value.get("conversations") or ():
+        if not isinstance(item, Mapping):
+            continue
+        contact = item.get("contact")
+        text = item.get("text")
+        segments = [seg for seg in (contact, text) if isinstance(seg, str) and seg.strip()]
+        if segments:
+            evidence.append(f"对话：{' | '.join(segments)}")
+
+    for item in value.get("obstacles") or ():
+        if not isinstance(item, Mapping):
+            continue
+        reason = item.get("blockReason")
+        detail_text = item.get("detail")
+        segments = [seg for seg in (reason, detail_text) if isinstance(seg, str) and seg.strip()]
+        if segments:
+            evidence.append(f"阻碍：{' | '.join(segments)}")
+
+    return tuple(evidence)
 
 
 def _content_summary(payload: Mapping[str, Any]) -> str | None:
@@ -518,39 +586,6 @@ def _string_tuple(value: object) -> tuple[str, ...]:
         if isinstance(item, str) and item.strip():
             result.append(item.strip())
     return tuple(result)
-
-
-def _evidence_missing(
-    remote_state: RemoteState,
-    payload: Mapping[str, Any],
-) -> ParsedResult:
-    summary = _content_summary(payload)
-    failure_type = "evidence_missing"
-    if remote_state == "completed_no_message":
-        summary = summary or "执行成功，但未返回 Content。"
-        failure_type = "completed_but_no_message"
-    return ParsedResult(
-        remote_terminal=True,
-        remote_state=remote_state,
-        remote_status_code=_status_code_for_state(remote_state),
-        remote_step_id=_safe_string(payload.get("StepId")),
-        remote_thread_id=_safe_string(payload.get("ThreadId")),
-        verdict="fail",
-        failure_type=failure_type,
-        reason=None,
-        summary=summary,
-        evidence=(),
-        evidence_complete=False,
-        recording_url=_safe_string(payload.get("RecordingUrl")),
-        result_assets=_result_assets(payload),
-    )
-
-
-def _status_code_for_state(remote_state: RemoteState) -> int | None:
-    for code, state in _REMOTE_STATES.items():
-        if state == remote_state:
-            return code
-    return None
 
 
 def _find_request_user(value: object, depth: int = 0) -> str | None:

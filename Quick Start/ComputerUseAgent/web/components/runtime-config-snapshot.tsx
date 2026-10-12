@@ -1,6 +1,11 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
-import type { TaskExecutionConfig } from "../api/types";
+import { api } from "../api/client";
+import type {
+  AgentRunChainAssetDetail,
+  AgentRunScriptAssetDetail,
+  TaskExecutionConfig,
+} from "../api/types";
 
 
 function configured(value: unknown): boolean {
@@ -21,6 +26,35 @@ function ecsidDisplay(config: TaskExecutionConfig): string {
     return config.pod_ids.join(", ");
   }
   return "自动分配";
+}
+
+function runAssetLabel(config: TaskExecutionConfig): string {
+  if (config.run_mode === "ScriptRun" && config.script_id) {
+    return `ScriptRun #${config.script_id}`;
+  }
+  if (config.run_mode === "ChainRun" && config.chain_id) {
+    return `ChainRun #${config.chain_id}`;
+  }
+  return "默认 AgentRun";
+}
+
+function runAssetRequest(config: TaskExecutionConfig): {
+  path: string;
+  label: string;
+} | null {
+  if (config.run_mode === "ScriptRun" && config.script_id) {
+    return {
+      path: `/agent-run-scripts/${config.script_id}`,
+      label: `ScriptRun #${config.script_id}`,
+    };
+  }
+  if (config.run_mode === "ChainRun" && config.chain_id) {
+    return {
+      path: `/agent-run-chains/${config.chain_id}`,
+      label: `ChainRun #${config.chain_id}`,
+    };
+  }
+  return null;
 }
 
 function formatJson(value: unknown): string {
@@ -45,6 +79,20 @@ function mcpServiceCount(value: string | null | undefined): number {
   } catch {
     return 0;
   }
+}
+
+function assetDetailTitle(
+  detail: AgentRunScriptAssetDetail | AgentRunChainAssetDetail | null,
+  fallback: string,
+): string {
+  return detail?.name || fallback;
+}
+
+function assetDetailPreview(
+  detail: AgentRunScriptAssetDetail | AgentRunChainAssetDetail,
+): string {
+  if ("script" in detail) return detail.script || "脚本内容为空";
+  return JSON.stringify(detail.nodes ?? [], null, 2);
 }
 
 function ConfigRow({
@@ -103,8 +151,15 @@ export function RuntimeConfigSnapshot({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [headersOpen, setHeadersOpen] = useState(false);
+  const [assetOpen, setAssetOpen] = useState(false);
+  const [assetDetail, setAssetDetail] =
+    useState<AgentRunScriptAssetDetail | AgentRunChainAssetDetail | null>(null);
+  const [assetLoading, setAssetLoading] = useState(false);
+  const [assetError, setAssetError] = useState(false);
+  const [assetReload, setAssetReload] = useState(0);
   const drawerId = useId();
   const headerDialogTitleId = useId();
+  const assetDialogTitleId = useId();
   const sourceLabel = config.source === "custom"
     ? "自定义配置"
     : config.source === "global"
@@ -116,12 +171,39 @@ export function RuntimeConfigSnapshot({
     : requestHeaderNames.map((name) => ({ name, value: "-" }));
   const requestHeadersConfigured = Boolean(config.request_headers?.configured);
   const ecsidText = ecsidDisplay(config);
+  const runAsset = runAssetRequest(config);
+  const runAssetConfigured = runAsset !== null;
   const advanced = [
     ["SystemPrompt", config.system_prompt],
     ["McpJson", config.mcp_json],
     ["OutputSchema", config.output_schema],
     ["CallbackInfo", config.callback_info],
   ] as const;
+
+  useEffect(() => {
+    if (!assetOpen || !runAsset) {
+      setAssetDetail(null);
+      return;
+    }
+    let active = true;
+    setAssetLoading(true);
+    setAssetError(false);
+    api.get<AgentRunScriptAssetDetail | AgentRunChainAssetDetail>(
+      runAsset.path,
+    )
+      .then((response) => {
+        if (active) setAssetDetail(response);
+      })
+      .catch(() => {
+        if (active) setAssetError(true);
+      })
+      .finally(() => {
+        if (active) setAssetLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [assetOpen, assetReload, runAsset?.path]);
 
   return (
     <section className="table-card runtime-config-card task-overview-config">
@@ -196,6 +278,27 @@ export function RuntimeConfigSnapshot({
           />
           <ConfigRow label="MaxStep" value={displayValue(config.max_step)} />
           <ConfigRow label="RetryLimit" value={displayValue(config.retry_limit)} />
+          <div className="runtime-config-row">
+            <span>执行资产</span>
+            <button
+              type="button"
+              aria-label={
+                runAssetConfigured
+                  ? `查看执行资产 ${runAsset.label}`
+                  : "执行资产 默认 AgentRun"
+              }
+              className={`runtime-config-value-button${
+                runAssetConfigured ? " configured" : ""
+              }`}
+              disabled={!runAssetConfigured}
+              onClick={() => setAssetOpen(true)}
+            >
+              {runAssetConfigured && (
+                <span className="runtime-config-dot" aria-hidden="true" />
+              )}
+              {runAssetLabel(config)}
+            </button>
+          </div>
           <ConfigRow
             label="MaxOutputTokens"
             value={displayValue(config.max_output_tokens, "默认")}
@@ -301,6 +404,55 @@ export function RuntimeConfigSnapshot({
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {assetOpen && runAsset && (
+        <div
+          className="runtime-config-dialog-backdrop"
+          onClick={() => setAssetOpen(false)}
+        >
+          <div
+            aria-labelledby={assetDialogTitleId}
+            aria-modal="true"
+            className="runtime-config-dialog runtime-config-asset-dialog"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="runtime-config-dialog-header">
+              <div>
+                <span>{runAsset.label}</span>
+                <h3 id={assetDialogTitleId}>执行资产详情</h3>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭执行资产详情弹窗"
+                onClick={() => setAssetOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            {assetLoading && <p>正在加载执行资产详情...</p>}
+            {assetError && (
+              <p>
+                资产详情加载失败。
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setAssetReload((value) => value + 1)}
+                >
+                  重试
+                </button>
+              </p>
+            )}
+            {assetDetail && (
+              <div className="runtime-config-asset-detail">
+                <strong>{assetDetailTitle(assetDetail, runAsset.label)}</strong>
+                {assetDetail.description && <p>{assetDetail.description}</p>}
+                <pre>{assetDetailPreview(assetDetail)}</pre>
+              </div>
+            )}
           </div>
         </div>
       )}

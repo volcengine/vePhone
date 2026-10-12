@@ -669,14 +669,14 @@ class TestPlanService:
                         Task.verdict == Verdict.FAIL,
                         (
                             Task.failure_type.is_(None)
-                            | (Task.failure_type == "assertion_failed")
+                            | Task.failure_type.in_(("assertion_failed", "result_partial"))
                         ),
                     ),
                     func.count(Task.id).filter(
                         Task.execution_status == ExecutionStatus.RESULT_READY,
                         Task.verdict == Verdict.FAIL,
                         Task.failure_type.is_not(None),
-                        Task.failure_type != "assertion_failed",
+                        Task.failure_type.not_in(("assertion_failed", "result_partial")),
                     ),
                     func.count(Task.id).filter(
                         Task.execution_status == ExecutionStatus.CANCELLED

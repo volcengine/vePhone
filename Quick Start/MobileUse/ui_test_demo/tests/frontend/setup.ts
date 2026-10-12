@@ -136,6 +136,12 @@ export const server = setupServer(
   http.get("/api/v1/cases/:caseId/test-plans", () =>
     HttpResponse.json({ items: [], total: 0, page: 1, page_size: 5 }),
   ),
+  http.get("/api/v1/agent-run-scripts", () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, page_size: 20 }),
+  ),
+  http.get("/api/v1/agent-run-chains", () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, page_size: 20 }),
+  ),
   http.get("/api/v1/tasks/:taskId/runtime", ({ params }) => {
     const taskId = String(params.taskId);
     const task = {

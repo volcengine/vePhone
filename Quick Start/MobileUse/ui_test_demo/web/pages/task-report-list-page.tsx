@@ -114,6 +114,12 @@ function formatKpiPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+function formatReviewedPassRate(report: PlanReportSummary): string {
+  return report.reviewed_total > 0
+    ? formatKpiPercent(report.reviewed_pass_rate)
+    : "-";
+}
+
 export function TaskReportListPage() {
   const [urlParams, setUrlParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(urlParams.get("search") ?? "");
@@ -482,6 +488,9 @@ export function TaskReportListPage() {
                     <th>测试计划</th>
                     <th>执行结果</th>
                     <th>测试通过率</th>
+                    <th>复核通过率</th>
+                    <th>子任务数量</th>
+                    <th>审核覆盖率</th>
                     <th>创建时间</th>
                     <th>总执行时长</th>
                     <th>操作</th>
@@ -514,6 +523,9 @@ export function TaskReportListPage() {
                         </td>
                         <td><ReportStatusBadge status={report.report_status} /></td>
                         <td className="report-rate">{Math.round(report.pass_rate)}%</td>
+                        <td className="report-rate">{formatReviewedPassRate(report)}</td>
+                        <td>{report.tasks_total}</td>
+                        <td className="report-rate">{formatKpiPercent(report.review_coverage_rate)}</td>
                         <td>{formatChinaDateTime(report.created_at)}</td>
                         <td>{formatDurationSeconds(report.duration_seconds)}</td>
                         <td

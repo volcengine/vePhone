@@ -109,6 +109,16 @@ it("aligns basic info inputs in a wide name and compact metadata row", () => {
   );
 });
 
+it("keeps plan actions at the bottom of the document flow", () => {
+  const savebarRule = STYLES.match(
+    /\.plan-editor-savebar\s*\{([^}]*)\}/s,
+  )?.[1] ?? "";
+  expect(savebarRule).toContain("position: static");
+  expect(savebarRule).not.toContain("position: fixed");
+  expect(savebarRule).not.toContain("position: sticky");
+  expect(savebarRule).not.toContain("backdrop-filter");
+});
+
 it("validates, sends repeated candidate tags, saves ordered cases, and returns", async () => {
   const seenTags: string[][] = [];
   let savedBody: Record<string, unknown> | null = null;

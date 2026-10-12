@@ -39,6 +39,7 @@ const REMOTE_RESULT_STATUS_LABEL: Record<number, string> = {
   4: "已停止",
   5: "已停止",
   6: "失败",
+  7: "失败",
 };
 
 function statusText(value: number | null | undefined, resultStatus = false) {

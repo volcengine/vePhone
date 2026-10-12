@@ -288,6 +288,52 @@ def test_report_uses_snapshot_pass_rate_duration_and_public_config(
     assert "Bearer secret" not in response.text
 
 
+def test_report_detail_exposes_manual_review_result_and_reviewed_pass_rate(
+    authenticated_client,
+):
+    report = _seed_report(
+        authenticated_client,
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (ExecutionStatus.RESULT_READY, Verdict.FAIL, "assertion_failed"),
+        ],
+        batch_status=ExecutionStatus.RESULT_READY,
+        batch_verdict=Verdict.FAIL,
+    )
+    with authenticated_client.app.state.session_factory() as db:
+        failed_task = (
+            db.query(Task)
+            .filter(Task.batch_id == report["batch_id"], Task.verdict == Verdict.FAIL)
+            .one()
+        )
+        failed_task.review_result = Verdict.PASS
+        failed_task.reviewed_by = "reviewer"
+        failed_task.reviewed_at = datetime(2026, 1, 1, 9, tzinfo=UTC)
+        failed_task.review_note = "人工确认通过"
+        db.commit()
+
+    response = authenticated_client.get(
+        f"/api/v1/task-reports/{report['execution_id']}"
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["pass_rate"] == 50.0
+    assert body["reviewed_pass_rate"] == 100.0
+    assert body["reviewed_pass_count"] == 1
+    assert body["reviewed_fail_count"] == 0
+    assert body["reviewed_total"] == 1
+    assert body["review_coverage_rate"] == 50.0
+    unreviewed = next(task for task in body["tasks"] if task["verdict"] == "pass")
+    assert unreviewed["review_result"] is None
+    assert "effective_result" not in unreviewed
+    failed = next(task for task in body["tasks"] if task["verdict"] == "fail")
+    assert failed["review_result"] == "pass"
+    assert "effective_result" not in failed
+    assert failed["reviewed_by"] == "reviewer"
+    assert failed["review_note"] == "人工确认通过"
+
+
 def test_report_duration_is_null_before_start_and_terminal_uses_finish(
     authenticated_client,
 ):
@@ -453,6 +499,49 @@ def test_report_list_filters_by_task_batch_id_search(authenticated_client):
         "/api/v1/task-reports",
         params={"page_size": 11},
     ).status_code == 422
+
+
+def test_report_list_exposes_reviewed_metrics_and_task_count(authenticated_client):
+    reviewed = _seed_report(
+        authenticated_client,
+        task_states=[
+            (ExecutionStatus.RESULT_READY, Verdict.PASS, None),
+            (
+                ExecutionStatus.RESULT_READY,
+                Verdict.FAIL,
+                "assertion_failed",
+            ),
+        ],
+        batch_verdict=Verdict.FAIL,
+    )
+    unreviewed = _seed_report(authenticated_client)
+    with authenticated_client.app.state.session_factory() as db:
+        failed_task = (
+            db.query(Task)
+            .filter(Task.batch_id == reviewed["batch_id"], Task.verdict == Verdict.FAIL)
+            .one()
+        )
+        failed_task.review_result = Verdict.PASS
+        db.commit()
+
+    response = authenticated_client.get(
+        "/api/v1/task-reports",
+        params={"page": 1, "page_size": 10},
+    )
+
+    assert response.status_code == 200, response.text
+    items = {
+        item["execution_id"]: item
+        for item in response.json()["items"]
+    }
+    assert items[reviewed["execution_id"]]["reviewed_pass_rate"] == 100.0
+    assert items[reviewed["execution_id"]]["reviewed_total"] == 1
+    assert items[reviewed["execution_id"]]["tasks_total"] == 2
+    assert items[reviewed["execution_id"]]["review_coverage_rate"] == 50.0
+    assert items[unreviewed["execution_id"]]["reviewed_pass_rate"] == 0.0
+    assert items[unreviewed["execution_id"]]["reviewed_total"] == 0
+    assert items[unreviewed["execution_id"]]["tasks_total"] == 1
+    assert items[unreviewed["execution_id"]]["review_coverage_rate"] == 0.0
 
 
 def test_report_stats_average_uses_snapshot_denominator(
@@ -734,6 +823,10 @@ def test_report_download_markdown_contains_kpis_snapshot_and_tasks(
             "usage": {"in_tokens": 1234, "out_tokens": 56},
             "total_steps": 7,
         }
+        task.review_result = Verdict.PASS
+        task.reviewed_by = "reviewer"
+        task.reviewed_at = datetime(2026, 1, 1, 10, 3, tzinfo=UTC)
+        task.review_note = "人工确认通过"
         db.commit()
 
     response = authenticated_client.get(
@@ -751,6 +844,11 @@ def test_report_download_markdown_contains_kpis_snapshot_and_tasks(
     assert "# 测试报告：下载报告" in body
     assert "执行结果：失败" in body
     assert "测试通过率：50%" in body
+    assert "复核后通过率：100%" in body
+    assert "审核覆盖率：50%" in body
+    assert "复核通过子任务：1" in body
+    assert "复核失败子任务：0" in body
+    assert "已审核子任务：1" in body
     assert "总执行时长：2 分 5 秒" in body
     assert "## 执行快照" in body
     assert "设备策略：自动分配" in body
@@ -761,6 +859,14 @@ def test_report_download_markdown_contains_kpis_snapshot_and_tasks(
     assert "输入 Token" in body
     assert "输出 Token" in body
     assert "执行步数" in body
+    assert "人工审核" in body
+    assert "审核人" in body
+    assert "审核时间" in body
+    assert "审核备注" in body
+    assert "复核通过" in body
+    assert "reviewer" in body
+    assert "2026-01-01T10:03:00Z" in body
+    assert "人工确认通过" in body
     assert "1234" in body
     assert "56" in body
     assert "7" in body
@@ -797,6 +903,10 @@ def test_report_download_csv_groups_kpis_snapshot_and_subtask_rows(
             "usage": {"in_tokens": 987, "out_tokens": 65},
             "total_steps": 4,
         }
+        tasks[1].review_result = Verdict.PASS
+        tasks[1].reviewed_by = "reviewer"
+        tasks[1].reviewed_at = datetime(2026, 1, 1, 10, 3, tzinfo=UTC)
+        tasks[1].review_note = "人工确认通过"
         db.commit()
 
     response = authenticated_client.get(
@@ -818,11 +928,16 @@ def test_report_download_csv_groups_kpis_snapshot_and_subtask_rows(
     ]
     assert rows[3][0] == "测试计划"
     assert rows[3][1].startswith("CSV报告")
-    assert rows[4:10] == [
+    assert rows[4:15] == [
         ["执行结果", "异常"],
         ["测试通过率", "50%"],
+        ["复核后通过率", "100%"],
+        ["审核覆盖率", "50%"],
         ["通过子任务", "1"],
         ["总子任务", "2"],
+        ["复核通过子任务", "1"],
+        ["复核失败子任务", "0"],
+        ["已审核子任务", "1"],
         ["总执行时长", "2 分 5 秒"],
         [],
     ]
@@ -837,6 +952,10 @@ def test_report_download_csv_groups_kpis_snapshot_and_subtask_rows(
         "用例标题",
         "任务状态",
         "任务结果",
+        "人工审核",
+        "审核人",
+        "审核时间",
+        "审核备注",
         "失败类型",
         "任务创建时间",
         "任务执行时长",
@@ -846,11 +965,17 @@ def test_report_download_csv_groups_kpis_snapshot_and_subtask_rows(
     ] in rows
     assert any(
         row[1] == "run_download_csv"
-        and row[6] == "runner_interrupted"
-        and row[8] == "2 分 5 秒"
-        and row[9:12] == ["987", "65", "4"]
+        and row[6:10] == [
+            "复核通过",
+            "reviewer",
+            "2026-01-01T10:03:00Z",
+            "人工确认通过",
+        ]
+        and row[10] == "runner_interrupted"
+        and row[12] == "2 分 5 秒"
+        and row[13:16] == ["987", "65", "4"]
         for row in rows
-        if len(row) == 12
+        if len(row) == 16
     )
 
 

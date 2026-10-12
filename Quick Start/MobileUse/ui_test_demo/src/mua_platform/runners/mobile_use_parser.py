@@ -167,8 +167,9 @@ def parse_agent_result(payload: object) -> ParsedResult:
         return _evidence_missing(remote_state, data)
 
     verdict_raw = output.get("verdict")
+    status_raw = output.get("status") or output.get("Status")
     if verdict_raw is None:
-        verdict_raw = _verdict_from_status(output.get("status") or output.get("Status"))
+        verdict_raw = _verdict_from_status(status_raw)
     if verdict_raw not in {"pass", "fail", "inconclusive"}:
         return _evidence_missing(remote_state, data)
 
@@ -178,11 +179,18 @@ def parse_agent_result(payload: object) -> ParsedResult:
         summary = output.get("reason") or output.get("Reason")
     safe_summary = summary if isinstance(summary, str) else None
     evidence = _string_tuple(output.get("evidence"))
+    if not evidence:
+        evidence = _schema_data_evidence(output.get("data"))
     reason = output.get("reason")
     safe_reason = reason if isinstance(reason, str) else None
     evidence_complete = bool(evidence)
 
-    failure_type = None if verdict == "pass" else "assertion_failed"
+    if verdict == "pass":
+        failure_type = None
+    elif output.get("verdict") is None and _status_is_partial(status_raw):
+        failure_type = "result_partial"
+    else:
+        failure_type = "assertion_failed"
 
     return ParsedResult(
         remote_terminal=True,
@@ -378,13 +386,83 @@ def _verdict_from_status(value: object) -> Verdict | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower()
-    if normalized == "pass":
+    if normalized in {"pass", "succeeded", "success"}:
         return "pass"
-    if normalized == "fail":
+    if normalized in {"fail", "failed", "error"}:
         return "fail"
-    if normalized in {"skip", "inconclusive"}:
+    if normalized in {"skip", "inconclusive", "partial"}:
         return "fail"
     return None
+
+
+def _status_is_partial(value: object) -> bool:
+    return isinstance(value, str) and value.strip().lower() == "partial"
+
+
+def _schema_data_evidence(value: object) -> tuple[str, ...]:
+    if not isinstance(value, Mapping):
+        return ()
+    evidence: list[str] = []
+
+    stop_reason = value.get("stopReason")
+    if isinstance(stop_reason, str) and stop_reason.strip():
+        evidence.append(stop_reason.strip())
+
+    for item in value.get("candidates") or ():
+        if not isinstance(item, Mapping):
+            continue
+        parts = [
+            text
+            for text in (item.get("nickname"), item.get("stage"), item.get("sourceContent"))
+            if isinstance(text, str) and text.strip()
+        ]
+        detail = " | ".join(parts)
+        item_evidence = item.get("evidence")
+        if isinstance(item_evidence, str) and item_evidence.strip():
+            detail = f"{detail} | {item_evidence.strip()}" if detail else item_evidence.strip()
+        if detail:
+            evidence.append(f"候选：{detail}")
+
+    for item in value.get("reaches") or ():
+        if not isinstance(item, Mapping):
+            continue
+        contact = item.get("contact")
+        channel = item.get("channel")
+        actions = item.get("actions")
+        action_text = "/".join(str(a) for a in actions) if isinstance(actions, list) else ""
+        segments = [text for text in (contact, channel, action_text) if text]
+        detail = " | ".join(segments)
+        result = item.get("result")
+        if isinstance(result, str) and result.strip():
+            detail = f"{detail} | 结果：{result.strip()}" if detail else f"结果：{result.strip()}"
+        script = item.get("scriptContent")
+        if isinstance(script, str) and script.strip():
+            detail = f"{detail} | 话术：{script.strip()}" if detail else f"话术：{script.strip()}"
+        fail_reason = item.get("failReason")
+        if isinstance(fail_reason, str) and fail_reason.strip():
+            detail = f"{detail} | 失败原因：{fail_reason.strip()}" if detail else f"失败原因：{fail_reason.strip()}"
+        if detail:
+            evidence.append(f"触达：{detail}")
+
+    for item in value.get("conversations") or ():
+        if not isinstance(item, Mapping):
+            continue
+        contact = item.get("contact")
+        text = item.get("text")
+        segments = [seg for seg in (contact, text) if isinstance(seg, str) and seg.strip()]
+        if segments:
+            evidence.append(f"对话：{' | '.join(segments)}")
+
+    for item in value.get("obstacles") or ():
+        if not isinstance(item, Mapping):
+            continue
+        reason = item.get("blockReason")
+        detail_text = item.get("detail")
+        segments = [seg for seg in (reason, detail_text) if isinstance(seg, str) and seg.strip()]
+        if segments:
+            evidence.append(f"阻碍：{' | '.join(segments)}")
+
+    return tuple(evidence)
 
 
 def _content_summary(payload: Mapping[str, Any]) -> str | None:

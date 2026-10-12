@@ -1,6 +1,21 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
-import type { AgentRuntimeOptions, DevicePrepareAction } from "../api/types";
+import { api } from "../api/client";
+import type {
+  AgentRunAssetListResponse,
+  AgentRunChainAsset,
+  AgentRunChainAssetDetail,
+  AgentRunScriptAsset,
+  AgentRunScriptAssetDetail,
+  AgentRuntimeOptions,
+  DevicePrepareAction,
+} from "../api/types";
 
 export type ExecuteConfig = {
   pod_id: string | null;
@@ -12,6 +27,9 @@ export type ExecuteConfig = {
 
 export type CustomExecutionForm = {
   thread_id: string;
+  run_mode: "" | "ScriptRun" | "ChainRun";
+  script_id: string;
+  chain_id: string;
   use_base64_screenshot: boolean;
   max_step: number;
   timeout_seconds: number;
@@ -38,6 +56,10 @@ export type ExecutionConfigDraft = {
   custom: CustomExecutionForm;
 };
 
+export type BuildExecuteConfigOptions = {
+  includeAssetBinding?: boolean;
+};
+
 export const DEFAULT_EXECUTION_CONFIG: ExecutionConfigDraft = {
   timeout_seconds: 120,
   device_wait_timeout_seconds: 300,
@@ -46,6 +68,9 @@ export const DEFAULT_EXECUTION_CONFIG: ExecutionConfigDraft = {
   agent_config_mode: "global",
   custom: {
     thread_id: "",
+    run_mode: "",
+    script_id: "",
+    chain_id: "",
     use_base64_screenshot: false,
     max_step: 100,
     timeout_seconds: 120,
@@ -97,6 +122,7 @@ const CLEARABLE_CUSTOM_FIELDS = new Set<keyof CustomExecutionForm>([
 ]);
 const DEVICE_WAIT_TIMEOUT_MIN = 1;
 const DEVICE_WAIT_TIMEOUT_MAX = 86400;
+const AGENT_RUN_ASSET_PAGE_SIZE = 20;
 
 function clampDeviceWaitTimeout(value: number): number {
   return Math.max(
@@ -195,6 +221,11 @@ export function createExecutionConfigDraftFromOptions(
     custom: {
       ...draft.custom,
       thread_id: options.thread_id ?? "",
+      run_mode: options.run_mode === "ScriptRun" || options.run_mode === "ChainRun"
+        ? options.run_mode
+        : "",
+      script_id: options.script_id ? String(options.script_id) : "",
+      chain_id: options.chain_id ? String(options.chain_id) : "",
       use_base64_screenshot: Boolean(options.use_base64_screenshot),
       max_step: options.max_step ?? draft.custom.max_step,
       timeout_seconds: options.timeout_seconds ?? draft.custom.timeout_seconds,
@@ -222,6 +253,7 @@ export function createExecutionConfigDraftFromOptions(
 
 export function buildExecuteConfig(
   draft: ExecutionConfigDraft,
+  buildOptions: BuildExecuteConfigOptions = {},
 ): { config: ExecuteConfig | null; error: string } {
   if (draft.agent_config_mode === "global") {
     return {
@@ -266,9 +298,15 @@ export function buildExecuteConfig(
   if (typeof requestHeaders === "string") {
     return { config: null, error: requestHeaders };
   }
+  const includeAssetBinding = buildOptions.includeAssetBinding ?? true;
+  const assetBinding = includeAssetBinding ? buildAssetBinding(draft.custom) : {};
+  if (typeof assetBinding === "string") {
+    return { config: null, error: assetBinding };
+  }
 
   const options: AgentRuntimeOptions = {
     thread_id: optionalString(draft.custom.thread_id),
+    ...assetBinding,
     use_base64_screenshot: draft.custom.use_base64_screenshot,
     max_step: draft.custom.max_step,
     timeout_seconds: draft.custom.timeout_seconds,
@@ -311,6 +349,7 @@ export function ExecutionConfigFields({
   showModeSelector = true,
   showThreadId = true,
   showDeviceWaitTimeout = false,
+  showExecutionAssets = true,
 }: {
   value: ExecutionConfigDraft;
   onChange: (value: ExecutionConfigDraft) => void;
@@ -322,6 +361,7 @@ export function ExecutionConfigFields({
   showModeSelector?: boolean;
   showThreadId?: boolean;
   showDeviceWaitTimeout?: boolean;
+  showExecutionAssets?: boolean;
 }) {
   const customMode = value.agent_config_mode === "custom";
   const caseDefaultMode = value.agent_config_mode === "case_default";
@@ -349,6 +389,18 @@ export function ExecutionConfigFields({
 
   function clearCustom(field: keyof CustomExecutionForm) {
     updateCustom(field as never, "" as never);
+  }
+
+  function setRunMode(runMode: "" | "ScriptRun" | "ChainRun") {
+    onChange({
+      ...value,
+      custom: {
+        ...value.custom,
+        run_mode: runMode,
+        script_id: runMode === "ScriptRun" ? value.custom.script_id : "",
+        chain_id: runMode === "ChainRun" ? value.custom.chain_id : "",
+      },
+    });
   }
 
   function fieldHeading(field: keyof CustomExecutionForm, label: string, inputId: string) {
@@ -542,6 +594,57 @@ export function ExecutionConfigFields({
 
       {(customMode || !showModeSelector) && (
         <div className="custom-agent-config">
+          {showExecutionAssets && (
+            <section className="custom-agent-section">
+              <h4>执行资产</h4>
+              <div
+                className="execution-agent-mode-seg"
+                role="radiogroup"
+                aria-label="执行资产"
+              >
+                {[
+                  ["", "默认 AgentRun"],
+                  ["ScriptRun", "ScriptRun 脚本"],
+                  ["ChainRun", "ChainRun 编排"],
+                ].map(([mode, label]) => (
+                  <label
+                    key={mode}
+                    className={`agent-mode-seg-option${value.custom.run_mode === mode ? " on" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name={`${idPrefix}-run-mode`}
+                      value={mode}
+                      checked={value.custom.run_mode === mode}
+                      disabled={disabled}
+                      onChange={() =>
+                        setRunMode(mode as "" | "ScriptRun" | "ChainRun")}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              {value.custom.run_mode === "ScriptRun" && (
+                <AgentRunAssetPicker
+                  kind="script"
+                  idPrefix={idPrefix}
+                  disabled={disabled}
+                  selectedId={value.custom.script_id}
+                  onSelect={(scriptId) => updateCustom("script_id", scriptId)}
+                />
+              )}
+              {value.custom.run_mode === "ChainRun" && (
+                <AgentRunAssetPicker
+                  kind="chain"
+                  idPrefix={idPrefix}
+                  disabled={disabled}
+                  selectedId={value.custom.chain_id}
+                  onSelect={(chainId) => updateCustom("chain_id", chainId)}
+                />
+              )}
+            </section>
+          )}
+
           <section className="custom-agent-section">
             <h4>运行控制</h4>
             <div className="form-group">
@@ -688,6 +791,567 @@ export function ExecutionConfigFields({
       )}
     </div>
   );
+}
+
+function AgentRunAssetPicker({
+  kind,
+  idPrefix,
+  disabled,
+  selectedId,
+  onSelect,
+}: {
+  kind: "script" | "chain";
+  idPrefix: string;
+  disabled: boolean;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [items, setItems] = useState<Array<AgentRunScriptAsset | AgentRunChainAsset>>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState<number | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false);
+  const [listReload, setListReload] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [detail, setDetail] = useState<AgentRunScriptAssetDetail | AgentRunChainAssetDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
+  const [detailReload, setDetailReload] = useState(0);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxId = useId();
+  const endpoint = kind === "script" ? "/agent-run-scripts" : "/agent-run-chains";
+  const label = kind === "script"
+    ? "选择 ScriptRun 脚本资产"
+    : "选择 ChainRun 编排资产";
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const nextSearch = search.trim();
+      if (nextSearch === debouncedSearch) return;
+      setDebouncedSearch(nextSearch);
+      setPage(1);
+      setItems([]);
+      setTotal(null);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [debouncedSearch, search]);
+
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(AGENT_RUN_ASSET_PAGE_SIZE),
+      search_field: "name",
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    setListLoading(true);
+    setListError(false);
+    api.get<AgentRunAssetListResponse<AgentRunScriptAsset | AgentRunChainAsset>>(
+      `${endpoint}?${params.toString()}`,
+    )
+      .then((response) => {
+        if (!active) return;
+        setTotal(response.total);
+        setItems((current) => {
+          if (page === 1) return response.items;
+          const seenIds = new Set(current.map((item) => assetId(kind, item)));
+          return [
+            ...current,
+            ...response.items.filter(
+              (item) => !seenIds.has(assetId(kind, item)),
+            ),
+          ];
+        });
+      })
+      .catch(() => {
+        if (active) setListError(true);
+      })
+      .finally(() => {
+        if (active) setListLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, endpoint, kind, listReload, page]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setDetail(null);
+      return;
+    }
+    let active = true;
+    setDetail(null);
+    setDetailLoading(true);
+    setDetailError(false);
+    api.get<AgentRunScriptAssetDetail | AgentRunChainAssetDetail>(
+      `${endpoint}/${selectedId}`,
+    )
+      .then((response) => {
+        if (!active) return;
+        if (assetId(kind, response) !== selectedId) {
+          setDetailError(true);
+          return;
+        }
+        setDetail(response);
+      })
+      .catch(() => {
+        if (active) setDetailError(true);
+      })
+      .finally(() => {
+        if (active) setDetailLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [endpoint, kind, selectedId, detailReload]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setPickerOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [pickerOpen]);
+
+  useEffect(() => {
+    setActiveIndex((current) =>
+      Math.max(0, Math.min(current, items.length - 1))
+    );
+  }, [items.length]);
+
+  const selectedMissing = Boolean(
+    selectedId
+      && !listLoading
+      && !listError
+      && !items.some((item) => assetId(kind, item) === selectedId),
+  );
+  const selectedItem = items.find((item) => assetId(kind, item) === selectedId);
+  const matchedDetail = detail && assetId(kind, detail) === selectedId
+    ? detail
+    : null;
+  const totalKnown = typeof total === "number";
+  const loadedCount = items.length;
+  const hasMore = totalKnown
+    ? loadedCount < total
+    : loadedCount > 0 && loadedCount % AGENT_RUN_ASSET_PAGE_SIZE === 0;
+  const loadedLabel = totalKnown
+    ? `已显示 ${loadedCount} / ${total} 条`
+    : `已显示 ${loadedCount} 条`;
+  const selectedIndex = Math.max(
+    0,
+    items.findIndex((item) => assetId(kind, item) === selectedId),
+  );
+  const activeOptionId = pickerOpen && items[activeIndex]
+    ? `${listboxId}-option-${activeIndex}`
+    : undefined;
+  const triggerLabel = selectedItem
+    ? assetLabel(kind, selectedItem)
+    : selectedId
+      ? `资产 #${selectedId}`
+      : "请选择资产";
+
+  function openPicker() {
+    setActiveIndex(selectedIndex);
+    setPickerOpen(true);
+  }
+
+  function closePicker() {
+    setPickerOpen(false);
+    triggerRef.current?.focus();
+  }
+
+  function moveActiveOption(direction: 1 | -1) {
+    setActiveIndex((current) =>
+      items.length > 0
+        ? (current + direction + items.length) % items.length
+        : current
+    );
+  }
+
+  function selectAsset(id: string) {
+    onSelect(id);
+    closePicker();
+  }
+
+  function clearSelection() {
+    triggerRef.current?.focus();
+    onSelect("");
+    setPickerOpen(false);
+  }
+
+  function selectActiveOption() {
+    const item = items[activeIndex];
+    if (item) selectAsset(assetId(kind, item));
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePicker();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!pickerOpen) openPicker();
+      else moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if ((event.key === "Enter" || event.key === " ") && pickerOpen) {
+      event.preventDefault();
+      selectActiveOption();
+    }
+  }
+
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePicker();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      selectActiveOption();
+    }
+  }
+
+  return (
+    <div className="agent-run-asset-picker" ref={pickerRef}>
+      <div className="agent-run-asset-selection-pane">
+        <div className="agent-run-asset-pane-heading">
+          <span>选择资产</span>
+        </div>
+        <div className="agent-run-asset-control">
+          <button
+            ref={triggerRef}
+            type="button"
+            role="combobox"
+            aria-label={label}
+            aria-expanded={pickerOpen}
+            aria-controls={listboxId}
+            aria-activedescendant={activeOptionId}
+            className={[
+              "agent-run-asset-trigger",
+              pickerOpen ? "open" : "",
+              selectedId ? "has-selection" : "",
+            ].filter(Boolean).join(" ")}
+            disabled={disabled}
+            onClick={() => {
+              if (pickerOpen) closePicker();
+              else openPicker();
+            }}
+            onKeyDown={handleTriggerKeyDown}
+          >
+            <span>
+              <strong>{triggerLabel}</strong>
+              {selectedId && (
+                <small>{selectedItem?.description || "该资产暂无描述"}</small>
+              )}
+            </span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m7 10 5 5 5-5" />
+            </svg>
+          </button>
+          {selectedId && (
+            <button
+              type="button"
+              className="agent-run-asset-clear"
+              aria-label="清除已选资产"
+              title="清除已选资产"
+              disabled={disabled}
+              onClick={clearSelection}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {pickerOpen && (
+          <div className="agent-run-asset-popover">
+            <input
+              id={`${idPrefix}-${kind}-asset-search`}
+              className="form-input agent-run-asset-search"
+              type="search"
+              aria-label="搜索资产"
+              value={search}
+              disabled={disabled}
+              placeholder="搜索资产名称或 ID"
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
+            />
+            <div
+              id={listboxId}
+              className="agent-run-asset-option-list"
+              role="listbox"
+              aria-label={`${label}选项`}
+              aria-busy={listLoading}
+            >
+              {items.map((item, index) => {
+                const id = assetId(kind, item);
+                const selected = id === selectedId;
+                const optionLabel = assetLabel(kind, item);
+                return (
+                  <button
+                    key={id}
+                    id={`${listboxId}-option-${index}`}
+                    type="button"
+                    role="option"
+                    aria-label={optionLabel}
+                    aria-selected={selected}
+                    className={[
+                      "agent-run-asset-option",
+                      selected ? "selected" : "",
+                      index === activeIndex ? "active" : "",
+                    ].filter(Boolean).join(" ")}
+                    disabled={disabled || listLoading || listError}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => selectAsset(id)}
+                  >
+                    <span className="agent-run-asset-option-title">
+                      {item.name}
+                    </span>
+                    <span className="agent-run-asset-option-id" aria-hidden="true">
+                      #{id}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="agent-run-asset-list-footer">
+              {!listError && !listLoading && (
+                <span className="agent-run-asset-count">{loadedLabel}</span>
+              )}
+              {hasMore && !listError && (
+                <button
+                  type="button"
+                  className="text-button agent-run-asset-load-more"
+                  disabled={disabled || listLoading}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  加载更多资产
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {listLoading && (
+          <p className="form-hint agent-run-asset-status">正在加载执行资产...</p>
+        )}
+        {listError && (
+          <button
+            type="button"
+            className="text-button agent-run-asset-status-action"
+            onClick={() => setListReload((value) => value + 1)}
+          >
+            资产加载失败，重试
+          </button>
+        )}
+        {!listLoading && !listError && items.length === 0 && (
+          <p className="form-hint agent-run-asset-status">暂无可用执行资产</p>
+        )}
+        {selectedMissing && (
+          <p className="form-hint agent-run-asset-status">
+            当前已加载列表未包含资产 ID {selectedId}，可继续加载、搜索或重新选择。
+          </p>
+        )}
+      </div>
+      <div className="agent-run-asset-detail-pane">
+        <div className="agent-run-asset-pane-heading">
+          <span>资产详情</span>
+          <span>{selectedId ? "选择即刷新" : ""}</span>
+        </div>
+        {!selectedId && (
+          <div className="agent-run-asset-detail-empty">请选择一个资产</div>
+        )}
+        {selectedId && detailLoading && (
+          <p className="form-hint agent-run-asset-status">正在加载资产详情...</p>
+        )}
+        {selectedId && detailError && (
+          <button
+            type="button"
+            className="text-button agent-run-asset-status-action"
+            onClick={() => setDetailReload((value) => value + 1)}
+          >
+            详情加载失败，重试
+          </button>
+        )}
+        {selectedId && matchedDetail && (
+          <section role="region" aria-label="资产详情预览">
+            <p className="agent-run-asset-description">
+              {matchedDetail.description || "该资产暂无描述"}
+            </p>
+            <div className="agent-run-asset-detail-title">
+              {kind === "script" ? "脚本内容" : "编排节点"}
+            </div>
+            {kind === "script" ? (
+              <pre className="agent-run-asset-detail-body">
+                {assetDetailPreview(kind, matchedDetail)}
+              </pre>
+            ) : (
+              <AgentRunChainNodesPreview
+                nodes={(matchedDetail as AgentRunChainAssetDetail).nodes}
+              />
+            )}
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function assetId(
+  kind: "script" | "chain",
+  item: AgentRunScriptAsset | AgentRunChainAsset,
+): string {
+  return String(kind === "script"
+    ? (item as AgentRunScriptAsset).script_id
+    : (item as AgentRunChainAsset).chain_id);
+}
+
+function assetLabel(
+  kind: "script" | "chain",
+  item: AgentRunScriptAsset | AgentRunChainAsset,
+): string {
+  const id = assetId(kind, item);
+  return `${item.name} (#${id})`;
+}
+
+function assetDetailPreview(
+  kind: "script" | "chain",
+  detail: AgentRunScriptAssetDetail | AgentRunChainAssetDetail,
+): string {
+  if (kind === "script") {
+    return (detail as AgentRunScriptAssetDetail).script || "脚本内容为空";
+  }
+  return JSON.stringify((detail as AgentRunChainAssetDetail).nodes ?? [], null, 2);
+}
+
+function AgentRunChainNodesPreview({
+  nodes,
+}: {
+  nodes: unknown[] | null | undefined;
+}) {
+  if (!Array.isArray(nodes) || nodes.length === 0) {
+    return (
+      <pre className="agent-run-asset-detail-body">编排节点为空</pre>
+    );
+  }
+  return (
+    <ol className="agent-run-asset-chain-list" aria-label="编排节点列表">
+      {nodes.map((node, index) => {
+        const info = describeChainNode(node);
+        const stepLabel = String(index + 1).padStart(2, "0");
+        return (
+          <li
+            key={index}
+            className="agent-run-asset-chain-node"
+            data-testid="agent-run-asset-chain-node"
+          >
+            <span className="agent-run-asset-chain-step" aria-hidden="true">
+              {stepLabel}
+            </span>
+            <div className="agent-run-asset-chain-main">
+              <div className="agent-run-asset-chain-title">{info.title}</div>
+              {info.subtitle && (
+                <div className="agent-run-asset-chain-sub">{info.subtitle}</div>
+              )}
+              {info.fallback && (
+                <pre className="agent-run-asset-chain-raw">{info.fallback}</pre>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function describeChainNode(node: unknown): {
+  title: string;
+  subtitle: string | null;
+  fallback: string | null;
+} {
+  if (node === null || typeof node !== "object") {
+    return {
+      title: String(node ?? "空节点"),
+      subtitle: null,
+      fallback: null,
+    };
+  }
+  const record = node as Record<string, unknown>;
+  const title = pickChainNodeString(record, [
+    "name",
+    "Name",
+    "title",
+    "Title",
+    "label",
+    "Label",
+    "type",
+    "Type",
+    "action",
+    "Action",
+    "id",
+    "Id",
+  ]) || "未命名节点";
+  const subtitle = pickChainNodeString(record, [
+    "description",
+    "Description",
+    "desc",
+    "Desc",
+    "summary",
+    "Summary",
+  ]);
+  return {
+    title,
+    subtitle,
+    fallback: JSON.stringify(record, null, 2),
+  };
+}
+
+function pickChainNodeString(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
+function buildAssetBinding(
+  custom: CustomExecutionForm,
+): Pick<AgentRuntimeOptions, "run_mode" | "script_id" | "chain_id"> | string {
+  if (custom.run_mode === "") return {};
+  if (custom.run_mode === "ScriptRun") {
+    const scriptId = positiveInteger(custom.script_id);
+    if (scriptId === null) return "请选择 ScriptRun 脚本资产";
+    return { run_mode: "ScriptRun", script_id: scriptId };
+  }
+  const chainId = positiveInteger(custom.chain_id);
+  if (chainId === null) return "请选择 ChainRun 编排资产";
+  return { run_mode: "ChainRun", chain_id: chainId };
+}
+
+function positiveInteger(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
 function optionalString(value: string): string | null {

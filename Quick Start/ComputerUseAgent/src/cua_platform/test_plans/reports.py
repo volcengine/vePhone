@@ -64,7 +64,7 @@ def report_status(
         and batch_verdict == Verdict.PASS.value
     ):
         return "success"
-    if failure_types - {"assertion_failed"}:
+    if failure_types - {"assertion_failed", "result_partial"}:
         return "exception"
     if (
         batch_status == ExecutionStatus.RESULT_READY.value
@@ -252,11 +252,10 @@ class PlanReportService:
 
         now = utc_now()
         summary = _summary_from_row(row, now=now)
-        tasks_total = self.db.scalar(
-            select(func.count(Task.id)).where(
-                Task.batch_id == row.task_batch_id
-            )
-        ) or 0
+        review_metrics = _review_metrics(
+            self.db,
+            row.task_batch_id,
+        )
         task_rows = self.db.execute(
             select(
                 Task.id.label("task_id"),
@@ -268,6 +267,10 @@ class PlanReportService:
                     "execution_status"
                 ),
                 cast(Task.verdict, String).label("verdict"),
+                cast(Task.review_result, String).label("review_result"),
+                Task.reviewed_by.label("reviewed_by"),
+                Task.reviewed_at.label("reviewed_at"),
+                Task.review_note.label("review_note"),
                 Task.failure_type.label("failure_type"),
                 Task.created_at.label("created_at"),
                 Task.started_at.label("started_at"),
@@ -291,6 +294,12 @@ class PlanReportService:
                     task_row.execution_status
                 ),
                 verdict=_controlled_task_verdict(task_row.verdict),
+                review_result=_controlled_task_verdict(
+                    task_row.review_result
+                ),
+                reviewed_by=task_row.reviewed_by,
+                reviewed_at=_as_utc(task_row.reviewed_at),
+                review_note=task_row.review_note,
                 failure_type=task_row.failure_type,
                 created_at=_as_utc(task_row.created_at),
                 started_at=_as_utc(task_row.started_at),
@@ -339,8 +348,9 @@ class PlanReportService:
             cancelled_count=row.cancelled_count,
             queued_count=row.queued_count,
             running_count=row.running_count,
+            reviewed_pass_count=review_metrics["reviewed_pass_count"],
+            reviewed_fail_count=review_metrics["reviewed_fail_count"],
             tasks=tasks,
-            tasks_total=tasks_total,
             page=page,
             page_size=page_size,
         )
@@ -421,7 +431,7 @@ def _task_aggregate():
                 Task.verdict == Verdict.FAIL,
                 (
                     Task.failure_type.is_(None)
-                    | (Task.failure_type == "assertion_failed")
+                    | Task.failure_type.in_(("assertion_failed", "result_partial"))
                 ),
             )
             .label("fail_count"),
@@ -430,7 +440,7 @@ def _task_aggregate():
                 Task.execution_status == ExecutionStatus.RESULT_READY,
                 Task.verdict == Verdict.FAIL,
                 Task.failure_type.is_not(None),
-                Task.failure_type != "assertion_failed",
+                Task.failure_type.not_in(("assertion_failed", "result_partial")),
             )
             .label("exception_count"),
             func.count(Task.id)
@@ -442,6 +452,15 @@ def _task_aggregate():
             func.count(Task.id)
             .filter(Task.execution_status == ExecutionStatus.RUNNING)
             .label("running_count"),
+            func.count(Task.id)
+            .filter(Task.review_result == Verdict.PASS)
+            .label("reviewed_pass_count"),
+            func.count(Task.id)
+            .filter(Task.review_result == Verdict.FAIL)
+            .label("reviewed_fail_count"),
+            func.count(Task.id)
+            .filter(Task.review_result.in_([Verdict.PASS, Verdict.FAIL]))
+            .label("reviewed_total"),
             func.min(Task.started_at).label("started_at"),
             func.max(Task.finished_at).label("finished_at"),
         )
@@ -460,7 +479,12 @@ def _download_markdown(detail: PlanReportDetail) -> str:
         f"- 任务批次ID：{detail.task_batch_id}",
         f"- 执行结果：{_report_status_label(detail.report_status)}",
         f"- 测试通过率：{_format_percent(detail.pass_rate)}",
+        f"- 复核后通过率：{_format_reviewed_pass_rate(detail)}",
+        f"- 审核覆盖率：{_format_percent(detail.review_coverage_rate)}",
         f"- 通过子任务：{detail.pass_count} / {len(detail.case_ids_snapshot)}",
+        f"- 复核通过子任务：{detail.reviewed_pass_count}",
+        f"- 复核失败子任务：{detail.reviewed_fail_count}",
+        f"- 已审核子任务：{detail.reviewed_total}",
         f"- 总执行时长：{_format_duration(detail.duration_seconds)}",
         "",
         "## 执行快照",
@@ -473,8 +497,8 @@ def _download_markdown(detail: PlanReportDetail) -> str:
         f"- Runner：{detail.runner_type_snapshot}",
         "",
         "## 子任务结果",
-        "| 任务 ID | Run ID | 用例 | 状态 | 结果 | 失败类型 | 创建时间 | 执行时长 | 输入 Token | 输出 Token | 执行步数 |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| 任务 ID | Run ID | 用例 | 状态 | 结果 | 人工审核 | 审核人 | 审核时间 | 审核备注 | 失败类型 | 创建时间 | 执行时长 | 输入 Token | 输出 Token | 执行步数 |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for task in detail.tasks:
         lines.append(
@@ -486,6 +510,10 @@ def _download_markdown(detail: PlanReportDetail) -> str:
                     _md_cell(f"{task.case_title}（{task.case_id}）"),
                     _md_cell(_task_status_label(task.execution_status)),
                     _md_cell(_task_verdict_label(task.verdict)),
+                    _md_cell(_task_review_label(task)),
+                    _md_cell(task.reviewed_by or "-"),
+                    _md_cell(_format_datetime(task.reviewed_at)),
+                    _md_cell(task.review_note or "-"),
                     _md_cell(task.failure_type or "-"),
                     _md_cell(_format_datetime(task.created_at)),
                     _md_cell(_format_duration(task.duration_seconds)),
@@ -509,8 +537,13 @@ def _download_csv(detail: PlanReportDetail) -> str:
     writer.writerow(["测试计划", detail.plan_name_snapshot])
     writer.writerow(["执行结果", _report_status_label(detail.report_status)])
     writer.writerow(["测试通过率", _format_percent(detail.pass_rate)])
+    writer.writerow(["复核后通过率", _format_reviewed_pass_rate(detail)])
+    writer.writerow(["审核覆盖率", _format_percent(detail.review_coverage_rate)])
     writer.writerow(["通过子任务", detail.pass_count])
     writer.writerow(["总子任务", len(detail.case_ids_snapshot)])
+    writer.writerow(["复核通过子任务", detail.reviewed_pass_count])
+    writer.writerow(["复核失败子任务", detail.reviewed_fail_count])
+    writer.writerow(["已审核子任务", detail.reviewed_total])
     writer.writerow(["总执行时长", _format_duration(detail.duration_seconds)])
     writer.writerow([])
     writer.writerow(["执行快照"])
@@ -533,6 +566,10 @@ def _download_csv(detail: PlanReportDetail) -> str:
         "用例标题",
         "任务状态",
         "任务结果",
+        "人工审核",
+        "审核人",
+        "审核时间",
+        "审核备注",
         "失败类型",
         "任务创建时间",
         "任务执行时长",
@@ -549,6 +586,10 @@ def _download_csv(detail: PlanReportDetail) -> str:
                 task.case_title,
                 _task_status_label(task.execution_status),
                 _task_verdict_label(task.verdict),
+                _task_review_label(task),
+                task.reviewed_by or "-",
+                _format_datetime(task.reviewed_at),
+                task.review_note or "-",
                 task.failure_type or "",
                 _format_datetime(task.created_at),
                 _format_duration(task.duration_seconds),
@@ -623,6 +664,20 @@ def _task_verdict_label(value: str | None) -> str:
         "unknown": "未知",
         None: "-",
     }.get(value, "未知")
+
+
+def _task_review_label(task: PlanReportTask) -> str:
+    if task.review_result == "pass":
+        return "复核通过"
+    if task.review_result == "fail":
+        return "复核失败"
+    return "待审核" if task.execution_status == "result_ready" else "不支持"
+
+
+def _format_reviewed_pass_rate(detail: PlanReportDetail) -> str:
+    if detail.reviewed_total == 0:
+        return "-"
+    return _format_percent(detail.reviewed_pass_rate)
 
 
 def _device_strategy_label(value: str) -> str:
@@ -756,6 +811,18 @@ def _summary_query(aggregate, status_column) -> Select:
                 aggregate.c.running_count,
                 0,
             ).label("running_count"),
+            func.coalesce(
+                aggregate.c.reviewed_pass_count,
+                0,
+            ).label("reviewed_pass_count"),
+            func.coalesce(
+                aggregate.c.reviewed_total,
+                0,
+            ).label("reviewed_total"),
+            func.coalesce(
+                aggregate.c.task_count,
+                0,
+            ).label("tasks_total"),
         )
         .join(
             TaskBatch,
@@ -795,6 +862,16 @@ def _summary_from_row(row, *, now: datetime) -> PlanReportSummary:
             row.pass_count,
             len(row.case_ids_snapshot),
         ),
+        reviewed_pass_rate=pass_rate(
+            row.reviewed_pass_count,
+            row.reviewed_total,
+        ),
+        reviewed_total=row.reviewed_total,
+        tasks_total=row.tasks_total,
+        review_coverage_rate=pass_rate(
+            row.reviewed_total,
+            row.tasks_total,
+        ),
         created_at=_as_utc(row.created_at),
         started_at=_as_utc(row.started_at),
         finished_at=_as_utc(row.finished_at),
@@ -805,6 +882,39 @@ def _summary_from_row(row, *, now: datetime) -> PlanReportSummary:
             now=now,
         ),
     )
+
+
+def _review_metrics(
+    db: Session,
+    batch_id: str,
+) -> dict[str, int | float]:
+    rows = db.execute(
+        select(
+            cast(Task.verdict, String).label("verdict"),
+            cast(Task.review_result, String).label("review_result"),
+            cast(Task.execution_status, String).label("execution_status"),
+        ).where(Task.batch_id == batch_id)
+    )
+    reviewed_total = 0
+    reviewed_pass_count = 0
+    reviewed_fail_count = 0
+    reviewable_count = 0
+    for task in rows:
+        if task.execution_status == ExecutionStatus.RESULT_READY.value:
+            reviewable_count += 1
+        if task.review_result in {Verdict.PASS.value, Verdict.FAIL.value}:
+            reviewed_total += 1
+        if task.review_result == Verdict.PASS.value:
+            reviewed_pass_count += 1
+        elif task.review_result == Verdict.FAIL.value:
+            reviewed_fail_count += 1
+    return {
+        "reviewed_pass_rate": pass_rate(reviewed_pass_count, reviewed_total),
+        "review_coverage_rate": pass_rate(reviewed_total, reviewable_count),
+        "reviewed_pass_count": reviewed_pass_count,
+        "reviewed_fail_count": reviewed_fail_count,
+        "reviewed_total": reviewed_total,
+    }
 
 
 def _duration_seconds(

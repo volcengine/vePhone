@@ -101,6 +101,23 @@ function trendCurvePath(
   }, `M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`);
 }
 
+function trendTickIndexes(length: number): Set<number> {
+  const maxLabels = 5;
+  if (length <= maxLabels) {
+    return new Set(Array.from({ length }, (_, index) => index));
+  }
+  const last = length - 1;
+  return new Set(Array.from(
+    { length: maxLabels },
+    (_, index) => Math.round(index * last / (maxLabels - 1)),
+  ));
+}
+
+function trendDateParts(value: string): [string, string] {
+  const [date, time = ""] = formatChinaDateTime(value).split(" ");
+  return [date, time];
+}
+
 function casePassRate(testCase: TestCase): string {
   if (!testCase.execution_count) return "-";
   return formatRate(
@@ -519,7 +536,8 @@ function PassRateTrend({ executions }: { executions: PlanReportSummary[] }) {
       y,
     };
   });
-  const tickPoints = points;
+  const tickIndexes = trendTickIndexes(points.length);
+  const tickPoints = points.filter((_, index) => tickIndexes.has(index));
   const latestPoint = points.at(-1);
   const rateLabelPoints = points;
   const [activeExecutionId, setActiveExecutionId] = useState<string | null>(null);
@@ -644,18 +662,23 @@ function PassRateTrend({ executions }: { executions: PlanReportSummary[] }) {
                 {formatRate(point.execution.pass_rate)}
               </span>
             ))}
-            {tickPoints.map((point) => (
-              <span
-                className="trend-date-label"
-                key={`${point.execution.execution_id}-date`}
-                style={{
-                  left: `${point.x}%`,
-                  top: `${plot.bottom + 8}%`,
-                }}
-              >
-                {formatChinaDateTime(point.execution.created_at)}
-              </span>
-            ))}
+            {tickPoints.map((point) => {
+              const [date, time] = trendDateParts(point.execution.created_at);
+              return (
+                <span
+                  aria-label={formatChinaDateTime(point.execution.created_at)}
+                  className="trend-date-label"
+                  key={`${point.execution.execution_id}-date`}
+                  style={{
+                    left: `${point.x}%`,
+                    top: `${plot.bottom + 8}%`,
+                  }}
+                >
+                  <span className="trend-date-label-date">{date}</span>
+                  <span className="trend-date-label-time">{time}</span>
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

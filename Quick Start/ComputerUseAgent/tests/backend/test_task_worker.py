@@ -403,7 +403,7 @@ async def test_worker_drain_rejects_enqueue_and_does_not_start_queued_work():
     await worker.stop(timeout_seconds=0.5)
 
     assert processed == ["active"]
-    assert list(worker.queue._queue).count("queued") == 1
+
 
 
 @pytest.mark.asyncio

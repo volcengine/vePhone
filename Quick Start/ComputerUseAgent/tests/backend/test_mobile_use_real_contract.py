@@ -351,7 +351,7 @@ async def test_real_contract_start_and_pass_lifecycle_use_raw_fixtures():
         "out_tokens": "45",
     }
     assert call.requests[0].action == "RunAgentTaskOneStep"
-    assert call.requests[0].body["SystemPrompt"]
+    assert "SystemPrompt" not in call.requests[0].body
     assert call.requests[0].body["AgentType"] == "cua"
     assert call.requests[0].body["Ecsid"] == "pod-sanitized"
     assert "UseBase64Screenshot" not in call.requests[0].body
@@ -517,7 +517,53 @@ async def test_runner_start_prefers_configured_thread_id():
 
 
 @pytest.mark.asyncio
-async def test_real_contract_content_fail_overrides_remote_success():
+async def test_start_payload_appends_script_run_asset_binding():
+    call = FixtureCall({"RunAgentTaskOneStep": [load_fixture("run_started.json")]})
+    request = run_request()
+    config = mobile_config().model_copy(
+        update={"run_mode": "ScriptRun", "script_id": 1001}
+    )
+    runner = MobileUseRunner(
+        config,
+        UniversalGateway(call=call),
+        request_loader=lambda _task_id: request,
+    )
+
+    await runner.start(request, "asset-script")
+
+    body = call.requests[0].body
+    assert body["AgentType"] == "cua"
+    assert body["Ecsid"] == "pod-sanitized"
+    assert body["RunMode"] == "ScriptRun"
+    assert body["ScriptId"] == 1001
+    assert "ChainId" not in body
+
+
+@pytest.mark.asyncio
+async def test_start_payload_appends_chain_run_asset_binding():
+    call = FixtureCall({"RunAgentTaskOneStep": [load_fixture("run_started.json")]})
+    request = run_request()
+    config = mobile_config().model_copy(
+        update={"run_mode": "ChainRun", "chain_id": 2001}
+    )
+    runner = MobileUseRunner(
+        config,
+        UniversalGateway(call=call),
+        request_loader=lambda _task_id: request,
+    )
+
+    await runner.start(request, "asset-chain")
+
+    body = call.requests[0].body
+    assert body["AgentType"] == "cua"
+    assert body["Ecsid"] == "pod-sanitized"
+    assert body["RunMode"] == "ChainRun"
+    assert body["ChainId"] == 2001
+    assert "ScriptId" not in body
+
+
+@pytest.mark.asyncio
+async def test_real_contract_remote_success_overrides_content_fail():
     call = FixtureCall(
         {
             "ListAgentRunCurrentStep": [load_fixture("step_finished.json")],
@@ -538,10 +584,10 @@ async def test_real_contract_content_fail_overrides_remote_success():
 
     assert page.terminal is True
     assert page.events[-1].type == "task_finished"
-    assert page.events[-1].payload["verdict"] == "fail"
+    assert page.events[-1].payload["verdict"] == "pass"
     assert page.events[-1].payload["evidence_complete"] is True
     assert page.events[-1].payload["remote_state"] == "success"
-    assert page.events[-1].payload["failure_type"] == "assertion_failed"
+    assert page.events[-1].payload["failure_type"] is None
     assert page.events[-1].payload["summary"] == "首页断言失败"
     assert page.events[-1].payload["evidence"] == ["截图缺少首页标题"]
     assert page.events[-1].payload["remote_status_code"] == 1
@@ -624,7 +670,7 @@ async def test_real_contract_terminal_step_status_checks_result_even_without_fin
 
 
 @pytest.mark.asyncio
-async def test_real_contract_request_user_without_valid_output_fails_safely():
+async def test_real_contract_request_user_without_valid_output_follows_remote_success():
     no_output = deepcopy(load_fixture("result_pass_struct.json"))
     no_output["Result"]["StructOutput"] = None
     no_output["Result"]["Content"] = "需要用户确认，未生成结构化结论"
@@ -650,10 +696,10 @@ async def test_real_contract_request_user_without_valid_output_fails_safely():
     assert len(page.events) == 1
     event = page.events[0]
     assert (event.sequence, event.type) == (2, "task_finished")
-    assert event.payload["verdict"] == "fail"
-    assert event.payload["evidence_complete"] is False
+    assert event.payload["verdict"] == "pass"
+    assert event.payload["evidence_complete"] is True
     assert event.payload["remote_state"] == "success"
-    assert event.payload["failure_type"] == "evidence_missing"
+    assert event.payload["failure_type"] is None
     assert event.payload["summary"] == "需要用户确认，未生成结构化结论"
     assert event.payload["remote_status_code"] == 1
 

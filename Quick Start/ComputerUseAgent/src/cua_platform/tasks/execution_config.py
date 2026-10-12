@@ -27,6 +27,9 @@ _PUBLIC_FIELDS = (
     "max_output_tokens",
     "gps_info",
     "request_headers",
+    "run_mode",
+    "script_id",
+    "chain_id",
 )
 _JSON_FIELDS = frozenset({"mcp_json", "output_schema"})
 _SENSITIVE_KEY_PARTS = (

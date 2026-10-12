@@ -265,7 +265,9 @@ function ScheduleForm({
       if (deviceStrategy === "specified" && selectedPodIds.length === 0) {
         throw new Error("指定设备模式至少选择 1 台设备");
       }
-      const built = buildExecuteConfig(executionDraft);
+      const built = buildExecuteConfig(executionDraft, {
+        includeAssetBinding: false,
+      });
       if (!built.config) {
         throw new Error(built.error);
       }
@@ -376,8 +378,11 @@ function ScheduleForm({
         <ExecutionConfigFields
           value={executionDraft}
           onChange={setExecutionDraft}
-          allowCaseDefault={false}
+          allowCaseDefault
+          customConfigLabel="自定义本次计划配置"
+          caseDefaultLabel="按用例默认配置"
           showThreadId={false}
+          showExecutionAssets={false}
         />
       </div>
 

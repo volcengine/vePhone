@@ -254,7 +254,9 @@ export function TestPlanRunPage() {
   async function submit() {
     if (runPlan.isPending || !plan.data) return;
     setValidationError("");
-    const executionConfig = buildExecuteConfig(executionDraft);
+    const executionConfig = buildExecuteConfig(executionDraft, {
+      includeAssetBinding: false,
+    });
     if (!executionConfig.config) {
       setValidationError(executionConfig.error);
       return;
@@ -694,6 +696,7 @@ export function TestPlanRunPage() {
             customConfigLabel="自定义本次计划配置"
             caseDefaultLabel="按用例默认配置"
             showThreadId={false}
+            showExecutionAssets={false}
           />
         </section>
       </fieldset>

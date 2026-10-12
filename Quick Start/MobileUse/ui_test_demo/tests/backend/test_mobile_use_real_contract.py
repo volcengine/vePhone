@@ -541,10 +541,57 @@ async def test_runner_start_prefers_configured_thread_id():
 
 
 @pytest.mark.asyncio
+async def test_start_payload_appends_script_run_asset_binding():
+    call = FixtureCall({"RunAgentTaskOneStep": [load_fixture("run_started.json")]})
+    request = run_request()
+    config = mobile_config().model_copy(
+        update={"run_mode": "ScriptRun", "script_id": 1001}
+    )
+    runner = MobileUseRunner(
+        config,
+        UniversalGateway(call=call),
+        request_loader=lambda _task_id: request,
+    )
+
+    await runner.start(request, "asset-script")
+
+    body = call.requests[0].body
+    assert body["ProductId"] == "product-sanitized"
+    assert body["PodId"] == "pod-sanitized"
+    assert body["RunMode"] == "ScriptRun"
+    assert body["ScriptId"] == 1001
+    assert "ChainId" not in body
+
+
+@pytest.mark.asyncio
+async def test_start_payload_appends_chain_run_asset_binding():
+    call = FixtureCall({"RunAgentTaskOneStep": [load_fixture("run_started.json")]})
+    request = run_request()
+    config = mobile_config().model_copy(
+        update={"run_mode": "ChainRun", "chain_id": 2001}
+    )
+    runner = MobileUseRunner(
+        config,
+        UniversalGateway(call=call),
+        request_loader=lambda _task_id: request,
+    )
+
+    await runner.start(request, "asset-chain")
+
+    body = call.requests[0].body
+    assert body["ProductId"] == "product-sanitized"
+    assert body["PodId"] == "pod-sanitized"
+    assert body["RunMode"] == "ChainRun"
+    assert body["ChainId"] == 2001
+    assert "ScriptId" not in body
+
+
+@pytest.mark.asyncio
 async def test_real_contract_content_fail_overrides_remote_success():
     call = FixtureCall(
         {
             "ListAgentRunCurrentStep": [load_fixture("step_finished.json")],
+            "GetAgentResult": [load_fixture("result_fail_content.json")],
             "GetAgentResult": [load_fixture("result_fail_content.json")],
         }
     )
