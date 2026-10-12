@@ -102,6 +102,9 @@ export type MobileUseSettings = {
 
 export type AgentRuntimeOptions = {
   thread_id?: string | null;
+  run_mode?: "AgentRun" | "ScriptRun" | "ChainRun" | null;
+  script_id?: number | null;
+  chain_id?: number | null;
   use_base64_screenshot?: boolean | null;
   max_step?: number | null;
   timeout_seconds?: number | null;
@@ -117,6 +120,40 @@ export type AgentRuntimeOptions = {
   max_output_tokens?: number | null;
   gps_info?: string | null;
   request_headers?: Record<string, string> | null;
+};
+
+export type AgentRunScriptAsset = {
+  script_id: number;
+  name: string;
+  description: string | null;
+  resolution: string | null;
+  status: number;
+  created_at: number | string | null;
+  updated_at: number | string | null;
+};
+
+export type AgentRunScriptAssetDetail = AgentRunScriptAsset & {
+  script: string | null;
+};
+
+export type AgentRunChainAsset = {
+  chain_id: number;
+  name: string;
+  description: string | null;
+  status: number;
+  created_at: number | string | null;
+  updated_at: number | string | null;
+};
+
+export type AgentRunChainAssetDetail = AgentRunChainAsset & {
+  nodes: unknown[] | null;
+};
+
+export type AgentRunAssetListResponse<T> = {
+  items: T[];
+  total: number | null;
+  page: number;
+  page_size: number;
 };
 
 export type SettingsResponse = {
@@ -479,6 +516,9 @@ export type TaskOperatorListResponse = {
 
 export type TaskExecutionConfig = {
   source: "global" | "custom" | "case_default" | "legacy";
+  run_mode?: "AgentRun" | "ScriptRun" | "ChainRun" | null;
+  script_id?: number | null;
+  chain_id?: number | null;
   account_id?: string | null;
   product_id: string | null;
   pod_id: string | null;
@@ -850,6 +890,10 @@ export type PlanReportSummary = {
   plan_name_snapshot: string;
   report_status: ReportStatus;
   pass_rate: number;
+  reviewed_pass_rate: number;
+  reviewed_total: number;
+  tasks_total: number;
+  review_coverage_rate: number;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -883,6 +927,10 @@ export type PlanReportTask = {
   case_deleted: boolean;
   execution_status: ReportTaskExecutionStatus;
   verdict: ReportTaskVerdict | null;
+  review_result: ReportTaskVerdict | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
   failure_type: string | null;
   created_at: string;
   started_at: string | null;
@@ -907,6 +955,11 @@ export type PlanReportDetail = PlanReportSummary & {
   cancelled_count: number;
   queued_count: number;
   running_count: number;
+  reviewed_pass_rate: number;
+  review_coverage_rate: number;
+  reviewed_pass_count: number;
+  reviewed_fail_count: number;
+  reviewed_total: number;
   tasks: PlanReportTask[];
   tasks_total: number;
   page: number;

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 
 import { ApiError, api } from "../api/client";
@@ -78,6 +79,12 @@ function taskVerdict(task: PlanReportTask): string {
   return "未判定";
 }
 
+function taskReviewResult(task: PlanReportTask): string {
+  if (task.review_result === "pass") return "复核通过";
+  if (task.review_result === "fail") return "复核失败";
+  return task.execution_status === "result_ready" ? "待审核" : "不支持";
+}
+
 function isActive(status: ReportStatus): boolean {
   return status === "queued" || status === "running";
 }
@@ -85,6 +92,8 @@ function isActive(status: ReportStatus): boolean {
 export function PlanExecutionReportPage() {
   const { executionId = "" } = useParams<{ executionId: string }>();
   const [urlParams, setUrlParams] = useSearchParams();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const page = parsePage(urlParams.get("page"));
   const pageSize = parsePageSize(urlParams.get("page_size"));
 
@@ -111,6 +120,19 @@ export function PlanExecutionReportPage() {
       query.state.data && isActive(query.state.data.report_status)
         ? 3000
         : false,
+  });
+
+  const cancelBatch = useMutation({
+    mutationFn: (batchId: string) => api.post<unknown>(`/task-batches/${batchId}/cancel`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["task-report-detail", executionId],
+      });
+      setActionError(null);
+    },
+    onError: (error) => {
+      setActionError(error instanceof ApiError ? error.message : "取消执行失败");
+    },
   });
 
   if (report.isLoading) {
@@ -171,6 +193,14 @@ export function PlanExecutionReportPage() {
   const terminalCount = item.pass_count + item.fail_count
     + item.exception_count + item.cancelled_count;
 
+  function handleCancelBatch() {
+    if (!confirm("确认取消本次执行吗？排队中和执行中的子任务会被取消。")) {
+      return;
+    }
+    setActionError(null);
+    cancelBatch.mutate(item.task_batch_id);
+  }
+
   return (
     <div className="page-container plan-report-page">
       <PageHeader
@@ -181,8 +211,28 @@ export function PlanExecutionReportPage() {
         ]}
         title={item.plan_name_snapshot}
         description={`计划执行报告 · ${item.task_batch_id}`}
-        actions={<ReportStatusBadge status={item.report_status} />}
+        actions={(
+          <>
+            <ReportStatusBadge status={item.report_status} />
+            {isActive(item.report_status) && (
+              <button
+                type="button"
+                className="danger-button"
+                onClick={handleCancelBatch}
+                disabled={cancelBatch.isPending}
+              >
+                {cancelBatch.isPending ? "取消中" : "取消执行"}
+              </button>
+            )}
+          </>
+        )}
       />
+
+      {actionError && (
+        <div className="form-error" role="alert">
+          {actionError}
+        </div>
+      )}
 
       <div className="metric-grid plan-report-metrics">
         <MetricCard
@@ -199,6 +249,22 @@ export function PlanExecutionReportPage() {
           meta="以执行快照为分母"
           tone="running"
           icon={<MetricIcon path="M4 19 10 13l4 4 6-10" />}
+        />
+        <MetricCard
+          testId="plan-report-reviewed-rate"
+          label="复核后通过率"
+          value={item.reviewed_total > 0 ? formatKpiPercent(item.reviewed_pass_rate) : "-"}
+          meta={`复核通过 ${item.reviewed_pass_count} / ${item.reviewed_total}`}
+          tone="success"
+          icon={<MetricIcon path="M5 12l4 4L19 6M4 4h16v16H4z" />}
+        />
+        <MetricCard
+          testId="plan-report-review-coverage"
+          label="审核覆盖率"
+          value={formatKpiPercent(item.review_coverage_rate)}
+          meta={`${item.reviewed_total} 条已审核`}
+          tone="warning"
+          icon={<MetricIcon path="M9 11l3 3L22 4M4 4h10M4 12h5M4 20h16" />}
         />
         <MetricCard
           testId="plan-report-passed"
@@ -264,6 +330,7 @@ export function PlanExecutionReportPage() {
                     <th>用例</th>
                     <th>状态</th>
                     <th>结果</th>
+                    <th>人工审核</th>
                     <th>失败类型</th>
                     <th>创建时间</th>
                     <th>执行时长</th>
@@ -304,6 +371,7 @@ export function PlanExecutionReportPage() {
                         </span>
                       </td>
                       <td>{taskVerdict(task)}</td>
+                      <td>{taskReviewResult(task)}</td>
                       <td>
                         {task.failure_type ? (
                           <code className="safe-failure-type" translate="no">

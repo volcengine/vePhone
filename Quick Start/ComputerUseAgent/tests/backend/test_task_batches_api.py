@@ -136,6 +136,33 @@ def test_create_batch_uses_payload_device_wait_timeout(authenticated_client):
         assert batch.config_snapshot["device_wait_timeout_seconds"] == 45
 
 
+def test_create_batch_rejects_invalid_custom_asset_binding(
+    authenticated_client,
+):
+    _configure_runner(authenticated_client)
+    case_ids = [
+        _create_case(authenticated_client, "非法资产一"),
+        _create_case(authenticated_client, "非法资产二"),
+    ]
+    payload = _payload(case_ids)
+    payload.update(
+        {
+            "agent_config_mode": "custom",
+            "agent_options": {"run_mode": "ScriptRun"},
+            "idempotency_key": "batch-invalid-custom-asset-binding",
+        }
+    )
+
+    response = authenticated_client.post("/api/v1/task-batches", json=payload)
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "request_validation_failed"
+    assert "script_run_requires_only_script_id" in response.text
+    with authenticated_client.app.state.session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(TaskBatch)) == 0
+        assert db.scalar(select(func.count()).select_from(TaskRunnerConfig)) == 0
+
+
 def test_create_batch_exposes_specified_ecsids_in_runtime_config(
     authenticated_client,
 ):
@@ -194,7 +221,10 @@ def test_create_batch_is_idempotent(authenticated_client):
     ]
 
 
-def test_create_batch_rejects_invalid_specified_pod_count(authenticated_client):
+def test_create_batch_allows_more_specified_pods_than_concurrency(
+    authenticated_client,
+):
+    _configure_runner(authenticated_client)
     case_ids = [
         _create_case(authenticated_client, "设备一"),
         _create_case(authenticated_client, "设备二"),
@@ -210,7 +240,35 @@ def test_create_batch_rejects_invalid_specified_pod_count(authenticated_client):
 
     response = authenticated_client.post("/api/v1/task-batches", json=payload)
 
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["pod_ids"] == ["pod-a", "pod-b"]
+    assert body["concurrency"] == 1
+
+
+def test_create_batch_rejects_concurrency_above_specified_pod_count(
+    authenticated_client,
+):
+    case_ids = [
+        _create_case(authenticated_client, "设备三"),
+        _create_case(authenticated_client, "设备四"),
+    ]
+    payload = _payload(case_ids)
+    payload.update(
+        {
+            "device_strategy": "specified",
+            "pod_ids": ["pod-a"],
+            "concurrency": 2,
+            "idempotency_key": "batch-specified-too-much-concurrency",
+        }
+    )
+
+    response = authenticated_client.post("/api/v1/task-batches", json=payload)
+
     assert response.status_code == 422
+    assert response.json()["error"]["code"] == (
+        "concurrency_exceeds_pod_count"
+    )
 
 
 def test_public_batch_api_rejects_test_plan_mode_without_orphan_records(

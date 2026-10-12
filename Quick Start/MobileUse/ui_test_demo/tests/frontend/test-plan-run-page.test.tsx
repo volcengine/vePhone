@@ -313,6 +313,12 @@ it("removes run test type selection and exposes stable execution controls", asyn
   );
 });
 
+it("keeps custom checkbox inputs positioned inside their row", () => {
+  expect(STYLES).toMatch(
+    /\.checkbox-row\s*\{[^}]*position:\s*relative;/s,
+  );
+});
+
 it("pins the run action bar to the bottom so no empty space follows it", () => {
   const block = STYLES.match(/\.plan-run-actions\s*\{[^}]*\}/s);
   expect(block).not.toBeNull();
@@ -447,6 +453,54 @@ it("submits specified devices and shared custom execution fields", async () => {
   });
   expect(localStorage.length).toBe(0);
   expect(sessionStorage.length).toBe(0);
+});
+
+it("hides execution asset binding from plan-level custom config", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  server.use(
+    http.get("/api/v1/test-plans/plan_1", () => HttpResponse.json(plan)),
+    http.get("/api/v1/test-plans/plan_1/cases", () =>
+      HttpResponse.json(planCases)),
+    http.post("/api/v1/pod-pool/refresh", ({ request }) => {
+      expectCsrf(request);
+      return HttpResponse.json(multiPodPool);
+    }),
+    http.post("/api/v1/test-plans/plan_1/executions", async ({ request }) => {
+      expectCsrf(request);
+      bodies.push(await request.json() as Record<string, unknown>);
+      return HttpResponse.json(execution, { status: 201 });
+    }),
+  );
+  renderApp("/test-plans/plan_1/run");
+
+  expect(await screen.findByText("2 个用例")).toBeVisible();
+  await user.click(screen.getByRole("radio", { name: "自定义本次计划配置" }));
+
+  expect(screen.queryByRole("radiogroup", { name: "执行资产" }))
+    .not.toBeInTheDocument();
+  expect(screen.queryByRole("radio", { name: "ScriptRun 脚本" }))
+    .not.toBeInTheDocument();
+  expect(screen.queryByRole("radio", { name: "ChainRun 编排" }))
+    .not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("任务超时 Timeout（秒）"), {
+    target: { value: "456" },
+  });
+  await user.click(screen.getByRole("button", { name: "确认并开始执行" }));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  const body = bodies[0];
+  expect(body).toMatchObject({
+    agent_config_mode: "custom",
+    timeout_seconds: 456,
+    agent_options: expect.objectContaining({
+      timeout_seconds: 456,
+    }),
+  });
+  const agentOptions = body.agent_options as Record<string, unknown>;
+  expect(agentOptions).not.toHaveProperty("run_mode");
+  expect(agentOptions).not.toHaveProperty("script_id");
+  expect(agentOptions).not.toHaveProperty("chain_id");
 });
 
 it("shows a friendly validation message when selected pods exceed concurrency", async () => {

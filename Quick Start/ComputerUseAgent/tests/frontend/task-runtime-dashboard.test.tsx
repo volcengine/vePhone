@@ -340,6 +340,107 @@ it("renders result-first overview with four KPIs, carousel screenshots and separ
   expect(screen.queryByText("tap")).not.toBeInTheDocument();
 });
 
+it("shows ScriptRun asset binding in runtime config snapshot", async () => {
+  server.use(
+    http.get("/api/v1/tasks/task_runtime", () =>
+      HttpResponse.json({
+        ...task,
+        execution_config: {
+          ...task.execution_config,
+          run_mode: "ScriptRun",
+          script_id: 1001,
+          chain_id: null,
+        },
+      }),
+    ),
+    http.get("/api/v1/tasks/task_runtime/runtime", () =>
+      HttpResponse.json({
+        ...runtimePayload(),
+        task: {
+          ...task,
+          execution_config: {
+            ...task.execution_config,
+            run_mode: "ScriptRun",
+            script_id: 1001,
+            chain_id: null,
+          },
+        },
+        execution_config: {
+          ...task.execution_config,
+          run_mode: "ScriptRun",
+          script_id: 1001,
+          chain_id: null,
+        },
+      }),
+    ),
+  );
+
+  renderApp("/tasks/task_runtime");
+
+  expect(await screen.findByText("运行配置快照")).toBeVisible();
+  expect(screen.getByText("执行资产")).toBeVisible();
+  expect(screen.getByText("ScriptRun #1001")).toBeVisible();
+});
+
+it("opens execution asset detail from runtime config snapshot", async () => {
+  server.use(
+    http.get("/api/v1/tasks/task_runtime", () =>
+      HttpResponse.json({
+        ...task,
+        execution_config: {
+          ...task.execution_config,
+          run_mode: "ChainRun",
+          script_id: null,
+          chain_id: 4,
+        },
+      }),
+    ),
+    http.get("/api/v1/tasks/task_runtime/runtime", () =>
+      HttpResponse.json({
+        ...runtimePayload(),
+        task: {
+          ...task,
+          execution_config: {
+            ...task.execution_config,
+            run_mode: "ChainRun",
+            script_id: null,
+            chain_id: 4,
+          },
+        },
+        execution_config: {
+          ...task.execution_config,
+          run_mode: "ChainRun",
+          script_id: null,
+          chain_id: 4,
+        },
+      }),
+    ),
+    http.get("/api/v1/agent-run-chains/4", () =>
+      HttpResponse.json({
+        chain_id: 4,
+        name: "回归编排",
+        description: "登录主流程",
+        status: 1,
+        created_at: 1785738000,
+        updated_at: 1785738600,
+        nodes: [{ name: "打开应用", scriptId: 6 }],
+      }),
+    ),
+  );
+
+  renderApp("/tasks/task_runtime");
+
+  const assetButton = await screen.findByRole("button", {
+    name: "查看执行资产 ChainRun #4",
+  });
+  await user.click(assetButton);
+
+  expect(await screen.findByRole("dialog", { name: "执行资产详情" }))
+    .toBeVisible();
+  expect(screen.getByText("回归编排")).toBeVisible();
+  expect(screen.getByText(/打开应用/)).toBeVisible();
+});
+
 it("gives long execution results more desktop width while task info spans full width", () => {
   expect(STYLES).toMatch(
     /\.task-overview-layout\s*{[^}]*grid-template-columns:\s*minmax\(0, 1\.35fr\) minmax\(360px, 0\.65fr\);[^}]*}/,
@@ -699,4 +800,30 @@ it("maps stopped remote result codes to stopped label", async () => {
 
   const meta = await screen.findByLabelText("运行元信息");
   expect(within(meta).getByText("已停止")).toBeVisible();
+});
+
+it("maps interrupted remote result code to failure label", async () => {
+  const interrupted = {
+    ...task,
+    remote_status_code: 7,
+    verdict: "fail",
+    failure_type: "runner_interrupted",
+    result_summary: "远端任务中断",
+  };
+  server.use(
+    http.get("/api/v1/tasks/task_runtime", () => HttpResponse.json(interrupted)),
+    http.get("/api/v1/tasks/task_runtime/runtime", () =>
+      HttpResponse.json({
+        ...runtimePayload(),
+        task: interrupted,
+        current_step: null,
+      }),
+    ),
+  );
+
+  renderApp("/tasks/task_runtime");
+
+  const meta = await screen.findByLabelText("运行元信息");
+  expect(within(meta).getByText("失败")).toBeVisible();
+  expect(within(meta).queryByText("状态 7")).not.toBeInTheDocument();
 });

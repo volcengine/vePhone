@@ -73,6 +73,29 @@ async def test_cua_runner_starts_one_step_with_ecsid_and_agent_type():
     assert "ProductId" not in payload
     assert "UseBase64Screenshot" not in payload
     assert "IsScreenRecord" not in payload
+    assert "SystemPrompt" not in payload
+
+
+@pytest.mark.asyncio
+async def test_cua_runner_sends_configured_system_prompt_only():
+    gateway = CapturingGateway()
+    runner = MobileUseRunner(
+        cua_config().model_copy(update={"system_prompt": "configured prompt"}),
+        gateway,  # type: ignore[arg-type]
+        request_loader=lambda _task_id: None,
+    )
+
+    await runner.start(
+        RunRequest(
+            task_id="task_1",
+            scenario="打开网页",
+            title="打开网页",
+            content_markdown="- 打开浏览器",
+        ),
+        idempotency_key="idem-1",
+    )
+
+    assert gateway.payloads[0]["SystemPrompt"] == "configured prompt"
 
 
 @pytest.mark.asyncio

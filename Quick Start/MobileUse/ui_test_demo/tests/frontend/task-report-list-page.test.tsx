@@ -27,6 +27,10 @@ const report: PlanReportListResponse["items"][number] = {
   plan_name_snapshot: "核心回归计划名称非常长用于验证列表展示截断",
   report_status: "success",
   pass_rate: 94.44,
+  reviewed_pass_rate: 83.33,
+  reviewed_total: 6,
+  tasks_total: 12,
+  review_coverage_rate: 50,
   created_at: "2026-07-29T12:03:00Z",
   started_at: "2026-07-29T12:03:05Z",
   finished_at: "2026-07-29T12:04:10Z",
@@ -48,6 +52,14 @@ function plan(index: number): TestPlan {
     created_at: "2026-07-29T00:00:00Z",
     updated_at: "2026-07-29T00:00:00Z",
   };
+}
+
+function tableCellText(row: HTMLElement, columnName: string): string {
+  const headers = Array.from(document.querySelectorAll("thead th"))
+    .map((cell) => cell.textContent?.trim() ?? "");
+  const index = headers.indexOf(columnName);
+  expect(index).toBeGreaterThanOrEqual(0);
+  return row.querySelectorAll("td")[index]?.textContent ?? "";
 }
 
 it("uses the refreshed task report KPI icons", () => {
@@ -163,7 +175,7 @@ it("syncs list filters with the URL while keeping report stats global", async ()
     /\.task-report-filter-bar\s*\{[^}]*overflow:\s*visible/s,
   );
   expect(STYLES).toMatch(
-    /\.task-report-table\s*\{[^}]*min-width:\s*1260px/s,
+    /\.task-report-table\s*\{[^}]*min-width:\s*1560px/s,
   );
   expect(STYLES).toMatch(
     /\.task-report-table th:first-child,\s*\.task-report-table td:first-child\s*\{[^}]*width:\s*360px/s,
@@ -205,7 +217,15 @@ it("syncs list filters with the URL while keeping report stats global", async ()
   expect(screen.getByTestId("report-average")).toHaveTextContent("89%");
   expect(screen.getByRole("link", { name: report.task_batch_id })).toHaveClass("task-report-id-link");
   expect(screen.getByText(report.plan_name_snapshot)).toHaveClass("task-report-plan-name");
+  expect(screen.getByRole("columnheader", { name: "复核通过率" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "子任务数量" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "审核覆盖率" })).toBeVisible();
+  const reportRow = screen.getByRole("link", { name: report.task_batch_id })
+    .closest("tr") as HTMLElement;
   expect(screen.getByText("94%")).toBeVisible();
+  expect(tableCellText(reportRow, "复核通过率")).toBe("83%");
+  expect(tableCellText(reportRow, "子任务数量")).toBe("12");
+  expect(tableCellText(reportRow, "审核覆盖率")).toBe("50%");
   expect(screen.queryByText("94.44%")).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.getByText("2026-07-29 20:03:00")).toBeVisible();
@@ -252,6 +272,44 @@ it("copies the full report task id from the list", async () => {
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(report.task_batch_id));
 });
 
+it("shows dash for report list reviewed pass rate before any review", async () => {
+  server.use(
+    http.get("/api/v1/test-plans", () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, page_size: 50 })),
+    http.get("/api/v1/task-reports", () =>
+      HttpResponse.json({
+        items: [
+          {
+            ...report,
+            task_batch_id: "batch_without_review",
+            reviewed_pass_rate: 0,
+            reviewed_total: 0,
+            tasks_total: 3,
+            review_coverage_rate: 0,
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 10,
+      } satisfies PlanReportListResponse)),
+    http.get("/api/v1/task-reports/stats", () =>
+      HttpResponse.json({
+        report_count: 1,
+        success_count: 1,
+        failure_count: 0,
+        average_pass_rate: 100,
+      })),
+  );
+
+  renderApp("/task-reports");
+
+  const row = (await screen.findByRole("link", {
+    name: "batch_without_review",
+  })).closest("tr") as HTMLElement;
+  expect(tableCellText(row, "复核通过率")).toBe("-");
+  expect(tableCellText(row, "子任务数量")).toBe("3");
+  expect(tableCellText(row, "审核覆盖率")).toBe("0%");
+});
 
 it("downloads terminal reports from the list with selectable formats", async () => {
   const requests: URL[] = [];

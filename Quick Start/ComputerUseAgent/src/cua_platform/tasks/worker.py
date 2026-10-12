@@ -162,11 +162,9 @@ class TaskWorker:
         while True:
             task_id = await self.queue.get()
             try:
-                if task_id is None:
+                if task_id is None or self._state != WorkerState.RUNNING:
                     return
-                if self._state != WorkerState.RUNNING:
-                    self.queue.put_nowait(task_id)
-                    return
+
                 self._active_task_ids.add(task_id)
                 try:
                     await self.execute(task_id)

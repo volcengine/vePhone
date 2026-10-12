@@ -18,6 +18,11 @@ function detail(
     plan_name_snapshot: "核心回归",
     report_status: status,
     pass_rate: 94.44,
+    reviewed_pass_rate: 100,
+    review_coverage_rate: 50,
+    reviewed_pass_count: 1,
+    reviewed_fail_count: 0,
+    reviewed_total: 1,
     created_at: "2026-07-29T12:03:00Z",
     started_at: "2026-07-29T12:03:05Z",
     finished_at: status === "running" ? null : "2026-07-29T12:04:10Z",
@@ -68,6 +73,10 @@ function detail(
         case_deleted: false,
         execution_status: "result_ready",
         verdict: "pass",
+        review_result: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_note: null,
         failure_type: null,
         created_at: "2026-07-29T12:03:00Z",
         started_at: "2026-07-29T12:03:05Z",
@@ -85,6 +94,10 @@ function detail(
         case_deleted: true,
         execution_status: "unknown",
         verdict: "unknown",
+        review_result: "pass",
+        reviewed_by: "reviewer",
+        reviewed_at: "2026-07-29T12:05:00Z",
+        review_note: "人工确认通过",
         failure_type: "runner_interrupted",
         created_at: "2026-07-29T12:03:00Z",
         started_at: null,
@@ -101,6 +114,12 @@ function detail(
   };
 }
 
+it("keeps report KPI cards in one row on desktop", () => {
+  expect(STYLES).toMatch(
+    /\.metric-grid\.plan-report-metrics\s*\{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/s,
+  );
+});
+
 it("shows plain metrics, safe snapshots, unknown enums and task drill-down", async () => {
   let lastUrl: URL | undefined;
   server.use(
@@ -113,6 +132,9 @@ it("shows plain metrics, safe snapshots, unknown enums and task drill-down", asy
   renderApp("/task-reports/execution_1");
   expect(await screen.findByRole("heading", { name: "核心回归" })).toBeVisible();
   expect(screen.getByTestId("plan-report-rate")).toHaveTextContent("94%");
+  expect(screen.getByTestId("plan-report-reviewed-rate")).toHaveTextContent("100%");
+  expect(screen.getByTestId("plan-report-reviewed-rate")).toHaveTextContent("复核通过 1 / 1");
+  expect(screen.getByTestId("plan-report-review-coverage")).toHaveTextContent("50%");
   expect(screen.queryByText("94.44%")).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.getAllByText("2026-07-29 20:03:00").length).toBeGreaterThan(0);
@@ -121,6 +143,9 @@ it("shows plain metrics, safe snapshots, unknown enums and task drill-down", asy
   expect(screen.getByRole("columnheader", { name: "输出 Token" })).toBeVisible();
   expect(screen.getByRole("columnheader", { name: "执行步数" })).toBeVisible();
   expect(screen.getByRole("columnheader", { name: "Run ID" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "人工审核" })).toBeVisible();
+  expect(screen.queryByRole("columnheader", { name: "最终结果" }))
+    .not.toBeInTheDocument();
   expect(screen.getByText("run_1")).toBeVisible();
   expect(screen.getByText("1,234")).toBeVisible();
   expect(screen.getByText("56")).toBeVisible();
@@ -141,6 +166,10 @@ it("shows plain metrics, safe snapshots, unknown enums and task drill-down", asy
     .not.toBeInTheDocument();
   expect(screen.getByText("未知状态")).toBeVisible();
   expect(screen.getByText("未知结果")).toBeVisible();
+  expect(screen.getByText("复核通过")).toBeVisible();
+  const unreviewedRow = screen.getByText("task_1").closest("tr") as HTMLElement;
+  expect(unreviewedRow).toHaveTextContent("待审核");
+  expect(unreviewedRow).toHaveTextContent("-");
   expect(screen.getByText("执行中断")).toBeVisible();
   expect(screen.getByText("已脱敏")).toBeVisible();
   expect(document.body.textContent).not.toContain("callback-secret");
@@ -148,6 +177,33 @@ it("shows plain metrics, safe snapshots, unknown enums and task drill-down", asy
 
   await user.click(screen.getByRole("button", { name: "下一页" }));
   await waitFor(() => expect(lastUrl?.searchParams.get("page")).toBe("2"));
+});
+
+it("shows no reviewed pass rate before any task is reviewed", async () => {
+  server.use(
+    http.get("/api/v1/task-reports/execution_1", () =>
+      HttpResponse.json({
+        ...detail(),
+        reviewed_pass_rate: 0,
+        reviewed_pass_count: 0,
+        reviewed_fail_count: 0,
+        reviewed_total: 0,
+        review_coverage_rate: 0,
+        tasks: detail().tasks.map((task) => ({
+          ...task,
+          review_result: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          review_note: null,
+        })),
+      })),
+  );
+
+  renderApp("/task-reports/execution_1");
+
+  expect(await screen.findByRole("heading", { name: "核心回归" })).toBeVisible();
+  expect(screen.getByTestId("plan-report-reviewed-rate")).toHaveTextContent("-");
+  expect(screen.getByTestId("plan-report-reviewed-rate")).toHaveTextContent("复核通过 0 / 0");
 });
 
 it("restores task pagination from the URL and browser history", async () => {
@@ -213,6 +269,41 @@ it("polls running reports and stops after reaching a terminal status", async () 
     expect(requests).toBe(2);
   } finally {
     vi.useRealTimers();
+  }
+});
+
+it("cancels a running report by cancelling its task batch", async () => {
+  const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  let cancelPath = "";
+  let reportRequests = 0;
+  server.use(
+    http.get("/api/v1/task-reports/execution_1", () => {
+      reportRequests += 1;
+      return HttpResponse.json(detail("running"));
+    }),
+    http.post("/api/v1/task-batches/batch_1/cancel", ({ request }) => {
+      cancelPath = new URL(request.url).pathname;
+      return HttpResponse.json({
+        id: "batch_1",
+        execution_status: "cancelled",
+      });
+    }),
+  );
+
+  try {
+    renderApp("/task-reports/execution_1");
+
+    await user.click(await screen.findByRole("button", { name: "取消执行" }));
+
+    await waitFor(() =>
+      expect(cancelPath).toBe("/api/v1/task-batches/batch_1/cancel")
+    );
+    await waitFor(() => expect(reportRequests).toBeGreaterThanOrEqual(2));
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "确认取消本次执行吗？排队中和执行中的子任务会被取消。",
+    );
+  } finally {
+    confirmSpy.mockRestore();
   }
 });
 

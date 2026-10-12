@@ -38,6 +38,7 @@ export function failureTypeLabel(failureType: string | null | undefined): string
     device_unavailable: "设备不可用",
     evidence_missing: "证据缺失",
     pod_pool_discovery_failed: "设备池刷新失败",
+    result_partial: "结果部分完成",
     runner_interrupted: "执行中断",
   };
   return labels[failureType] ?? failureType;

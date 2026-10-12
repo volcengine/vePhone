@@ -20,7 +20,6 @@ from cua_platform.runners.mobile_use_parser import (
 )
 from cua_platform.runners.mobile_use_prompt import (
     MAX_USER_PROMPT_LENGTH,
-    SYSTEM_PROMPT,
     render_user_prompt,
 )
 from cua_platform.runners.universal_gateway import (
@@ -89,11 +88,17 @@ class MobileUseRunner:
             "AgentType": "cua",
             "Ecsid": self._config.pod_id,
             "UserPrompt": prompt,
-            "SystemPrompt": self._config.system_prompt or SYSTEM_PROMPT,
             "MaxStep": self._config.max_step,
             "Timeout": self._config.timeout_seconds,
             "RetryLimit": self._config.retry_limit,
         }
+        if self._config.run_mode == "ScriptRun":
+            payload["RunMode"] = "ScriptRun"
+            payload["ScriptId"] = self._config.script_id
+        elif self._config.run_mode == "ChainRun":
+            payload["RunMode"] = "ChainRun"
+            payload["ChainId"] = self._config.chain_id
+        _set_if_present(payload, "SystemPrompt", self._config.system_prompt)
         _set_if_present(payload, "TosBucket", self._config.tos_bucket)
         if self._config.tos_endpoint:
             _set_if_present(payload, "TosEndpoint", self._config.tos_endpoint)

@@ -601,7 +601,7 @@ it("offers cancellation only for active tasks and calls the local cancel endpoin
   const viewLink = within(completedRow).getByRole("link", { name: "查看" });
   expect(viewLink).toHaveClass("task-action-pill");
   expect(viewLink.querySelector("svg")).not.toBeInTheDocument();
-  expect(within(completedRow).getByRole("button", { name: "人工审核" })).toHaveClass("task-action-pill");
+  expect(within(completedRow).getByRole("link", { name: "人工审核" })).toHaveClass("task-action-pill");
   expect(within(completedRow).queryByRole("button", { name: "取消" })).not.toBeInTheDocument();
 
   await user.click(within(runningRow).getByRole("button", { name: "取消" }));
@@ -610,8 +610,7 @@ it("offers cancellation only for active tasks and calls the local cancel endpoin
   confirm.mockRestore();
 });
 
-it("reviews completed tasks and refreshes task data", async () => {
-  let reviewPayload: unknown;
+it("links completed tasks to detail-page manual review", async () => {
   server.use(
     http.get("/api/v1/tasks", () =>
       HttpResponse.json({
@@ -625,22 +624,12 @@ it("reviews completed tasks and refreshes task data", async () => {
         page_size: 20,
       }),
     ),
-    http.put("/api/v1/tasks/task_review_ready/review", async ({ request }) => {
-      expectCsrf(request);
-      reviewPayload = await request.json();
-      return HttpResponse.json(
-        makeTask({
-          id: "task_review_ready",
-          review_result: "fail",
-          reviewed_by: "admin",
-          reviewed_at: "2026-07-28T04:30:00Z",
-          review_note: "实际流程失败",
-        }),
-      );
-    }),
   );
 
-  renderApp("/tasks");
+  renderApp("/tasks", { browser: true });
+
+  await user.click(await screen.findByRole("combobox", { name: "人工审核筛选" }));
+  await user.click(screen.getByRole("option", { name: "待审核" }));
 
   const readyRow = (await screen.findByText("task_review_ready")).closest("tr") as HTMLElement;
   const reviewedRow = screen.getByText("task_reviewed").closest("tr") as HTMLElement;
@@ -649,32 +638,15 @@ it("reviews completed tasks and refreshes task data", async () => {
   expect(cellFor(readyRow, "人工审核")).toHaveTextContent("待审核");
   expect(cellFor(reviewedRow, "人工审核")).toHaveTextContent("复核通过");
   expect(within(runningRow).queryByRole("button", { name: "人工审核" })).not.toBeInTheDocument();
-  expect(within(readyRow).getByRole("button", { name: "人工审核" }))
-    .toHaveClass("task-action-pill-review");
-  expect(within(reviewedRow).getByRole("button", { name: "修改审核" }))
-    .toHaveClass("task-action-pill-review-edit");
-
-  await user.click(within(readyRow).getByRole("button", { name: "人工审核" }));
-  const dialog = await screen.findByRole("dialog", { name: "人工审核" });
-  expect(dialog).toBeVisible();
-  expect(within(dialog).queryByText("Manual Review")).not.toBeInTheDocument();
-  expect(within(dialog).getByText("人工结论不会覆盖系统执行结果，只用于复核统计。"))
-    .toHaveClass("confirm-dialog-description", "task-review-description");
-  expect(dialog.querySelector(".modal-body")).toHaveClass("task-review-body");
-  expect(within(dialog).getByRole("button", { name: "关闭" })).toHaveClass("modal-close");
-  expect(screen.getByRole("combobox", { name: "审核结论" }).closest(".task-review-select-field"))
-    .toBeInTheDocument();
-  expect(within(dialog).getByRole("button", { name: "取消" })).toHaveClass("task-review-footer-button");
-  expect(within(dialog).getByRole("button", { name: "保存审核" })).toHaveClass("task-review-footer-button");
-  await user.click(screen.getByRole("combobox", { name: "审核结论" }));
-  await user.click(screen.getByRole("option", { name: "复核失败" }));
-  await user.type(screen.getByLabelText("审核备注"), "实际流程失败");
-  await user.click(screen.getByRole("button", { name: "保存审核" }));
-
-  await waitFor(() =>
-    expect(reviewPayload).toEqual({
-      review_result: "fail",
-      review_note: "实际流程失败",
-    }),
+  const reviewLink = within(readyRow).getByRole("link", { name: "人工审核" });
+  expect(reviewLink).toHaveClass("task-action-pill-review");
+  expect(reviewLink).toHaveAttribute(
+    "href",
+    expect.stringContaining("/biz/biz_default/tasks/task_review_ready?"),
   );
+  const reviewUrl = new URL(reviewLink.getAttribute("href") ?? "", window.location.origin);
+  expect(reviewUrl.searchParams.get("review")).toBe("1");
+  expect(reviewUrl.searchParams.get("review_result")).toBe("unreviewed");
+  expect(within(reviewedRow).getByRole("link", { name: "修改审核" }))
+    .toHaveClass("task-action-pill-review-edit");
 });

@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.cookies import SimpleCookie
 from urllib.parse import urljoin
-from urllib.request import Request as UrlRequest
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, Request as UrlRequest, build_opener
 
 from starlette.websockets import WebSocket
 
@@ -17,6 +16,15 @@ class NoVncProxySession:
     websocket_url: str | None
     expires_at: int | None = None
     cookie_header: str = ""
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def http_error_302(self, _request, response, _code, _message, _headers):
+        return response
+
+    http_error_301 = http_error_303 = http_error_307 = http_error_308 = (
+        http_error_302
+    )
 
 
 class NoVncProxyStore:
@@ -109,7 +117,8 @@ def _proxy_http_request(
         headers=headers,
         method=method,
     )
-    with urlopen(request, timeout=15) as response:  # noqa: S310 - URL is generated from CUA API response.
+    opener = build_opener(_NoRedirectHandler())
+    with opener.open(request, timeout=15) as response:  # noqa: S310 - URL comes from CUA.
         content = response.read()
         response_headers = list(response.headers.items())
         update_session_cookie(session, response.headers.get_all("Set-Cookie") or [])

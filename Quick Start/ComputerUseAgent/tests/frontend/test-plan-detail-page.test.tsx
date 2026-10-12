@@ -64,6 +64,10 @@ const executions: PlanReportListResponse = {
     plan_name_snapshot: plan.name,
     report_status: index === 1 ? "running" : index === 2 ? "failure" : "success",
     pass_rate: index === 0 ? 94.44 : index === 1 ? 20 : 90,
+    reviewed_pass_rate: 0,
+    reviewed_total: 0,
+    tasks_total: 1,
+    review_coverage_rate: 0,
     created_at: `2026-07-${String(29 - index).padStart(2, "0")}T12:03:00Z`,
     started_at: `2026-07-${String(29 - index).padStart(2, "0")}T12:03:00Z`,
     finished_at: index === 1
@@ -89,6 +93,8 @@ function useDetailHandlers() {
     }),
     http.get("/api/v1/test-plans/plan_1/executions", () =>
       HttpResponse.json(executions)),
+    http.get("/api/v1/test-plans/plan_1/schedule", () =>
+      new HttpResponse(null, { status: 404 })),
   );
 }
 
@@ -151,13 +157,22 @@ it("shows a completed execution pass-rate trend and skips running executions", a
   expect(within(chart).getByText("执行时间", {
     selector: ".trend-axis-title",
   })).toBeVisible();
-  expect(within(chart).getByText("2026-07-20 20:03:00")).toBeVisible();
-  expect(within(chart).getByText("2026-07-24 20:03:00")).toBeVisible();
-  expect(within(chart).getByText("2026-07-29 20:03:00")).toBeVisible();
-  expect(within(chart).getByText("2026-07-21 20:03:00")).toBeVisible();
-  expect(within(chart).getByText("2026-07-27 20:03:00")).toBeVisible();
-  expect(within(chart).getByText("2026-07-26 20:03:00")).toBeVisible();
+  const dateLabels = chart.querySelectorAll(".trend-date-label");
+  expect(dateLabels).toHaveLength(5);
+  expect(within(chart).getByLabelText("2026-07-20 20:03:00")).toBeVisible();
+  expect(within(chart).getByLabelText("2026-07-22 20:03:00")).toBeVisible();
+  expect(within(chart).getByLabelText("2026-07-24 20:03:00")).toBeVisible();
+  expect(within(chart).getByLabelText("2026-07-26 20:03:00")).toBeVisible();
+  expect(within(chart).getByLabelText("2026-07-29 20:03:00")).toBeVisible();
+  expect(within(chart).queryByLabelText("2026-07-21 20:03:00")).not.toBeInTheDocument();
+  expect(within(chart).queryByLabelText("2026-07-27 20:03:00")).not.toBeInTheDocument();
   expect(within(chart).queryByText("2026-07-28 20:03:00")).not.toBeInTheDocument();
+  expect(within(chart).getByText("2026-07-20", {
+    selector: ".trend-date-label-date",
+  })).toBeVisible();
+  expect(within(chart).getAllByText("20:03:00", {
+    selector: ".trend-date-label-time",
+  }).length).toBeGreaterThan(0);
   expect(within(chart).getByText("94.44%", {
     selector: ".trend-rate-label",
   })).toBeVisible();
@@ -248,4 +263,55 @@ it("confirms deletion, explains report retention, and returns to the list", asyn
 
   await waitFor(() => expect(deletes).toBe(1));
   expect(await screen.findByRole("heading", { name: "测试计划" })).toBeVisible();
+});
+
+it("creates schedules with case default agent config", async () => {
+  useDetailHandlers();
+  let payload: unknown;
+  server.use(
+    http.get("/api/v1/test-plans/plan_1/schedule", () =>
+      new HttpResponse(null, { status: 404 })),
+    http.post("/api/v1/test-plans/plan_1/schedule", async ({ request }) => {
+      expectCsrf(request);
+      payload = await request.json();
+      return HttpResponse.json({
+        id: "schedule_1",
+        test_plan_id: "plan_1",
+        enabled: true,
+        cron_expr: "0 9 * * *",
+        timezone: "Asia/Shanghai",
+        next_run_at: "2026-07-30T01:00:00Z",
+        last_run_at: null,
+        last_skip_reason: null,
+        execution_config: {
+          test_type: "regression",
+          device_strategy: "automatic",
+          pod_ids: [],
+          concurrency: 1,
+          timeout_seconds: 120,
+          device_wait_timeout_seconds: 300,
+          agent_config_mode: "case_default",
+          agent_options: null,
+        },
+        created_by: "admin",
+        created_at: "2026-07-29T12:00:00Z",
+        updated_at: "2026-07-29T12:00:00Z",
+      });
+    }),
+  );
+
+  renderApp("/test-plans/plan_1");
+
+  await user.click(await screen.findByRole("button", { name: "创建定时调度" }));
+  await user.click(screen.getByRole("radio", { name: "按用例默认配置" }));
+  await user.click(screen.getByRole("button", { name: "保存调度" }));
+
+  await waitFor(() =>
+    expect(payload).toMatchObject({
+      execution_config: {
+        agent_config_mode: "case_default",
+        agent_options: null,
+      },
+    }),
+  );
 });

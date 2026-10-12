@@ -106,6 +106,12 @@ class MobileUseRunner:
             "RetryLimit": self._config.retry_limit,
             "IsScreenRecord": self._config.screen_record,
         }
+        if self._config.run_mode == "ScriptRun":
+            payload["RunMode"] = "ScriptRun"
+            payload["ScriptId"] = self._config.script_id
+        elif self._config.run_mode == "ChainRun":
+            payload["RunMode"] = "ChainRun"
+            payload["ChainId"] = self._config.chain_id
         _set_if_present(payload, "CallbackInfo", self._config.callback_info)
         _set_if_present(payload, "OutputSchema", self._config.output_schema)
         _set_if_present(payload, "McpJson", self._config.mcp_json)

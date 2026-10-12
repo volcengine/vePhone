@@ -38,11 +38,6 @@ const REVIEW_FILTERS = [
   { value: "fail", label: "复核失败" },
 ] as const;
 
-const REVIEW_RESULT_OPTIONS = [
-  { value: "pass", label: "复核通过" },
-  { value: "fail", label: "复核失败" },
-] as const;
-
 const TIME_FILTERS = [
   { value: "all", label: "全部时间" },
   { value: "1d", label: "最近一天" },
@@ -146,12 +141,6 @@ function manualReviewLabel(reviewResult: Verdict | null) {
   return "待审核";
 }
 
-function verdictLabel(verdict: Verdict | null) {
-  if (verdict === "pass") return "成功";
-  if (verdict === "fail") return "失败";
-  return "-";
-}
-
 function ManualReviewBadge({ task }: { task: Task }) {
   if (task.execution_status !== "result_ready") {
     return <span className="result-empty">-</span>;
@@ -188,9 +177,6 @@ export function TaskListPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [cancelRequestedTaskId, setCancelRequestedTaskId] = useState<string | null>(null);
-  const [reviewingTask, setReviewingTask] = useState<Task | null>(null);
-  const [reviewResult, setReviewResult] = useState<Verdict>("pass");
-  const [reviewNote, setReviewNote] = useState("");
 
   const queryString = (() => {
     const params = new URLSearchParams();
@@ -205,6 +191,15 @@ export function TaskListPage() {
       params.set("created_after", createdAfterFilter);
     }
     if (search) params.set("search", search);
+    return params.toString();
+  })();
+  const reviewDetailQueryString = (() => {
+    const params = new URLSearchParams();
+    params.set("review", "1");
+    const current = new URLSearchParams(queryString);
+    current.delete("page");
+    current.delete("page_size");
+    current.forEach((value, key) => params.set(key, value));
     return params.toString();
   })();
 
@@ -234,23 +229,6 @@ export function TaskListPage() {
     onError: (error) => {
       setCancelRequestedTaskId(null);
       setActionError(error instanceof ApiError ? error.message : "取消任务失败");
-    },
-  });
-
-  const reviewTask = useMutation({
-    mutationFn: (payload: { taskId: string; reviewResult: Verdict; reviewNote: string }) =>
-      api.put<Task>(`/tasks/${payload.taskId}/review`, {
-        review_result: payload.reviewResult,
-        review_note: payload.reviewNote.trim() || null,
-      }),
-    onSuccess: () => {
-      setReviewingTask(null);
-      setReviewNote("");
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      void queryClient.invalidateQueries({ queryKey: ["task-stats"] });
-    },
-    onError: (error) => {
-      setActionError(error instanceof ApiError ? error.message : "保存人工审核失败");
     },
   });
 
@@ -309,23 +287,6 @@ export function TaskListPage() {
     setActionError(null);
     setCancelRequestedTaskId(taskId);
     cancelTask.mutate(taskId);
-  }
-
-  function openReviewDialog(task: Task) {
-    setActionError(null);
-    setReviewingTask(task);
-    setReviewResult(task.review_result ?? "pass");
-    setReviewNote(task.review_note ?? "");
-  }
-
-  function submitReview(event: { preventDefault: () => void }) {
-    event.preventDefault();
-    if (!reviewingTask) return;
-    reviewTask.mutate({
-      taskId: reviewingTask.id,
-      reviewResult,
-      reviewNote,
-    });
   }
 
   async function refreshTasks() {
@@ -602,13 +563,12 @@ export function TaskListPage() {
                           查看
                         </Link>
                         {task.execution_status === "result_ready" && (
-                          <button
-                            type="button"
+                          <Link
                             className={`task-action-pill ${task.review_result ? "task-action-pill-review-edit" : "task-action-pill-review"}`}
-                            onClick={() => openReviewDialog(task)}
+                            to={`/tasks/${task.id}?${reviewDetailQueryString}`}
                           >
                             {task.review_result ? "修改审核" : "人工审核"}
-                          </button>
+                          </Link>
                         )}
                         {(task.execution_status === "queued" || task.execution_status === "running") && (
                           <button
@@ -648,80 +608,6 @@ export function TaskListPage() {
           </div>
         )}
       </div>
-      {reviewingTask && (
-        <div className="modal-overlay" role="presentation">
-          <form
-            className="modal-panel confirm-dialog-panel task-review-dialog"
-            role="dialog"
-            aria-label="人工审核"
-            onSubmit={submitReview}
-          >
-            <div className="modal-header">
-              <div>
-                <h3>人工审核</h3>
-                <p className="confirm-dialog-description task-review-description">人工结论不会覆盖系统执行结果，只用于复核统计。</p>
-              </div>
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="关闭"
-                onClick={() => setReviewingTask(null)}
-              >
-                ×
-              </button>
-            </div>
-            <div className="modal-body task-review-body">
-              <dl className="task-review-summary">
-                <div>
-                  <dt>任务 ID</dt>
-                  <dd><code className="mono">{reviewingTask.display_task_id ?? reviewingTask.id}</code></dd>
-                </div>
-                <div>
-                  <dt>系统结果</dt>
-                  <dd>{verdictLabel(reviewingTask.verdict)}</dd>
-                </div>
-              </dl>
-              <label className="form-field task-review-select-field">
-                <span>审核结论</span>
-                <SingleSelect
-                  label="审核结论"
-                  value={reviewResult}
-                  options={REVIEW_RESULT_OPTIONS}
-                  onChange={setReviewResult}
-                />
-              </label>
-              <label className="form-field">
-                <span>审核备注</span>
-                <textarea
-                  aria-label="审核备注"
-                  value={reviewNote}
-                  rows={4}
-                  maxLength={2000}
-                  placeholder="可填写人工判断依据，选填"
-                  onChange={(event) => setReviewNote(event.target.value)}
-                />
-              </label>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="secondary-button task-review-footer-button"
-                onClick={() => setReviewingTask(null)}
-                disabled={reviewTask.isPending}
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                className="primary-button task-review-footer-button"
-                disabled={reviewTask.isPending}
-              >
-                {reviewTask.isPending ? "保存中..." : "保存审核"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

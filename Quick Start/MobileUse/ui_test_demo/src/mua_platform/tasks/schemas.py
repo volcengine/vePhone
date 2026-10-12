@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from mua_platform.settings.schemas import validate_request_headers
+from mua_platform.settings.schemas import AgentRuntimeOptions
 from mua_platform.tasks.state_machine import ExecutionStatus, Verdict
 
 
@@ -52,6 +52,9 @@ class TaskExecutionConfig(BaseModel):
     max_output_tokens: int | None = None
     gps_info: str | None = None
     device_prepare_action: Literal["none", "reset", "reboot"] = "none"
+    run_mode: Literal["AgentRun", "ScriptRun", "ChainRun"] | None = None
+    script_id: int | None = None
+    chain_id: int | None = None
     request_headers: dict[str, Any] = Field(
         default_factory=lambda: {"configured": False, "names": []}
     )
@@ -131,32 +134,8 @@ class TaskBatchCreateRequest(BaseModel):
     )
     timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
     agent_config_mode: Literal["global", "custom", "case_default"] = "global"
-    agent_options: dict[str, Any] | None = None
+    agent_options: AgentRuntimeOptions | None = None
     idempotency_key: str = Field(min_length=1, max_length=255)
-
-    @field_validator("agent_options")
-    @classmethod
-    def validate_agent_options(
-        cls,
-        value: dict[str, Any] | None,
-    ) -> dict[str, Any] | None:
-        if value is None:
-            return value
-        if (
-            "device_prepare_action" in value
-            and value["device_prepare_action"] not in {"none", "reset", "reboot"}
-        ):
-            raise ValueError("device_prepare_action_invalid")
-        if "request_headers" not in value:
-            return value
-        try:
-            value = dict(value)
-            value["request_headers"] = validate_request_headers(
-                value.get("request_headers")
-            )
-        except ValueError as exc:
-            raise ValueError("request_headers_invalid") from exc
-        return value
 
     @model_validator(mode="after")
     def validate_batch_shape(self) -> "TaskBatchCreateRequest":
@@ -173,8 +152,8 @@ class TaskBatchCreateRequest(BaseModel):
         if self.device_strategy == "specified":
             if not self.pod_ids:
                 raise ValueError("specified_strategy_requires_pod_ids")
-            if len(self.pod_ids) > self.concurrency:
-                raise ValueError("pod_count_exceeds_concurrency")
+            if self.concurrency > len(self.pod_ids):
+                raise ValueError("concurrency_exceeds_pod_count")
         return self
 
 

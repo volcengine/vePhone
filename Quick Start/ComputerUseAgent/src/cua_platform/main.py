@@ -14,6 +14,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from cua_platform.api.agent_run_assets import router as agent_run_assets_router
 from cua_platform.api.auth import router as auth_router
 from cua_platform.api.body_limit import RequestBodyLimitMiddleware
 from cua_platform.api.business import router as business_router
@@ -82,6 +83,7 @@ RunnerFactory = Callable[[Task, RunnerConfig, RunRequestLoader], RunnerAdapter]
 
 VALIDATION_BUSINESS_ERROR_CODES = {
     "automatic_strategy_rejects_pod_ids",
+    "concurrency_exceeds_pod_count",
     "pod_count_exceeds_concurrency",
     "pod_ids_must_be_unique",
     "specified_strategy_requires_pod_ids",
@@ -420,6 +422,8 @@ def create_app(
     app.state.stream_token_gateway = resolved_stream_token_gateway
     app.state.novnc_proxy_store = NoVncProxyStore()
     app.state.pod_clock = SystemClock()
+    app.state.agent_run_asset_gateway = UniversalGateway()
+    app.include_router(agent_run_assets_router)
     app.include_router(auth_router)
     app.include_router(business_router)
     app.include_router(cases_router)

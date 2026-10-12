@@ -143,6 +143,10 @@ class PlanReportSummary(BaseModel):
     plan_name_snapshot: str
     report_status: ReportStatus
     pass_rate: float
+    reviewed_pass_rate: float
+    reviewed_total: int
+    tasks_total: int
+    review_coverage_rate: float
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
@@ -181,6 +185,10 @@ class PlanReportTask(BaseModel):
     case_deleted: bool = False
     execution_status: ReportTaskExecutionStatus
     verdict: ReportTaskVerdict | None
+    review_result: ReportTaskVerdict | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
     failure_type: str | None
     created_at: datetime
     started_at: datetime | None
@@ -205,6 +213,9 @@ class PlanReportDetail(PlanReportSummary):
     cancelled_count: int
     queued_count: int
     running_count: int
+    review_coverage_rate: float
+    reviewed_pass_count: int
+    reviewed_fail_count: int
     tasks: list[PlanReportTask]
     tasks_total: int
     page: int
